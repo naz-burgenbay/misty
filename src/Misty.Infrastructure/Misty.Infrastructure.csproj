@@ -14,6 +14,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.*" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.8" />
     <PackageReference Include="StackExchange.Redis" Version="2.*" />
   </ItemGroup>
 
@@ -21,6 +22,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>edacaafe-8923-4059-8edd-ca80dad66dc7</UserSecretsId>
   </PropertyGroup>
 
 </Project>
