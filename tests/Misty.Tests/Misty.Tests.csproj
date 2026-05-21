@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Misty.Api\Misty.Api.csproj" />
     <ProjectReference Include="..\..\src\Misty.Infrastructure\Misty.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Misty.Application\Misty.Application.csproj" />
     <ProjectReference Include="..\..\src\Misty.Domain\Misty.Domain.csproj" />
