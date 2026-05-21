@@ -1,0 +1,6 @@
+@Misty.Api_HostAddress = http://localhost:5197
+
+GET {{Misty.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

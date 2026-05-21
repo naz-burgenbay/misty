@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Misty.Api/Misty.Api.csproj" />
+    <Project Path="src/Misty.Application/Misty.Application.csproj" />
+    <Project Path="src/Misty.Domain/Misty.Domain.csproj" />
+    <Project Path="src/Misty.Infrastructure/Misty.Infrastructure.csproj" />
+    <Project Path="src/Misty.Web/Misty.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Misty.Tests/Misty.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,41 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "misty-dev",
+        "Queues": [],
+        "Topics": [
+          {
+            "Name": "message-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "realtime-delivery", "Properties": {} },
+              { "Name": "ai-response", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "membership-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "cache-invalidation", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "role-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "cache-invalidation", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "moderation-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "cache-invalidation", "Properties": {} }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
