@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\Misty.Infrastructure\Misty.Infrastructure.csproj" />
@@ -19,6 +19,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>0e678ba0-2067-43d4-ad23-c53775f7b49e</UserSecretsId>
   </PropertyGroup>
 
 </Project>
