@@ -49,6 +49,9 @@ public class Channel
         DeletedAt = DateTime.UtcNow;
     }
 
+    public void IncrementMemberCount() => MemberCount++;
+    public void DecrementMemberCount() => MemberCount = Math.Max(0, MemberCount - 1);
+
     private static string GenerateInviteCode()
         => Guid.NewGuid().ToString("N")[..12].ToUpper();
 }

@@ -15,9 +15,17 @@ public sealed class ChannelRepository : IChannelRepository
     public Task<Channel?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Channels.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, ct);
 
-    public async Task AddAsync(Channel channel, CancellationToken ct = default)
+    public async Task CreateWithOwnerAsync(
+        Channel channel,
+        ChannelRole ownerRole,
+        Membership creatorMembership,
+        MemberRole ownerMemberRole,
+        CancellationToken ct = default)
     {
         await _db.Channels.AddAsync(channel, ct);
+        await _db.ChannelRoles.AddAsync(ownerRole, ct);
+        await _db.Memberships.AddAsync(creatorMembership, ct);
+        await _db.MemberRoles.AddAsync(ownerMemberRole, ct);
         await _db.SaveChangesAsync(ct);
     }
 

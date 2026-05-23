@@ -11,6 +11,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<ChannelRole> ChannelRoles => Set<ChannelRole>();
+    public DbSet<Membership> Memberships => Set<Membership>();
+    public DbSet<MemberRole> MemberRoles => Set<MemberRole>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

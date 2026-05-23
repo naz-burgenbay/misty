@@ -68,6 +68,28 @@ public sealed class ChannelsController : ControllerBase
         await _mediator.Send(new DeleteChannelCommand(id), ct);
         return NoContent();
     }
+
+    [HttpPost("{id:guid}/join")]
+    [ProducesResponseType(typeof(JoinChannelResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> JoinChannel(Guid id, JoinChannelRequest? request, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new JoinChannelCommand(userId, id, request?.InviteCode), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/leave")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> LeaveChannel(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new LeaveChannelCommand(userId, id), ct);
+        return NoContent();
+    }
 }
 
 public record CreateChannelRequest(
@@ -81,3 +103,6 @@ public record UpdateChannelRequest(
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
     string Version);
+
+public record JoinChannelRequest(string? InviteCode);
+

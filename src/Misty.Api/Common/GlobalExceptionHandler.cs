@@ -53,6 +53,11 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 title = ex.Message;
                 break;
 
+            case ForbiddenException:
+                status = StatusCodes.Status403Forbidden;
+                title = ex.Message;
+                break;
+
             default:
                 return false; // Will change in the future
         }

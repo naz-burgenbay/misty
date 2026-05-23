@@ -1,0 +1,20 @@
+namespace Misty.Domain.Communication;
+
+public class Membership
+{
+    private Membership() { } // For EF Core
+
+    public Guid Id { get; private set; }
+    public Guid ChannelId { get; private set; }
+    public Guid UserId { get; private set; }
+    public DateTime JoinedAt { get; private set; }
+
+    public static Membership Create(Guid id, Guid channelId, Guid userId)
+        => new()
+        {
+            Id = id,
+            ChannelId = channelId,
+            UserId = userId,
+            JoinedAt = DateTime.UtcNow,
+        };
+}

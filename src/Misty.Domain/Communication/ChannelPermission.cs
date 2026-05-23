@@ -25,4 +25,8 @@ public enum ChannelPermission : long
     ManageChannel    = 1L << 10,
     ManageRoles      = 1L << 11,
     ManageMembers    = 1L << 12,
+
+    All = ViewChannel | ReadHistory | SendMessages | AttachFiles | AddReactions | MentionEveryone
+        | ManageMessages | MuteMembers | BanMembers | KickMembers
+        | ManageChannel | ManageRoles | ManageMembers,
 }

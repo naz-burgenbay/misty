@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Misty.Domain.Communication;
-
 namespace Misty.Application.Communication;
 
 public record CreateChannelCommand(
@@ -37,7 +36,12 @@ public sealed class CreateChannelCommandHandler : IRequestHandler<CreateChannelC
             request.DefaultPermissions,
             request.UserId);
 
-        await _channels.AddAsync(channel, ct);
+        var ownerRole = ChannelRole.CreateOwner(Guid.NewGuid(), channel.Id);
+        var creatorMembership = Membership.Create(Guid.NewGuid(), channel.Id, request.UserId);
+        channel.IncrementMemberCount();
+        var ownerMemberRole = MemberRole.Create(creatorMembership.Id, ownerRole.Id);
+
+        await _channels.CreateWithOwnerAsync(channel, ownerRole, creatorMembership, ownerMemberRole, ct);
 
         return new CreateChannelResponse(
             channel.Id,

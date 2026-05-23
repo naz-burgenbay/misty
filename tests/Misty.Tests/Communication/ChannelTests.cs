@@ -145,7 +145,7 @@ public sealed class ChannelTests : IAsyncLifetime
         body.GetProperty("channelId").GetGuid().Should().Be(channelId);
         body.GetProperty("name").GetString().Should().Be("gettest");
         body.GetProperty("isAiAssistantEnabled").GetBoolean().Should().BeTrue();
-        body.GetProperty("memberCount").GetInt32().Should().Be(0);
+        body.GetProperty("memberCount").GetInt32().Should().Be(1);
     }
 
     [Fact]
