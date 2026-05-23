@@ -33,6 +33,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;"
             + "SharedAccessKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFreNZ2He5uvRZ1x1Hy5oqsqm0NYTJ/tAAAAAA==;"
             + "UseDevelopmentEmulator=true;");
+        Environment.SetEnvironmentVariable("Jwt__Key", "misty-super-secret-test-signing-key-2024!");
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "Misty.Api");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "Misty.Web");
 
         // Apply migrations now so Respawn can find the schema/tables before any test runs. The server's own MigrateAsync() call on startup will then be a no-op.
         await using var db = CreateDbContext();
@@ -44,6 +47,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("ConnectionStrings__Database", null);
         Environment.SetEnvironmentVariable("ConnectionStrings__Redis", null);
         Environment.SetEnvironmentVariable("ConnectionStrings__ServiceBus", null);
+        Environment.SetEnvironmentVariable("Jwt__Key", null);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", null);
+        Environment.SetEnvironmentVariable("Jwt__Audience", null);
         await Task.WhenAll(_sql.DisposeAsync().AsTask(), _redis.DisposeAsync().AsTask());
     }
 

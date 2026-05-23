@@ -38,6 +38,11 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 title = ex.Message;
                 break;
 
+            case UnauthorizedException:
+                status = StatusCodes.Status401Unauthorized;
+                title = "Invalid credentials.";
+                break;
+
             default:
                 return false; // Will change in the future
         }
