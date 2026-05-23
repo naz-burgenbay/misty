@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Users;
 using Misty.Domain.Users;
 using Misty.Infrastructure.Persistence;
@@ -25,6 +26,30 @@ public class UserRepository : IUserRepository
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
         await _db.Users.AddAsync(user, ct);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(User user, byte[] concurrencyToken, CancellationToken ct = default)
+    {
+        _db.Entry(user).Property(u => u.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
+    }
+
+    public async Task SoftDeleteAsync(User user, CancellationToken ct = default)
+    {
+        user.SoftDelete();
+        var tokens = await _db.RefreshTokens
+            .Where(t => t.UserId == user.Id && t.RevokedAt == null)
+            .ToListAsync(ct);
+        foreach (var token in tokens)
+            token.Revoke();
         await _db.SaveChangesAsync(ct);
     }
 }

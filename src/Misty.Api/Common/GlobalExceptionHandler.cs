@@ -43,6 +43,11 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 title = "Invalid credentials.";
                 break;
 
+            case ConcurrencyException:
+                status = StatusCodes.Status409Conflict;
+                title = ex.Message;
+                break;
+
             default:
                 return false; // Will change in the future
         }

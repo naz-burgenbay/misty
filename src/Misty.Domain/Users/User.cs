@@ -23,4 +23,20 @@ public class User
         };
 
     public void SetPasswordHash(string passwordHash) => PasswordHash = passwordHash;
+
+    public void UpdateProfile(string displayName, string? bio)
+    {
+        DisplayName = displayName;
+        Bio = bio;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+        DisplayName = "[deleted]";
+        Bio = null;
+        AvatarUrl = null;
+        PasswordHash = string.Empty;
+    }
 }
