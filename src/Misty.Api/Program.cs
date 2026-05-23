@@ -10,6 +10,8 @@ using Misty.Application.Users;
 using Misty.Domain.Users;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 using System.Text;
 
@@ -109,6 +111,19 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
     .AddRedis(redisConnectionString, "redis")
     .AddAzureServiceBusTopic(serviceBusConnectionString, "message-events", name: "service-bus");
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Misty.Api"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddEntityFrameworkCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+
+        if (builder.Environment.IsDevelopment())
+            tracing.AddConsoleExporter();
+    });
 
 var app = builder.Build();
 
