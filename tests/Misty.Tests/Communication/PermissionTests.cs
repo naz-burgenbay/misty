@@ -284,6 +284,9 @@ public sealed class PermissionTests : IAsyncLifetime
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
+        // Wait for CacheInvalidationWorker to drain setup-time events (join + role-assign) before warming the cache, to avoid a race where the worker deletes the key we just wrote.
+        await Task.Delay(3000);
+
         // Evict any pre-existing cache entry so we start from a clean miss.
         var mux = _factory.Services.GetRequiredService<IConnectionMultiplexer>();
         var redis = mux.GetDatabase();

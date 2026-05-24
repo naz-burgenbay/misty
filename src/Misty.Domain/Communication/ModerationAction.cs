@@ -33,4 +33,6 @@ public class ModerationAction
     // Returns true if this action is currently active (not revoked, not expired)
     public bool IsActive(DateTime utcNow)
         => RevokedAt is null && (ExpiresAt is null || ExpiresAt > utcNow);
+
+    public void Revoke(DateTime revokedAt) => RevokedAt = revokedAt;
 }

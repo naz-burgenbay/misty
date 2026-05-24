@@ -156,6 +156,7 @@ builder.Services.AddScoped<IUserBlockService, StubUserBlockService>();
 builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IChannelRoleRepository, ChannelRoleRepository>();
+builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
 
 var app = builder.Build();
 
