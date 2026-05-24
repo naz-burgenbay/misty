@@ -157,6 +157,7 @@ builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IChannelRoleRepository, ChannelRoleRepository>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 
 var app = builder.Build();
 
