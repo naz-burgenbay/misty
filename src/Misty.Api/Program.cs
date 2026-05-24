@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
@@ -109,11 +110,19 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("Connection string 'Redis' is not configured.");
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(
-    _ => ConnectionMultiplexer.Connect(redisConnectionString));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var opts = ConfigurationOptions.Parse(redisConnectionString);
+    opts.AllowAdmin = true; // Required for channel-wide cache invalidation scan (IServer.KeysAsync)
+    return ConnectionMultiplexer.Connect(opts);
+});
 
 var serviceBusConnectionString = builder.Configuration.GetConnectionString("ServiceBus")
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
+
+builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
+builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+builder.Services.AddHostedService<CacheInvalidationWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")

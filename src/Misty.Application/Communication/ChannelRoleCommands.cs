@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
@@ -47,8 +48,13 @@ public record UpdateChannelRoleCommand(Guid ChannelId, Guid RoleId, string Name,
 public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChannelRoleCommand, ChannelRoleResponse>
 {
     private readonly IChannelRoleRepository _roles;
+    private readonly IEventPublisher _events;
 
-    public UpdateChannelRoleCommandHandler(IChannelRoleRepository roles) => _roles = roles;
+    public UpdateChannelRoleCommandHandler(IChannelRoleRepository roles, IEventPublisher events)
+    {
+        _roles = roles;
+        _events = events;
+    }
 
     public async Task<ChannelRoleResponse> Handle(UpdateChannelRoleCommand request, CancellationToken ct)
     {
@@ -61,6 +67,7 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
 
         role.Update(request.Name, request.Permissions);
         await _roles.UpdateAsync(role, ct);
+        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
 
         return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
     }
@@ -79,8 +86,13 @@ public record DeleteChannelRoleCommand(Guid ChannelId, Guid RoleId) : IRequest;
 public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChannelRoleCommand>
 {
     private readonly IChannelRoleRepository _roles;
+    private readonly IEventPublisher _events;
 
-    public DeleteChannelRoleCommandHandler(IChannelRoleRepository roles) => _roles = roles;
+    public DeleteChannelRoleCommandHandler(IChannelRoleRepository roles, IEventPublisher events)
+    {
+        _roles = roles;
+        _events = events;
+    }
 
     public async Task Handle(DeleteChannelRoleCommand request, CancellationToken ct)
     {
@@ -92,6 +104,7 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
             throw new ConflictException("The Owner role cannot be deleted.");
 
         await _roles.DeleteAsync(role, ct);
+        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
     }
 }
 

@@ -1,5 +1,6 @@
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
@@ -10,11 +11,16 @@ public sealed class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IMembershipRepository _memberships;
+    private readonly IEventPublisher _events;
 
-    public AssignRoleCommandHandler(IChannelRoleRepository roles, IMembershipRepository memberships)
+    public AssignRoleCommandHandler(
+        IChannelRoleRepository roles,
+        IMembershipRepository memberships,
+        IEventPublisher events)
     {
         _roles = roles;
         _memberships = memberships;
+        _events = events;
     }
 
     public async Task Handle(AssignRoleCommand request, CancellationToken ct)
@@ -31,6 +37,7 @@ public sealed class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand
             throw new ConflictException("User already has this role.");
 
         await _memberships.AssignRoleAsync(MemberRole.Create(membership.Id, request.RoleId), ct);
+        await _events.PublishRoleChangedAsync(request.TargetUserId, request.ChannelId, ct);
     }
 }
 
@@ -40,11 +47,16 @@ public sealed class RevokeRoleCommandHandler : IRequestHandler<RevokeRoleCommand
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IMembershipRepository _memberships;
+    private readonly IEventPublisher _events;
 
-    public RevokeRoleCommandHandler(IChannelRoleRepository roles, IMembershipRepository memberships)
+    public RevokeRoleCommandHandler(
+        IChannelRoleRepository roles,
+        IMembershipRepository memberships,
+        IEventPublisher events)
     {
         _roles = roles;
         _memberships = memberships;
+        _events = events;
     }
 
     public async Task Handle(RevokeRoleCommand request, CancellationToken ct)
@@ -60,5 +72,6 @@ public sealed class RevokeRoleCommandHandler : IRequestHandler<RevokeRoleCommand
             ?? throw new NotFoundException("User does not have this role.");
 
         await _memberships.RevokeRoleAsync(assignment, ct);
+        await _events.PublishRoleChangedAsync(request.TargetUserId, request.ChannelId, ct);
     }
 }

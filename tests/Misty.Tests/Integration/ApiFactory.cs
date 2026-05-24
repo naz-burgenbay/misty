@@ -8,6 +8,7 @@ using Misty.Infrastructure.Persistence;
 using Testcontainers.Azurite;
 using Testcontainers.MsSql;
 using Testcontainers.Redis;
+using Testcontainers.ServiceBus;
 
 namespace Misty.Tests.Integration;
 
@@ -24,20 +25,22 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly AzuriteContainer _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:latest")
         .Build();
 
+    private readonly ServiceBusContainer _serviceBus = new ServiceBusBuilder()
+        .WithAcceptLicenseAgreement(true)
+        .WithConfig(Path.Combine(AppContext.BaseDirectory, "servicebus-config.test.json"))
+        .Build();
+
     public string SqlConnectionString => _sql.GetConnectionString();
 
     public async Task InitializeAsync()
     {
-        await Task.WhenAll(_sql.StartAsync(), _redis.StartAsync(), _azurite.StartAsync());
+        await Task.WhenAll(_sql.StartAsync(), _redis.StartAsync(), _azurite.StartAsync(), _serviceBus.StartAsync());
 
         // Expose testcontainer connection strings as environment variables so they are picked up by WebApplication.CreateBuilder at the point Program.cs reads them (before DeferredHostBuilder.Build() applies ConfigureAppConfiguration callbacks).
         Environment.SetEnvironmentVariable("ConnectionStrings__Database", _sql.GetConnectionString());
         Environment.SetEnvironmentVariable("ConnectionStrings__Redis",
             $"localhost:{_redis.GetMappedPublicPort(6379)}");
-        Environment.SetEnvironmentVariable("ConnectionStrings__ServiceBus",
-            "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;"
-            + "SharedAccessKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFreNZ2He5uvRZ1x1Hy5oqsqm0NYTJ/tAAAAAA==;"
-            + "UseDevelopmentEmulator=true;");
+        Environment.SetEnvironmentVariable("ConnectionStrings__ServiceBus", _serviceBus.GetConnectionString());
         Environment.SetEnvironmentVariable("ConnectionStrings__BlobStorage", _azurite.GetConnectionString());
         Environment.SetEnvironmentVariable("Jwt__Key", "misty-super-secret-test-signing-key-2024!");
         Environment.SetEnvironmentVariable("Jwt__Issuer", "Misty.Api");
@@ -57,7 +60,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("Jwt__Key", null);
         Environment.SetEnvironmentVariable("Jwt__Issuer", null);
         Environment.SetEnvironmentVariable("Jwt__Audience", null);
-        await Task.WhenAll(_sql.DisposeAsync().AsTask(), _redis.DisposeAsync().AsTask(), _azurite.DisposeAsync().AsTask());
+        await Task.WhenAll(_sql.DisposeAsync().AsTask(), _redis.DisposeAsync().AsTask(), _azurite.DisposeAsync().AsTask(), _serviceBus.DisposeAsync().AsTask());
     }
 
     public ApplicationDbContext CreateDbContext()
@@ -79,8 +82,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_08_04);
             services.AddSingleton(new BlobServiceClient(_azurite.GetConnectionString(), blobOptions));
 
-            // Replace the real service-bus health check with a stub.
-            // Health check registrations live inside IOptions<HealthCheckOptions>, not as individual ServiceDescriptors, so options must be configured directly.
+            // The Service Bus emulator does not implement the HTTPS management API used by ServiceBusAdministrationClient health checks, so the health check is stubbed in tests.
+            // Actual message processing still runs against the emulator through the AMQP endpoint.
             services.PostConfigure<HealthCheckServiceOptions>(opts =>
             {
                 var existing = opts.Registrations.FirstOrDefault(r => r.Name == "service-bus");

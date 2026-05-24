@@ -1,5 +1,6 @@
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Communication;
 
@@ -9,11 +10,16 @@ public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCom
 {
     private readonly IChannelRepository _channels;
     private readonly IMembershipRepository _memberships;
+    private readonly IEventPublisher _events;
 
-    public LeaveChannelCommandHandler(IChannelRepository channels, IMembershipRepository memberships)
+    public LeaveChannelCommandHandler(
+        IChannelRepository channels,
+        IMembershipRepository memberships,
+        IEventPublisher events)
     {
         _channels = channels;
         _memberships = memberships;
+        _events = events;
     }
 
     public async Task Handle(LeaveChannelCommand request, CancellationToken ct)
@@ -25,5 +31,6 @@ public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCom
             ?? throw new NotFoundException("User is not a member of this channel.");
 
         await _memberships.RemoveAsync(membership, channel, ct);
+        await _events.PublishMembershipChangedAsync(request.UserId, request.ChannelId, ct);
     }
 }
