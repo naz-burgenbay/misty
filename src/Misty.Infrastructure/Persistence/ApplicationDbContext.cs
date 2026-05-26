@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

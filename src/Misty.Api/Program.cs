@@ -125,6 +125,7 @@ var serviceBusConnectionString = builder.Configuration.GetConnectionString("Serv
 builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
 builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
 builder.Services.AddHostedService<CacheInvalidationWorker>();
+builder.Services.AddHostedService<OutboxRelayWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
