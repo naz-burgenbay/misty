@@ -127,6 +127,9 @@ public sealed class SignalRHubTests : IAsyncLifetime
         var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         conn.On<string>("MessageCreated", payload => received.TrySetResult(payload));
         await conn.StartAsync();
+        
+        // Give OnConnectedAsync time to complete group additions
+        await Task.Delay(100);
 
         // Act: push a message to the group via IHubContext (simulating what the Service Bus consumer will do)
         var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();

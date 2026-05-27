@@ -16,6 +16,50 @@ public sealed class MessageRepository : IMessageRepository
         => _db.Messages.FirstOrDefaultAsync(
             m => m.AuthorId == authorId && m.IdempotencyKey == idempotencyKey, ct);
 
+    public Task<Message?> GetByIdAsync(Guid messageId, CancellationToken ct = default)
+        => _db.Messages.FirstOrDefaultAsync(m => m.Id == messageId, ct);
+
+    public async Task<(List<Message> Messages, string? NextCursor)> GetByChannelAsync(
+        Guid channelId,
+        int pageSize,
+        string? cursor,
+        CancellationToken ct = default)
+    {
+        IQueryable<Message> query = _db.Messages.Where(m => m.ChannelId == channelId);
+
+        if (!string.IsNullOrEmpty(cursor))
+        {
+            var parts = cursor.Split('|');
+            if (parts.Length == 2 &&
+                DateTime.TryParse(parts[0], out var cursorTime) &&
+                Guid.TryParse(parts[1], out var cursorId))
+            {
+                query = query.Where(m =>
+                    m.CreatedAt < cursorTime ||
+                    (m.CreatedAt == cursorTime && m.Id.CompareTo(cursorId) < 0));
+            }
+        }
+
+        var messages = await query
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Take(pageSize + 1)
+            .ToListAsync(ct);
+
+        string? nextCursor = null;
+        if (messages.Count > pageSize)
+        {
+            var last = messages[pageSize - 1];
+            nextCursor = $"{last.CreatedAt:O}|{last.Id}";
+            messages = messages.Take(pageSize).ToList();
+        }
+
+        return (messages, nextCursor);
+    }
+
+    public Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default)
+        => _db.Messages.AnyAsync(m => m.ParentMessageId == messageId, ct);
+
     public async Task AddAsync(Message message, CancellationToken ct = default)
     {
         // Serialize the MessageCreated event payload for the outbox.
@@ -33,6 +77,18 @@ public sealed class MessageRepository : IMessageRepository
         // Both rows are written in one SaveChangesAsync call for a single SQL transaction.
         await _db.Messages.AddAsync(message, ct);
         await _db.OutboxMessages.AddAsync(outbox, ct);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(Message message, CancellationToken ct = default)
+    {
+        _db.Messages.Update(message);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(Message message, CancellationToken ct = default)
+    {
+        _db.Messages.Remove(message);
         await _db.SaveChangesAsync(ct);
     }
 }

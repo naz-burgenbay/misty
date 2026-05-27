@@ -54,4 +54,16 @@ public class Message
             IsDeleted = false,
             CreatedAt = DateTime.UtcNow,
         };
+
+    public void Edit(string newContent)
+    {
+        Content = newContent;
+        EditedAt = DateTime.UtcNow;
+    }
+
+    public void Tombstone()
+    {
+        Content = string.Empty;
+        IsDeleted = true;
+    }
 }
