@@ -4,21 +4,26 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Misty.Api.Common;
+using Misty.Api.Realtime;
 using Misty.Application.Common.Behaviors;
 using Misty.Application.Communication;
 using Misty.Application.Communication.Contracts;
+using Misty.Application.Messaging;
 using Misty.Application.Users;
 using Misty.Domain.Users;
 using Misty.Infrastructure.Communication;
+using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using StackExchange.Redis;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
 try
@@ -93,8 +98,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
+        // SignalR connections pass the access token in the query string because the WebSocket protocol does not support custom headers. Without this hook every hub connection is rejected as unauthenticated.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) &&
+                    ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    ctx.Token = token;
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
+
+// Custom IUserIdProvider: SignalR's default reads ClaimTypes.NameIdentifier (the long URI form), but MapInboundClaims=false keeps 'sub' as-is, so we must tell SignalR which claim to use.
+builder.Services.AddSingleton<IUserIdProvider, SubClaimUserIdProvider>();
 
 var connectionString = builder.Configuration.GetConnectionString("Database")
     ?? throw new InvalidOperationException("Connection string 'Database' is not configured.");
@@ -117,12 +137,19 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     return ConnectionMultiplexer.Connect(opts);
 });
 
+builder.Services
+    .AddSignalR()
+    .AddStackExchangeRedis(redisConnectionString);
+
 var serviceBusConnectionString = builder.Configuration.GetConnectionString("ServiceBus")
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
 
 builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
 builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
 builder.Services.AddHostedService<CacheInvalidationWorker>();
+builder.Services.AddHostedService<OutboxRelayWorker>();
+builder.Services.AddHostedService<RealtimeDeliveryWorker>();
+builder.Services.AddHostedService<AIResponseWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
@@ -158,6 +185,10 @@ builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IChannelRoleRepository, ChannelRoleRepository>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
+builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
 
 var app = builder.Build();
 
@@ -174,6 +205,7 @@ using (var scope = app.Services.CreateScope())
 
 app.MapHealthChecks("/health");
 app.MapControllers();
+app.MapHub<MistyHub>("/hubs/realtime");
 
 app.Run();
 }

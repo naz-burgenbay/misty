@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Misty.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Misty.Infrastructure.Persistence;
 namespace Misty.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260524170458_AddMessage")]
+    partial class AddMessage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -220,67 +223,6 @@ namespace Misty.Infrastructure.Migrations
                     b.ToTable("UserBlock", "comm");
                 });
 
-            modelBuilder.Entity("Misty.Domain.Messaging.Attachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("AvatarUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BlobContainer")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("BlobName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("CdnUrl")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
-                    b.Property<Guid?>("ChannelIconChannelId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
-
-                    b.Property<Guid?>("MessageId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("OwnerType")
-                        .HasColumnType("int");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MessageId")
-                        .HasDatabaseName("IX_Attachment_MessageId")
-                        .HasFilter("[MessageId] IS NOT NULL");
-
-                    b.ToTable("Attachment", "msg", t =>
-                        {
-                            t.HasCheckConstraint("CK_Attachment_ExactlyOneOwner", "(([OwnerType] = 1 AND [MessageId] IS NOT NULL AND [AvatarUserId] IS NULL AND [ChannelIconChannelId] IS NULL) OR ([OwnerType] = 2 AND [MessageId] IS NULL AND [AvatarUserId] IS NOT NULL AND [ChannelIconChannelId] IS NULL) OR ([OwnerType] = 3 AND [MessageId] IS NULL AND [AvatarUserId] IS NULL AND [ChannelIconChannelId] IS NOT NULL))");
-                        });
-                });
-
             modelBuilder.Entity("Misty.Domain.Messaging.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -330,71 +272,6 @@ namespace Misty.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_Message_ChannelOrConversation", "([ChannelId] IS NOT NULL AND [ConversationId] IS NULL) OR ([ChannelId] IS NULL AND [ConversationId] IS NOT NULL)");
                         });
-                });
-
-            modelBuilder.Entity("Misty.Domain.Messaging.MessageReaction", b =>
-                {
-                    b.Property<Guid>("MessageId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("EmojiCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .UseCollation("Latin1_General_100_BIN2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("MessageId", "UserId", "EmojiCode");
-
-                    b.ToTable("MessageReaction", "msg");
-                });
-
-            modelBuilder.Entity("Misty.Domain.Messaging.OutboxMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<Guid>("MessageId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("PublishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<byte[]>("Version")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt")
-                        .HasDatabaseName("IX_OutboxMessage_Unpublished_CreatedAt")
-                        .HasFilter("[PublishedAt] IS NULL");
-
-                    b.ToTable("OutboxMessage", "msg");
                 });
 
             modelBuilder.Entity("Misty.Domain.Users.RefreshToken", b =>
@@ -522,29 +399,12 @@ namespace Misty.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Misty.Domain.Messaging.Attachment", b =>
-                {
-                    b.HasOne("Misty.Domain.Messaging.Message", null)
-                        .WithMany()
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
             modelBuilder.Entity("Misty.Domain.Messaging.Message", b =>
                 {
                     b.HasOne("Misty.Domain.Messaging.Message", null)
                         .WithMany()
                         .HasForeignKey("ParentMessageId")
                         .OnDelete(DeleteBehavior.NoAction);
-                });
-
-            modelBuilder.Entity("Misty.Domain.Messaging.MessageReaction", b =>
-                {
-                    b.HasOne("Misty.Domain.Messaging.Message", null)
-                        .WithMany()
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Misty.Domain.Users.RefreshToken", b =>

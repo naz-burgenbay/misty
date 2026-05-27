@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Misty.Domain.Communication;
+using Misty.Domain.Messaging;
 using Misty.Domain.Users;
 
 namespace Misty.Infrastructure.Persistence;
@@ -17,6 +18,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
