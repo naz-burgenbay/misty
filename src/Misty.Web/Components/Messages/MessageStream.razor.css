@@ -40,33 +40,3 @@
     letter-spacing: var(--tracking-caps);
     padding: 0 var(--sp-3);
 }
-
-.typing {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-2) var(--sp-3);
-    color: var(--color-text-secondary);
-}
-
-.typing-label {
-    font-family: var(--font-ui);
-    font-size: 12px;
-    font-style: italic;
-}
-
-.dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-    animation: blink 1.2s infinite ease-in-out both;
-}
-
-.dot:nth-child(2) { animation-delay: 0.15s; }
-.dot:nth-child(3) { animation-delay: 0.30s; }
-
-@keyframes blink {
-    0%, 80%, 100% { opacity: 0.25; }
-    40% { opacity: 1; }
-}

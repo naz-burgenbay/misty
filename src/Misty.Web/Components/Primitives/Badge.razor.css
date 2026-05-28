@@ -12,11 +12,6 @@
     user-select: none;
 }
 
-.badge.online {
-    background: var(--color-status-online-bg);
-    color: var(--color-status-online-text);
-}
-
 .badge.muted,
 .badge.warned {
     background: var(--color-status-warn-bg);

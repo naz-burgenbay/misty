@@ -1,6 +1,6 @@
 @code {
     private string _displayName = string.Empty;
-    private string _handle = string.Empty;
+    private string _username = string.Empty;
     private string _email = string.Empty;
     private string _password = string.Empty;
 }
@@ -14,8 +14,8 @@
         <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" Placeholder="Alex Park" />
     </div>
     <div class="field">
-        <span class="lbl">Handle</span>
-        <TextField Value="@_handle" ValueChanged="@(v => _handle = v ?? string.Empty)" Placeholder="alex" />
+        <span class="lbl">Username</span>
+        <TextField Value="@_username" ValueChanged="@(v => _username = v ?? string.Empty)" Placeholder="alex" />
     </div>
     <div class="field">
         <span class="lbl">Email</span>

@@ -4,7 +4,6 @@
     [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
     [Parameter] public AvatarSize Size { get; set; } = AvatarSize.Medium;
     [Parameter] public bool IsAi { get; set; }
-    [Parameter] public bool? Online { get; set; }
 
     private int Px => (int)Size;
     private string Initials => GetInitials(Name);
@@ -42,10 +41,5 @@
     else
     {
         @Initials
-    }
-
-    @if (Online is { } isOnline)
-    {
-        <span class="presence @(isOnline ? "online" : "offline")"></span>
     }
 </span>

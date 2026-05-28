@@ -15,23 +15,3 @@
     font-size: 1.1em;
     line-height: 1;
 }
-
-.presence {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 30%;
-    height: 30%;
-    min-width: 6px;
-    min-height: 6px;
-    border-radius: 50%;
-    border: 2px solid var(--color-surface);
-}
-
-.presence.online {
-    background: var(--color-status-online);
-}
-
-.presence.offline {
-    background: var(--color-text-muted);
-}

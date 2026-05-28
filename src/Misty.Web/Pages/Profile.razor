@@ -5,7 +5,7 @@
 @code {
     private MockUser Me => MockDataStore.Me;
     private string _displayName = MockDataStore.Me.DisplayName;
-    private string _handle = MockDataStore.Me.Handle.TrimStart('@');
+    private string _username = MockDataStore.Me.Username;
     private string _bio = MockDataStore.Me.Bio ?? string.Empty;
 }
 
@@ -18,7 +18,7 @@
 
         <section class="card">
             <div class="avatar-row">
-                <Avatar Name="@_displayName" Size="Avatar.AvatarSize.Large" Online="true" />
+                <Avatar Name="@_displayName" Size="Avatar.AvatarSize.Large" />
                 <div class="avatar-actions">
                     <Button Variant="Button.ButtonVariant.Ghost">Change picture</Button>
                     <Button Variant="Button.ButtonVariant.Ghost">Remove</Button>
@@ -30,8 +30,8 @@
                 <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" />
             </div>
             <div class="field">
-                <span class="lbl">Handle</span>
-                <TextField Value="@_handle" ValueChanged="@(v => _handle = v ?? string.Empty)" Suffix=".misty" />
+                <span class="lbl">Username</span>
+                <TextField Value="@_username" ValueChanged="@(v => _username = v ?? string.Empty)" />
             </div>
             <div class="field">
                 <span class="lbl">Bio</span>
@@ -49,13 +49,7 @@
                 <h2>Privacy</h2>
                 <a href="/profile/blocked">Manage blocked users</a>
             </header>
-            <div class="privacy-row">
-                <div>
-                    <div class="lbl">Show presence</div>
-                    <div class="hint">Let others see when you're online or away.</div>
-                </div>
-                <SegmentedControl Options="@(new [] { "Off", "On" })" Value="On" />
-            </div>
+            <p class="hint">Manage who you've blocked from messaging you.</p>
         </section>
     </div>
 </div>

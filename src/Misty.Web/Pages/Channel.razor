@@ -16,7 +16,6 @@
     private string _moderationAction = "Mute";
     private string _moderationHours = "24";
     private string _moderationReason = string.Empty;
-    private string _moderationMode = "Replace";
 
     protected override void OnParametersSet()
     {
@@ -26,7 +25,7 @@
     }
 
     private string Subtitle => _channel is null ? string.Empty :
-        $"{_channel.MemberCount} members · {_channel.OnlineCount} online";
+        $"{_channel.MemberCount} members";
 
     private void OpenModeration(MockMembership m)
     {
@@ -34,7 +33,6 @@
         _moderationAction = "Mute";
         _moderationHours = "24";
         _moderationReason = string.Empty;
-        _moderationMode = m.Moderation == ModerationKind.None ? "Apply" : "Replace";
         _moderationOpen = true;
     }
 }
@@ -131,13 +129,9 @@ else
                                 _ => Badge.BadgeVariant.Muted })"
                                    Label="@_moderationTarget.Moderation.ToString()" />
                             <span>Existing moderation is active.</span>
-                            <SegmentedControl Options="@(new [] { "Revoke", "Replace" })"
-                                              Value="@_moderationMode"
-                                              ValueChanged="@(v => _moderationMode = v)" />
                         </div>
                     }
-
-                    @if (_moderationMode != "Revoke")
+                    else
                     {
                         <div class="field">
                             <span class="lbl">Action</span>
@@ -159,10 +153,18 @@ else
             </ChildContent>
             <Footer>
                 <Button Variant="Button.ButtonVariant.Ghost" OnClick="@(() => _moderationOpen = false)">Cancel</Button>
-                <Button Variant="@(_moderationMode == "Revoke" ? Button.ButtonVariant.Ghost : Button.ButtonVariant.Primary)"
-                        OnClick="@(() => _moderationOpen = false)">
-                    @(_moderationMode == "Revoke" ? "Revoke moderation" : $"{_moderationAction} {targetUser.DisplayName}")
-                </Button>
+                @if (_moderationTarget.Moderation != ModerationKind.None)
+                {
+                    <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => _moderationOpen = false)">
+                        Revoke moderation
+                    </Button>
+                }
+                else
+                {
+                    <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => _moderationOpen = false)">
+                        @($"{_moderationAction} {targetUser.DisplayName}")
+                    </Button>
+                }
             </Footer>
         </Modal>
     }

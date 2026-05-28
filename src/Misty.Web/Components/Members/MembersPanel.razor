@@ -27,7 +27,6 @@
                 <div class="member">
                     <Avatar Name="@user.DisplayName"
                             IsAi="@user.IsAi"
-                            Online="@(user.Presence == PresenceState.Online)"
                             Size="Avatar.AvatarSize.Medium" />
                     <div class="info">
                         <div class="line">
@@ -53,7 +52,7 @@
                                 <Badge Variant="Badge.BadgeVariant.Warned" Label="Warned" />
                             }
                         </div>
-                        <div class="handle">@user.Handle</div>
+                        <div class="handle">@user.Username</div>
                     </div>
                 </div>
             }

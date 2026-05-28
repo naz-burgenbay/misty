@@ -13,15 +13,6 @@
         _other = _dm is null ? null : MockDataStore.GetUser(_dm.OtherUserId);
         _messages = MockDataStore.GetMessages(ConversationId);
     }
-
-    private string Subtitle => _other switch
-    {
-        null => string.Empty,
-        { Presence: PresenceState.Online } => "Online",
-        { Presence: PresenceState.Away, LastSeenLabel: { } l } => l,
-        { LastSeenLabel: { } l } => l,
-        _ => "Offline",
-    };
 }
 
 @if (_dm is null || _other is null)
@@ -33,11 +24,9 @@ else
     <div class="page">
         <div class="main">
             <ConversationHeader Title="@_other.DisplayName"
-                                Subtitle="@Subtitle"
                                 ShowChannelActions="false">
                 <TitleIcon>
                     <Avatar Name="@_other.DisplayName"
-                            Online="@(_other.Presence == PresenceState.Online)"
                             Size="Avatar.AvatarSize.Small" />
                 </TitleIcon>
             </ConversationHeader>

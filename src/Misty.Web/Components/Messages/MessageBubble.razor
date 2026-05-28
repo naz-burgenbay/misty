@@ -3,18 +3,9 @@
     [Parameter] public bool IsMine { get; set; }
     [Parameter] public bool IsAi { get; set; }
 
-    private string Cls
-    {
-        get
-        {
-            var role = IsAi ? "ai" : IsMine ? "mine" : "received";
-            var state =
-                Message.IsTombstone ? " tombstone" :
-                Message.IsFailed ? " failed" :
-                Message.IsSending ? " sending" : string.Empty;
-            return role + state;
-        }
-    }
+    private string Cls =>
+        (IsAi ? "ai" : IsMine ? "mine" : "received") +
+        (Message.IsTombstone ? " tombstone" : string.Empty);
 }
 
 <div class="bubble @Cls">
@@ -25,14 +16,5 @@
     else
     {
         <span class="content">@Message.Content</span>
-    }
-
-    @if (Message.IsSending)
-    {
-        <span class="state-icon" title="Sending"><Blazicon Svg="Lucide.Clock" /></span>
-    }
-    else if (Message.IsFailed)
-    {
-        <span class="state-icon retry" title="Failed — click to retry"><Blazicon Svg="Lucide.RefreshCw" /></span>
     }
 </div>

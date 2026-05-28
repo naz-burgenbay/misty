@@ -2,8 +2,6 @@
 
 namespace Misty.Web.Services.MockData;
 
-public enum PresenceState { Online, Offline, Away }
-
 public enum MemberRoleKind { Owner, Admin, Member }
 
 public enum ModerationKind { None, Muted, Warned, Banned }
@@ -11,11 +9,9 @@ public enum ModerationKind { None, Muted, Warned, Banned }
 public sealed record MockUser(
     Guid Id,
     string DisplayName,
-    string Handle,
+    string Username,
     bool IsAi = false,
-    PresenceState Presence = PresenceState.Offline,
-    string? Bio = null,
-    string? LastSeenLabel = null);
+    string? Bio = null);
 
 public sealed record MockReaction(string Emoji, int Count, bool ReactedByMe);
 
@@ -25,8 +21,6 @@ public sealed record MockMessage(
     string Content,
     DateTime CreatedAt,
     bool IsTombstone = false,
-    bool IsFailed = false,
-    bool IsSending = false,
     bool IsEdited = false,
     Guid? ParentMessageId = null,
     IReadOnlyList<MockReaction>? Reactions = null);
@@ -45,8 +39,6 @@ public sealed record MockChannel(
     IReadOnlyList<MockMembership> Members)
 {
     public int MemberCount => Members.Count;
-    public int OnlineCount =>
-        Members.Count(m => MockDataStore.GetUser(m.UserId).Presence == PresenceState.Online);
 }
 
 public sealed record MockDirectConversation(
@@ -98,15 +90,15 @@ public static class MockDataStore
     {
         Users = new List<MockUser>
         {
-            new(MeId,          "Eliasz",           "@eliasz",     Presence: PresenceState.Online,  Bio: "Building Misty."),
-            new(AlexId,        "Alex Morgan",      "@alex",       Presence: PresenceState.Online,  Bio: "Backend + infra."),
-            new(SamId,         "Sam Patel",        "@sam",        Presence: PresenceState.Away,    LastSeenLabel: "Away · 12 min"),
-            new(JordanId,      "Jordan Reyes",     "@jordan",     Presence: PresenceState.Online),
-            new(TaylorId,      "Taylor Kim",       "@taylor",     Presence: PresenceState.Offline, LastSeenLabel: "Last seen 2:34 pm"),
-            new(PriyaId,       "Priya Shah",       "@priya",      Presence: PresenceState.Online),
-            new(MoId,          "Mo Hassan",        "@mo",         Presence: PresenceState.Offline, LastSeenLabel: "Last seen yesterday"),
-            new(AssistantId,   "Misty Assistant",  "@assistant",  IsAi: true,                      Bio: "Per-channel AI assistant."),
-            new(BlockedUserId, "Casey Stone",      "@casey",      Presence: PresenceState.Offline),
+            new(MeId,          "Eliasz",          "eliasz",     Bio: "Building Misty."),
+            new(AlexId,        "Alex Morgan",     "alex",       Bio: "Backend + infra."),
+            new(SamId,         "Sam Patel",       "sam"),
+            new(JordanId,      "Jordan Reyes",    "jordan"),
+            new(TaylorId,      "Taylor Kim",      "taylor"),
+            new(PriyaId,       "Priya Shah",      "priya"),
+            new(MoId,          "Mo Hassan",       "mo"),
+            new(AssistantId,   "Misty Assistant", "assistant", IsAi: true, Bio: "Per-channel AI assistant."),
+            new(BlockedUserId, "Casey Stone",     "casey"),
         };
 
         _userIndex = Users.ToDictionary(u => u.Id);
@@ -193,8 +185,6 @@ public static class MockDataStore
             new(G("c1-7"), MeId,     "Beautiful. SignalR test next.",                            Today(9, 32),
                 ParentMessageId: G("c1-6")),
             new(G("c1-8"), MoId,     "(muted user note)",                                        Today(9, 33), IsEdited: true),
-            new(G("c1-9"), MeId,     "Trying to send this one...",                               Today(9, 41), IsSending: true),
-            new(G("c1-a"), MeId,     "This one failed to send.",                                 Today(9, 42), IsFailed: true),
         };
     }
 
