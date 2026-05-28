@@ -1,7 +1,24 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Misty</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="smoke-test">
+    <h1 class="display">Misty</h1>
+    <p class="ui">Step 4.5.1 smoke test — fonts and icons resolved.</p>
+    <div class="icons">
+        <Blazicon Svg="Hash" />
+        <Blazicon Svg="MessageCircle" />
+        <Blazicon Svg="Settings" />
+        <Blazicon Svg="User" />
+    </div>
+</div>
 
-Welcome to your new app.
+<style>
+    /* Inline only for this temporary smoke-test page.
+       Real components use scoped .razor.css with tokens (Step 4.5.2). */
+    .smoke-test { padding: 2rem; }
+    .smoke-test .display { font-family: 'DM Serif Display', serif; font-size: 32px; font-weight: 400; margin: 0 0 0.5rem 0; }
+    .smoke-test .ui { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; margin: 0 0 1rem 0; }
+    .smoke-test .icons { display: flex; gap: 0.75rem; }
+    .smoke-test .icons svg { width: 20px; height: 20px; stroke-width: 1.5; }
+</style>
