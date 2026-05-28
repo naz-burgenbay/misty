@@ -1,0 +1,35 @@
+@code {
+    private string _displayName = string.Empty;
+    private string _handle = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+}
+
+<h1 class="heading">Create your account</h1>
+<p class="sub">Join the conversation on Misty.</p>
+
+<div class="fields">
+    <div class="field">
+        <span class="lbl">Display name</span>
+        <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" Placeholder="Alex Park" />
+    </div>
+    <div class="field">
+        <span class="lbl">Handle</span>
+        <TextField Value="@_handle" ValueChanged="@(v => _handle = v ?? string.Empty)" Placeholder="alex" />
+    </div>
+    <div class="field">
+        <span class="lbl">Email</span>
+        <TextField Value="@_email" ValueChanged="@(v => _email = v ?? string.Empty)" Placeholder="you@example.com" Type="email" />
+    </div>
+    <div class="field">
+        <span class="lbl">Password</span>
+        <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="At least 8 characters" Type="password" />
+    </div>
+</div>
+
+<Button Variant="Button.ButtonVariant.Primary">Create account</Button>
+
+<div class="meta">
+    <span>Already have one?</span>
+    <a href="/login">Sign in</a>
+</div>

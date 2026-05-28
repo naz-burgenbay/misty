@@ -1,0 +1,62 @@
+@code {
+    [Parameter, EditorRequired] public MockChannel Channel { get; set; } = default!;
+
+    private IEnumerable<IGrouping<MemberRoleKind, MockMembership>> Groups =>
+        Channel.Members
+            .OrderBy(m => m.Role)
+            .ThenBy(m => MockDataStore.GetUser(m.UserId).DisplayName)
+            .GroupBy(m => m.Role);
+
+    private static string GroupLabel(MemberRoleKind role) => role switch
+    {
+        MemberRoleKind.Owner  => "Owner",
+        MemberRoleKind.Admin  => "Admins",
+        MemberRoleKind.Member => "Members",
+        _ => role.ToString(),
+    };
+}
+
+<div class="panel">
+    @foreach (var group in Groups)
+    {
+        <section class="group">
+            <h3 class="group-title">@GroupLabel(group.Key) · @group.Count()</h3>
+            @foreach (var membership in group)
+            {
+                var user = MockDataStore.GetUser(membership.UserId);
+                <div class="member">
+                    <Avatar Name="@user.DisplayName"
+                            IsAi="@user.IsAi"
+                            Online="@(user.Presence == PresenceState.Online)"
+                            Size="Avatar.AvatarSize.Medium" />
+                    <div class="info">
+                        <div class="line">
+                            <span class="name">@user.DisplayName</span>
+                            @if (membership.Role == MemberRoleKind.Owner)
+                            {
+                                <Badge Variant="Badge.BadgeVariant.Owner" Label="Owner" />
+                            }
+                            else if (membership.Role == MemberRoleKind.Admin)
+                            {
+                                <Badge Variant="Badge.BadgeVariant.Admin" Label="Admin" />
+                            }
+                            @if (membership.Moderation == ModerationKind.Muted)
+                            {
+                                <Badge Variant="Badge.BadgeVariant.Muted" Label="Muted" />
+                            }
+                            else if (membership.Moderation == ModerationKind.Banned)
+                            {
+                                <Badge Variant="Badge.BadgeVariant.Banned" Label="Banned" />
+                            }
+                            else if (membership.Moderation == ModerationKind.Warned)
+                            {
+                                <Badge Variant="Badge.BadgeVariant.Warned" Label="Warned" />
+                            }
+                        </div>
+                        <div class="handle">@user.Handle</div>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+</div>

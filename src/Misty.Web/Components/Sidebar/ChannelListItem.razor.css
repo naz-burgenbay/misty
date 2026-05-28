@@ -1,0 +1,86 @@
+.row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px var(--sp-2);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    position: relative;
+}
+
+.row:hover {
+    background: var(--color-surface-active);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.row.selected {
+    background: var(--color-accent-tint);
+    color: var(--color-accent-text);
+}
+
+.row.selected::before {
+    content: "";
+    position: absolute;
+    left: -2px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--color-accent);
+}
+
+.icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-surface-active);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.row:hover .icon {
+    background: var(--color-border);
+}
+
+.row.selected .icon {
+    background: var(--color-accent);
+    color: #FFFFFF;
+}
+
+.icon ::deep svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+}
+
+.name {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    font-weight: var(--fw-medium);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.unread {
+    background: var(--color-accent);
+    color: #FFFFFF;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 999px;
+    min-width: 18px;
+    text-align: center;
+}

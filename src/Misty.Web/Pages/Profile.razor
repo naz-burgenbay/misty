@@ -1,0 +1,61 @@
+@page "/profile"
+
+<PageTitle>Profile | Misty</PageTitle>
+
+@code {
+    private MockUser Me => MockDataStore.Me;
+    private string _displayName = MockDataStore.Me.DisplayName;
+    private string _handle = MockDataStore.Me.Handle.TrimStart('@');
+    private string _bio = MockDataStore.Me.Bio ?? string.Empty;
+}
+
+<div class="page">
+    <div class="content">
+        <header class="head">
+            <h1>Profile</h1>
+            <p>This is how others see you on Misty.</p>
+        </header>
+
+        <section class="card">
+            <div class="avatar-row">
+                <Avatar Name="@_displayName" Size="Avatar.AvatarSize.Large" Online="true" />
+                <div class="avatar-actions">
+                    <Button Variant="Button.ButtonVariant.Ghost">Change picture</Button>
+                    <Button Variant="Button.ButtonVariant.Ghost">Remove</Button>
+                </div>
+            </div>
+
+            <div class="field">
+                <span class="lbl">Display name</span>
+                <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" />
+            </div>
+            <div class="field">
+                <span class="lbl">Handle</span>
+                <TextField Value="@_handle" ValueChanged="@(v => _handle = v ?? string.Empty)" Suffix=".misty" />
+            </div>
+            <div class="field">
+                <span class="lbl">Bio</span>
+                <TextField Value="@_bio" ValueChanged="@(v => _bio = v ?? string.Empty)" Placeholder="Tell people a little about yourself." />
+            </div>
+
+            <div class="actions">
+                <Button Variant="Button.ButtonVariant.Ghost">Cancel</Button>
+                <Button Variant="Button.ButtonVariant.Primary">Save changes</Button>
+            </div>
+        </section>
+
+        <section class="card">
+            <header class="card-head">
+                <h2>Privacy</h2>
+                <a href="/profile/blocked">Manage blocked users</a>
+            </header>
+            <div class="privacy-row">
+                <div>
+                    <div class="lbl">Show presence</div>
+                    <div class="hint">Let others see when you're online or away.</div>
+                </div>
+                <SegmentedControl Options="@(new [] { "Off", "On" })" Value="On" />
+            </div>
+        </section>
+    </div>
+</div>

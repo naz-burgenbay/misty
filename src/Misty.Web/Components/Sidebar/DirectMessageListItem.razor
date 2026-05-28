@@ -1,0 +1,42 @@
+@code {
+    [Parameter, EditorRequired] public MockDirectConversation Conversation { get; set; } = default!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public string Href { get; set; } = "#";
+
+    private MockUser Other => MockDataStore.GetUser(Conversation.OtherUserId);
+}
+
+<a class="row @(Selected ? "selected" : "")" href="@Href">
+    <Avatar Name="@Other.DisplayName"
+            Online="@(Other.Presence == PresenceState.Online)"
+            Size="Avatar.AvatarSize.Medium" />
+    <div class="text">
+        <div class="line">
+            <span class="name">@Other.DisplayName</span>
+            <span class="time">@FormatTime(Conversation.LastAt)</span>
+        </div>
+        <div class="preview">
+            @if (Conversation.IsBlocked)
+            {
+                <span class="blocked">Blocked</span>
+            }
+            else
+            {
+                @Conversation.LastPreview
+            }
+        </div>
+    </div>
+    @if (Conversation.UnreadCount > 0)
+    {
+        <span class="unread">@Conversation.UnreadCount</span>
+    }
+</a>
+
+@code {
+    private static string FormatTime(DateTime at)
+    {
+        if (at.Date == DateTime.Today) return at.ToString("HH:mm");
+        if (at.Date == DateTime.Today.AddDays(-1)) return "Yesterday";
+        return at.ToString("MMM d");
+    }
+}

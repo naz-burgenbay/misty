@@ -1,0 +1,44 @@
+@inject NavigationManager Nav
+@implements IDisposable
+
+<nav class="rail">
+    <div class="brand" title="Misty">M</div>
+
+    <div class="items">
+        <a class="item @(IsActive("/", exact: true) || IsActive("/c/") || IsActive("/dm/") ? "active" : "")"
+           href="/" title="Messages">
+            <Blazicon Svg="Lucide.MessageCircle" />
+        </a>
+        <a class="item @(IsActive("/profile") ? "active" : "")"
+           href="/profile" title="Profile">
+            <Blazicon Svg="Lucide.User" />
+        </a>
+        <a class="item @(IsActive("/_gallery") ? "active" : "")"
+           href="/_gallery" title="Design gallery">
+            <Blazicon Svg="Lucide.LayoutGrid" />
+        </a>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="items">
+        <a class="item" href="/login" title="Sign out">
+            <Blazicon Svg="Lucide.LogOut" />
+        </a>
+    </div>
+
+    <Avatar Name="@MockDataStore.Me.DisplayName" Online="true" Size="Avatar.AvatarSize.Medium" />
+</nav>
+
+@code {
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocation;
+    public void Dispose() => Nav.LocationChanged -= OnLocation;
+    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+
+    private bool IsActive(string prefix, bool exact = false)
+    {
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        if (exact) return path.TrimEnd('/').Equals(prefix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
+}

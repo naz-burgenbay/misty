@@ -1,0 +1,38 @@
+@code {
+    [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
+    [Parameter] public bool IsMine { get; set; }
+    [Parameter] public bool IsAi { get; set; }
+
+    private string Cls
+    {
+        get
+        {
+            var role = IsAi ? "ai" : IsMine ? "mine" : "received";
+            var state =
+                Message.IsTombstone ? " tombstone" :
+                Message.IsFailed ? " failed" :
+                Message.IsSending ? " sending" : string.Empty;
+            return role + state;
+        }
+    }
+}
+
+<div class="bubble @Cls">
+    @if (Message.IsTombstone)
+    {
+        <span class="tombstone-text">message deleted</span>
+    }
+    else
+    {
+        <span class="content">@Message.Content</span>
+    }
+
+    @if (Message.IsSending)
+    {
+        <span class="state-icon" title="Sending"><Blazicon Svg="Lucide.Clock" /></span>
+    }
+    else if (Message.IsFailed)
+    {
+        <span class="state-icon retry" title="Failed — click to retry"><Blazicon Svg="Lucide.RefreshCw" /></span>
+    }
+</div>

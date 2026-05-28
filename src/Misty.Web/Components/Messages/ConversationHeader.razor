@@ -1,0 +1,41 @@
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? TitleIcon { get; set; }
+    [Parameter] public bool ShowAiBadge { get; set; }
+    [Parameter] public EventCallback OnToggleMembers { get; set; }
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
+    [Parameter] public bool ShowChannelActions { get; set; } = true;
+}
+
+<header class="header">
+    <div class="title-wrap">
+        @if (TitleIcon is not null)
+        {
+            <span class="title-icon">@TitleIcon</span>
+        }
+        <div class="text">
+            <div class="title-row">
+                <h2 class="title">@Title</h2>
+                @if (ShowAiBadge)
+                {
+                    <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <div class="subtitle">@Subtitle</div>
+            }
+        </div>
+    </div>
+
+    <div class="actions">
+        <IconButton Title="Search"><Blazicon Svg="Lucide.Search" /></IconButton>
+        @if (ShowChannelActions)
+        {
+            <IconButton Title="Members" OnClick="OnToggleMembers"><Blazicon Svg="Lucide.Users" /></IconButton>
+            <IconButton Title="Channel settings" OnClick="OnOpenSettings"><Blazicon Svg="Lucide.Settings" /></IconButton>
+        }
+        <IconButton Title="More"><Blazicon Svg="Lucide.Ellipsis" /></IconButton>
+    </div>
+</header>

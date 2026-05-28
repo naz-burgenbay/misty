@@ -1,0 +1,24 @@
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MockMessage> Messages { get; set; } = Array.Empty<MockMessage>();
+    [Parameter] public bool ShowTyping { get; set; }
+    [Parameter] public string? TypingLabel { get; set; }
+}
+
+<div class="stream">
+    <div class="scroll">
+        <div class="day-divider"><span>Today</span></div>
+
+        @foreach (var msg in Messages)
+        {
+            <MessageRow Message="msg" />
+        }
+
+        @if (ShowTyping)
+        {
+            <div class="typing">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <span class="typing-label">@(TypingLabel ?? "Someone is typing…")</span>
+            </div>
+        }
+    </div>
+</div>

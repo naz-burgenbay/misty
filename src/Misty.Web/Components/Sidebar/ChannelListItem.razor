@@ -1,0 +1,27 @@
+@code {
+    [Parameter, EditorRequired] public MockChannel Channel { get; set; } = default!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public string Href { get; set; } = "#";
+}
+
+<a class="row @(Selected ? "selected" : "")" href="@Href">
+    <span class="icon">
+        @if (Channel.IsPrivate)
+        {
+            <Blazicon Svg="Lucide.Lock" />
+        }
+        else
+        {
+            <Blazicon Svg="Lucide.Hash" />
+        }
+    </span>
+    <span class="name">@Channel.Name</span>
+    @if (Channel.IsAiAssistantEnabled)
+    {
+        <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
+    }
+    @if (Channel.UnreadCount > 0)
+    {
+        <span class="unread">@Channel.UnreadCount</span>
+    }
+</a>

@@ -1,0 +1,49 @@
+@code {
+    [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
+
+    private MockUser Author => MockDataStore.GetUser(Message.AuthorId);
+    private bool IsMine => Message.AuthorId == MockDataStore.MeId;
+    private bool IsAi => Author.IsAi;
+
+    private MockMessage? Parent => Message.ParentMessageId is { } pid
+        ? MockDataStore.MessagesByConversation
+            .SelectMany(kv => kv.Value)
+            .FirstOrDefault(m => m.Id == pid)
+        : null;
+}
+
+<div class="row @(IsMine ? "mine" : "")">
+    <div class="avatar-col">
+        <Avatar Name="@Author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
+    </div>
+    <div class="body">
+        <div class="header">
+            <span class="name @(IsAi ? "ai" : "")">@Author.DisplayName</span>
+            @if (IsAi)
+            {
+                <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
+            }
+            <span class="time">@FormatTime(Message.CreatedAt)</span>
+            @if (Message.IsEdited)
+            {
+                <span class="edited">(edited)</span>
+            }
+        </div>
+
+        @if (Parent is not null)
+        {
+            <ReplyPreview Parent="Parent" />
+        }
+
+        <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
+
+        @if (Message.Reactions is { Count: > 0 })
+        {
+            <ReactionsRow Reactions="Message.Reactions" />
+        }
+    </div>
+</div>
+
+@code {
+    private static string FormatTime(DateTime at) => at.ToString("HH:mm");
+}

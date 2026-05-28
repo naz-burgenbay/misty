@@ -1,0 +1,26 @@
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+}
+
+<h1 class="heading">Welcome back</h1>
+<p class="sub">Sign in to your Misty account.</p>
+
+<div class="fields">
+    <div class="field">
+        <span class="lbl">Email</span>
+        <TextField Value="@_email" ValueChanged="@(v => _email = v ?? string.Empty)" Placeholder="you@example.com" Type="email" />
+    </div>
+    <div class="field">
+        <span class="lbl">Password</span>
+        <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="••••••••" Type="password" />
+    </div>
+</div>
+
+<Button Variant="Button.ButtonVariant.Primary">Sign in</Button>
+
+<div class="meta">
+    <a href="#">Forgot password?</a>
+    <span>·</span>
+    <a href="/register">Create account</a>
+</div>

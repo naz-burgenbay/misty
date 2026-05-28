@@ -1,0 +1,66 @@
+@page "/dm/{ConversationId:guid}"
+
+@code {
+    [Parameter] public Guid ConversationId { get; set; }
+
+    private MockDirectConversation? _dm;
+    private MockUser? _other;
+    private IReadOnlyList<MockMessage> _messages = Array.Empty<MockMessage>();
+
+    protected override void OnParametersSet()
+    {
+        _dm = MockDataStore.GetDirect(ConversationId);
+        _other = _dm is null ? null : MockDataStore.GetUser(_dm.OtherUserId);
+        _messages = MockDataStore.GetMessages(ConversationId);
+    }
+
+    private string Subtitle => _other switch
+    {
+        null => string.Empty,
+        { Presence: PresenceState.Online } => "Online",
+        { Presence: PresenceState.Away, LastSeenLabel: { } l } => l,
+        { LastSeenLabel: { } l } => l,
+        _ => "Offline",
+    };
+}
+
+@if (_dm is null || _other is null)
+{
+    <div class="missing">Conversation not found.</div>
+}
+else
+{
+    <div class="page">
+        <div class="main">
+            <ConversationHeader Title="@_other.DisplayName"
+                                Subtitle="@Subtitle"
+                                ShowChannelActions="false">
+                <TitleIcon>
+                    <Avatar Name="@_other.DisplayName"
+                            Online="@(_other.Presence == PresenceState.Online)"
+                            Size="Avatar.AvatarSize.Small" />
+                </TitleIcon>
+            </ConversationHeader>
+
+            @if (_dm.IsBlocked)
+            {
+                <div class="blocked-stream">
+                    <div class="blocked-card">
+                        <Blazicon Svg="Lucide.UserX" />
+                        <h3>You blocked @_other.DisplayName</h3>
+                        <p>You won't see their messages and they can't message you.</p>
+                        <Button Variant="Button.ButtonVariant.Ghost">Unblock</Button>
+                    </div>
+                </div>
+                <MessageComposer Disabled="true"
+                                 Placeholder="Unblock to send a message" />
+            }
+            else
+            {
+                <MessageStream Messages="_messages" />
+                <MessageComposer Placeholder="@($"Message {_other.DisplayName}")"
+                                 OnSend="@(_ => Task.CompletedTask)" />
+            }
+        </div>
+    </div>
+}
