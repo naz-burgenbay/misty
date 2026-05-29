@@ -1,4 +1,5 @@
 @inject NavigationManager Nav
+@inject IAuthService Auth
 @implements IDisposable
 
 <nav class="rail">
@@ -27,7 +28,7 @@
         </a>
     </div>
 
-    <Avatar Name="@MockDataStore.Me.DisplayName" Size="Avatar.AvatarSize.Medium" />
+    <Avatar Name="@(Auth.CurrentUser?.DisplayName ?? "Guest")" Size="Avatar.AvatarSize.Medium" />
 </nav>
 
 @code {

@@ -17,7 +17,7 @@ public interface IAuthService
 
 public sealed class StubAuthService : IAuthService
 {
-    private MockUser? _user = MockDataStore.Me;
+    private MockUser? _user;
     public MockUser? CurrentUser => _user;
     public bool IsAuthenticated => _user is not null;
 
@@ -30,14 +30,14 @@ public sealed class StubAuthService : IAuthService
 
     public Task SignInAsync(string usernameOrEmail, string password, CancellationToken ct = default)
     {
-        _user = MockDataStore.Me;
+        _user = new MockUser(Guid.NewGuid(), usernameOrEmail, usernameOrEmail);
         AuthStateChanged?.Invoke();
         return Task.CompletedTask;
     }
 
     public Task RegisterAsync(string displayName, string username, string email, string password, CancellationToken ct = default)
     {
-        _user = MockDataStore.Me;
+        _user = new MockUser(Guid.NewGuid(), displayName, username);
         AuthStateChanged?.Invoke();
         return Task.CompletedTask;
     }

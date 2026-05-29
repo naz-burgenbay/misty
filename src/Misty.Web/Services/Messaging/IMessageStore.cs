@@ -11,7 +11,7 @@ namespace Misty.Web.Services.Messaging;
 
 // Per-conversation observable message list. Optimistic insert produces a local message with a client-generated idempotency key; when the SignalR MessageCreated event arrives (or the 201 response with the persisted Id), the optimistic entry is replaced atomically using the key (SignalR-vs-201 dedup as described in the design system).
 //
-// Ids must be registered as either a channel (via EnsureChannelLoadedAsync) or a direct conversation (via EnsureConversationLoadedAsync) before the store can talk to the API on their behalf. Unregistered ids fall through to the legacy mock data so dev-only screens (e.g. the gallery) keep rendering.
+// Ids must be registered as either a channel (via EnsureChannelLoadedAsync) or a direct conversation (via EnsureConversationLoadedAsync) before the store can talk to the API on their behalf.
 public interface IMessageStore
 {
     Observable<IReadOnlyList<MockMessage>> GetConversation(Guid conversationId);
@@ -35,7 +35,7 @@ public sealed class StubMessageStore : IMessageStore
     {
         if (!_byConversation.TryGetValue(conversationId, out var obs))
         {
-            obs = new Observable<IReadOnlyList<MockMessage>>(MockDataStore.GetMessages(conversationId));
+            obs = new Observable<IReadOnlyList<MockMessage>>(Array.Empty<MockMessage>());
             _byConversation[conversationId] = obs;
         }
         return obs;
@@ -50,7 +50,7 @@ public sealed class StubMessageStore : IMessageStore
         CancellationToken ct = default)
     {
         var obs = GetConversation(conversationId);
-        var optimistic = new MockMessage(Guid.NewGuid(), MockDataStore.MeId, content,
+        var optimistic = new MockMessage(Guid.NewGuid(), Guid.Empty, content,
             DateTime.UtcNow, ParentMessageId: parentMessageId);
         obs.Set(obs.Value.Append(optimistic).ToList());
         return Task.FromResult<Guid?>(optimistic.Id);
@@ -96,11 +96,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
     {
         if (!_byConversation.TryGetValue(conversationId, out var obs))
         {
-            // For unregistered ids fall back to mock data so dev-only screens (gallery, etc.) keep rendering.
-            var seed = _topics.ContainsKey(conversationId)
-                ? (IReadOnlyList<MockMessage>)Array.Empty<MockMessage>()
-                : MockDataStore.GetMessages(conversationId);
-            obs = new Observable<IReadOnlyList<MockMessage>>(seed);
+            obs = new Observable<IReadOnlyList<MockMessage>>(Array.Empty<MockMessage>());
             _byConversation[conversationId] = obs;
         }
         return obs;
@@ -173,15 +169,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
     public async Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default)
     {
-        // Unregistered ids keep the mock optimistic behaviour (dev-only gallery screens etc.).
         if (!_topics.TryGetValue(conversationId, out var topic))
-        {
-            var obs2 = GetConversation(conversationId);
-            var optimistic2 = new MockMessage(Guid.NewGuid(), MockDataStore.MeId, content,
-                DateTime.UtcNow, ParentMessageId: parentMessageId);
-            obs2.Set(obs2.Value.Append(optimistic2).ToList());
-            return optimistic2.Id;
-        }
+            throw new InvalidOperationException($"Conversation {conversationId} must be loaded before sending.");
 
         var meId = _auth.CurrentUser?.Id ?? Guid.Empty;
         var idempotencyKey = Guid.NewGuid().ToString("N");

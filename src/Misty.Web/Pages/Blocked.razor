@@ -3,7 +3,7 @@
 <PageTitle>Blocked users | Misty</PageTitle>
 
 @code {
-    private IReadOnlyList<MockUser> BlockedUsers => new[] { MockDataStore.GetUser(MockDataStore.BlockedUserId) };
+    private IReadOnlyList<MockUser> BlockedUsers { get; } = Array.Empty<MockUser>();
 }
 
 <div class="page">

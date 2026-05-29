@@ -1,10 +1,12 @@
+@inject IUserDirectory Users
+
 @code {
     [Parameter, EditorRequired] public MockChannel Channel { get; set; } = default!;
 
     private IEnumerable<IGrouping<MemberRoleKind, MockMembership>> Groups =>
         Channel.Members
             .OrderBy(m => m.Role)
-            .ThenBy(m => MockDataStore.GetUser(m.UserId).DisplayName)
+            .ThenBy(m => Users.Get(m.UserId).DisplayName)
             .GroupBy(m => m.Role);
 
     private static string GroupLabel(MemberRoleKind role) => role switch
@@ -23,7 +25,7 @@
             <h3 class="group-title">@GroupLabel(group.Key) · @group.Count()</h3>
             @foreach (var membership in group)
             {
-                var user = MockDataStore.GetUser(membership.UserId);
+                var user = Users.Get(membership.UserId);
                 <div class="member">
                     <Avatar Name="@user.DisplayName"
                             IsAi="@user.IsAi"

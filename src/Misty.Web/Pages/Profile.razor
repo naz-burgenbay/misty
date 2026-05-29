@@ -4,16 +4,16 @@
 <PageTitle>Profile | Misty</PageTitle>
 
 @code {
-    private MockUser Me => Auth.CurrentUser ?? MockDataStore.Me;
+    private MockUser? Me => Auth.CurrentUser;
     private string _displayName = string.Empty;
     private string _username = string.Empty;
     private string _bio = string.Empty;
 
     protected override void OnInitialized()
     {
-        _displayName = Me.DisplayName;
-        _username = Me.Username;
-        _bio = Me.Bio ?? string.Empty;
+        _displayName = Me?.DisplayName ?? string.Empty;
+        _username = Me?.Username ?? string.Empty;
+        _bio = Me?.Bio ?? string.Empty;
     }
 }
 

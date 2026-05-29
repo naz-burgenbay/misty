@@ -1,5 +1,4 @@
 using Misty.Web.Services.Common;
-using Misty.Web.Services.MockData;
 
 namespace Misty.Web.Services.Permissions;
 
@@ -50,36 +49,5 @@ public sealed class StubPermissionsCache : IPermissionsCache
             obs.Set(Resolve(channelId));
     }
 
-    private static ChannelPermissionFlags Resolve(Guid channelId)
-    {
-        var channel = MockDataStore.GetChannel(channelId);
-        if (channel is null) return ChannelPermissionFlags.None;
-
-        var membership = channel.Members.FirstOrDefault(m => m.UserId == MockDataStore.MeId);
-        if (membership is null) return ChannelPermissionFlags.None;
-
-        var flags = ChannelPermissionFlags.SendMessages;
-        if (membership.Role == MemberRoleKind.Owner)
-        {
-            flags |= ChannelPermissionFlags.ManageMessages
-                  |  ChannelPermissionFlags.ManageMembers
-                  |  ChannelPermissionFlags.ManageRoles
-                  |  ChannelPermissionFlags.ManageChannel
-                  |  ChannelPermissionFlags.ModerateMembers;
-        }
-        else if (membership.Role == MemberRoleKind.Admin)
-        {
-            flags |= ChannelPermissionFlags.ManageMessages
-                  |  ChannelPermissionFlags.ManageMembers
-                  |  ChannelPermissionFlags.ModerateMembers;
-        }
-
-        if (membership.Moderation == ModerationKind.Banned ||
-            membership.Moderation == ModerationKind.Muted)
-        {
-            flags &= ~ChannelPermissionFlags.SendMessages;
-        }
-
-        return flags;
-    }
+    private static ChannelPermissionFlags Resolve(Guid channelId) => ChannelPermissionFlags.None;
 }
