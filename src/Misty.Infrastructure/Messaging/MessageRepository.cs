@@ -97,12 +97,46 @@ public sealed class MessageRepository : IMessageRepository
     public async Task UpdateAsync(Message message, CancellationToken ct = default)
     {
         _db.Messages.Update(message);
+
+        // Emit an outbox event so connected clients see edits/tombstones in real time.
+        // A tombstone (soft-delete with replies) flows through UpdateAsync too. Distinguished by IsDeleted.
+        if (message.IsDeleted)
+        {
+            var payload = JsonSerializer.Serialize(new MessageDeletedPayload(
+                message.Id,
+                message.ChannelId,
+                message.ConversationId,
+                IsTombstone: true));
+            await _db.OutboxMessages.AddAsync(
+                OutboxMessage.Create(message.Id, "message-events", "MessageDeleted", payload), ct);
+        }
+        else
+        {
+            var payload = JsonSerializer.Serialize(new MessageEditedPayload(
+                message.Id,
+                message.ChannelId,
+                message.ConversationId,
+                message.Content,
+                message.EditedAt ?? DateTime.UtcNow));
+            await _db.OutboxMessages.AddAsync(
+                OutboxMessage.Create(message.Id, "message-events", "MessageEdited", payload), ct);
+        }
+
         await _db.SaveChangesAsync(ct);
     }
 
     public async Task DeleteAsync(Message message, CancellationToken ct = default)
     {
         _db.Messages.Remove(message);
+
+        var payload = JsonSerializer.Serialize(new MessageDeletedPayload(
+            message.Id,
+            message.ChannelId,
+            message.ConversationId,
+            IsTombstone: false));
+        await _db.OutboxMessages.AddAsync(
+            OutboxMessage.Create(message.Id, "message-events", "MessageDeleted", payload), ct);
+
         await _db.SaveChangesAsync(ct);
     }
 }
@@ -120,5 +154,24 @@ public sealed record MessageCreatedPayload(
 {
     // Discriminator included in the JSON envelope for forward-compatible polymorphic deserialization.
     public string EventType { get; init; } = "MessageCreated";
+}
+
+public sealed record MessageEditedPayload(
+    Guid MessageId,
+    Guid? ChannelId,
+    Guid? ConversationId,
+    string Content,
+    DateTime EditedAt)
+{
+    public string EventType { get; init; } = "MessageEdited";
+}
+
+public sealed record MessageDeletedPayload(
+    Guid MessageId,
+    Guid? ChannelId,
+    Guid? ConversationId,
+    bool IsTombstone)
+{
+    public string EventType { get; init; } = "MessageDeleted";
 }
 

@@ -61,6 +61,12 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
                 case "MessageCreated":
                     await HandleMessageCreatedAsync(args);
                     break;
+                case "MessageEdited":
+                    await HandleMessageEditedAsync(args);
+                    break;
+                case "MessageDeleted":
+                    await HandleMessageDeletedAsync(args);
+                    break;
                 case "ReactionChanged":
                     await HandleReactionChangedAsync(args);
                     break;
@@ -98,6 +104,50 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
 
         await args.CompleteMessageAsync(args.Message);
         _logger.LogDebug("Delivered MessageCreated {MessageId} via SignalR", payload.MessageId);
+    }
+
+    private async Task HandleMessageEditedAsync(ProcessMessageEventArgs args)
+    {
+        var payload = JsonSerializer.Deserialize<MessageEditedPayload>(args.Message.Body.ToString());
+        if (payload is null)
+        {
+            await args.DeadLetterMessageAsync(args.Message, "NullPayload", "Deserialization returned null");
+            return;
+        }
+
+        if (payload.ChannelId.HasValue)
+            await _hub.Clients
+                .Group($"channel:{payload.ChannelId}")
+                .SendAsync("MessageEdited", payload, args.CancellationToken);
+        else if (payload.ConversationId.HasValue)
+            await _hub.Clients
+                .Group($"conversation:{payload.ConversationId}")
+                .SendAsync("MessageEdited", payload, args.CancellationToken);
+
+        await args.CompleteMessageAsync(args.Message);
+        _logger.LogDebug("Delivered MessageEdited {MessageId} via SignalR", payload.MessageId);
+    }
+
+    private async Task HandleMessageDeletedAsync(ProcessMessageEventArgs args)
+    {
+        var payload = JsonSerializer.Deserialize<MessageDeletedPayload>(args.Message.Body.ToString());
+        if (payload is null)
+        {
+            await args.DeadLetterMessageAsync(args.Message, "NullPayload", "Deserialization returned null");
+            return;
+        }
+
+        if (payload.ChannelId.HasValue)
+            await _hub.Clients
+                .Group($"channel:{payload.ChannelId}")
+                .SendAsync("MessageDeleted", payload, args.CancellationToken);
+        else if (payload.ConversationId.HasValue)
+            await _hub.Clients
+                .Group($"conversation:{payload.ConversationId}")
+                .SendAsync("MessageDeleted", payload, args.CancellationToken);
+
+        await args.CompleteMessageAsync(args.Message);
+        _logger.LogDebug("Delivered MessageDeleted {MessageId} via SignalR", payload.MessageId);
     }
 
     private async Task HandleReactionChangedAsync(ProcessMessageEventArgs args)

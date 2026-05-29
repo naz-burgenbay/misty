@@ -17,6 +17,9 @@ public sealed class MistyHub : Hub
     {
         var userId = Guid.Parse(Context.User!.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
 
+        // Per-user group used to fan out events that target a specific user across all their tabs/devices (membership, role, and moderation events).
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+
         var channelIds = await _db.Memberships
             .Where(m => m.UserId == userId)
             .Select(m => m.ChannelId)
