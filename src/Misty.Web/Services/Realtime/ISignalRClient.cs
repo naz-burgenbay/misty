@@ -26,6 +26,9 @@ public interface ISignalRClient
     Task StartAsync(CancellationToken ct = default);
     Task StopAsync(CancellationToken ct = default);
 
+    // Fires after the connection comes back up following any disconnect (initial connect doesn't fire). MessageStore subscribes in Step 5.3 to refetch missed messages via the cursor API.
+    event Action? Reconnected;
+
     IDisposable OnMessageCreated(Action<MessageCreatedEvent> handler);
     IDisposable OnMessageEdited(Action<MessageEditedEvent> handler);
     IDisposable OnMessageDeleted(Action<MessageDeletedEvent> handler);
@@ -41,6 +44,8 @@ public sealed class StubSignalRClient : ISignalRClient
 
     public Task StartAsync(CancellationToken ct = default) { State.Set(HubConnectionState.Connected); return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct = default)  { State.Set(HubConnectionState.Disconnected); return Task.CompletedTask; }
+
+    public event Action? Reconnected { add { } remove { } }
 
     public IDisposable OnMessageCreated(Action<MessageCreatedEvent> handler)            => NoopSub.Instance;
     public IDisposable OnMessageEdited(Action<MessageEditedEvent> handler)              => NoopSub.Instance;

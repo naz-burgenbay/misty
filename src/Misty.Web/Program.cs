@@ -34,7 +34,10 @@ builder.Services.AddScoped(sp =>
 });
 
 // Client-side service skeletons. All are Scoped, which in Blazor WASM behaves as singleton-within-a-session, the right lifetime for per-tab state (auth, hub, observable stores) that must reset on sign-out by replacing the root scope, not by manual cleanup inside the service.
-builder.Services.AddScoped<ISignalRClient, StubSignalRClient>();
+builder.Services.AddScoped<ISignalRClient>(sp => new HubSignalRClient(
+    sp.GetRequiredService<IAuthService>(),
+    new Uri(new Uri(apiBaseUrl), "hubs/realtime").ToString(),
+    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSignalRClient>>()));
 builder.Services.AddScoped<IMessageStore, StubMessageStore>();
 builder.Services.AddScoped<IPresenceService, StubPresenceService>();
 builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
@@ -44,6 +47,18 @@ builder.Services.AddScoped<IModalService, StubModalService>();
 var host = builder.Build();
 
 // Restore session from the refresh token in localStorage before the root component renders, so the initial route resolves with the right auth state.
-await host.Services.GetRequiredService<IAuthService>().InitializeAsync();
+var auth = host.Services.GetRequiredService<IAuthService>();
+await auth.InitializeAsync();
+
+// Drive the SignalR connection from auth state. The hub uses an access-token provider that pulls (and refreshes) from IAuthService on every (re)connect, so the connection survives token expiry across long offline windows.
+var hub = host.Services.GetRequiredService<ISignalRClient>();
+if (auth.IsAuthenticated)
+    _ = hub.StartAsync();
+
+auth.AuthStateChanged += () =>
+{
+    if (auth.IsAuthenticated) _ = hub.StartAsync();
+    else _ = hub.StopAsync();
+};
 
 await host.RunAsync();
