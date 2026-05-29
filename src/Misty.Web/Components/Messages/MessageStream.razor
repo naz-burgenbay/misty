@@ -6,6 +6,7 @@
     [Parameter] public bool HasMoreOlder { get; set; }
     [Parameter] public bool LoadingOlder { get; set; }
     [Parameter] public EventCallback OnLoadOlder { get; set; }
+    [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
 
     private ElementReference _scrollEl;
     private DotNetObjectReference<MessageStream>? _selfRef;
@@ -62,7 +63,7 @@
 
         @foreach (var msg in Messages)
         {
-            <MessageRow Message="msg" />
+            <MessageRow Message="msg" OnReply="OnReply" />
         }
     </div>
 </div>

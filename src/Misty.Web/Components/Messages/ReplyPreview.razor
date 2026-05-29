@@ -1,14 +1,38 @@
-@code {
-    [Parameter, EditorRequired] public MockMessage Parent { get; set; } = default!;
+@inject IUserDirectory Users
+@implements IDisposable
 
-    private MockUser Author => MockDataStore.GetUser(Parent.AuthorId);
-    private string Preview =>
-        Parent.IsTombstone ? "message deleted"
+@code {
+    [Parameter, EditorRequired] public MockParentPreview Parent { get; set; } = default!;
+
+    private UserSummary _author = default!;
+    private Guid _watched;
+
+    private string PreviewText =>
+        Parent.IsDeleted ? "[message deleted]"
             : Parent.Content.Length > 80 ? Parent.Content[..80] + "…" : Parent.Content;
+
+    protected override void OnInitialized() => Users.Updated += OnUserUpdated;
+
+    protected override void OnParametersSet()
+    {
+        _watched = Parent.AuthorId;
+        _author = Users.Get(_watched);
+        _ = Users.EnsureAsync(_watched);
+    }
+
+    private void OnUserUpdated(Guid id)
+    {
+        if (id != _watched) return;
+        _author = Users.Get(_watched);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Users.Updated -= OnUserUpdated;
 }
 
-<div class="reply @(Parent.IsTombstone ? "tombstone" : "")">
+<div class="reply @(Parent.IsDeleted ? "tombstone" : "")">
     <span class="arrow"><Blazicon Svg="Lucide.CornerUpLeft" /></span>
-    <span class="author">@Author.DisplayName</span>
-    <span class="preview">@Preview</span>
+    <span class="author">@_author.DisplayName</span>
+    <span class="preview">@PreviewText</span>
 </div>
+

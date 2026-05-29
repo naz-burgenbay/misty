@@ -4,12 +4,14 @@
 
 @code {
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
+    [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
 
     private UserSummary _author = default!;
     private Guid _watchedAuthor;
 
     private bool IsMine => Message.AuthorId == Auth.CurrentUser?.Id;
     private bool IsAi => _author.IsAi;
+    private bool IsTombstone => Message.IsTombstone;
 
     protected override void OnInitialized() => Users.Updated += OnUserUpdated;
 
@@ -27,10 +29,13 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private Task ReplyClicked()
+        => OnReply.HasDelegate ? OnReply.InvokeAsync(Message) : Task.CompletedTask;
+
     public void Dispose() => Users.Updated -= OnUserUpdated;
 }
 
-<div class="row @(IsMine ? "mine" : "")">
+<div class="row @(IsMine ? "mine" : "") @(IsTombstone ? "tombstone" : "")">
     <div class="avatar-col">
         <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
     </div>
@@ -42,19 +47,33 @@
                 <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
             }
             <span class="time">@FormatTime(Message.CreatedAt)</span>
-            @if (Message.IsEdited)
+            @if (Message.IsEdited && !IsTombstone)
             {
                 <span class="edited">(edited)</span>
             }
         </div>
 
+        @if (Message.ParentPreview is { } parent && !IsTombstone)
+        {
+            <ReplyPreview Parent="parent" />
+        }
+
         <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
 
-        @if (Message.Reactions is { Count: > 0 })
+        @if (!IsTombstone && Message.Reactions is { Count: > 0 })
         {
             <ReactionsRow Reactions="Message.Reactions" />
         }
     </div>
+
+    @if (!IsTombstone)
+    {
+        <div class="actions">
+            <IconButton Title="Reply" OnClick="ReplyClicked">
+                <Blazicon Svg="Lucide.CornerUpLeft" />
+            </IconButton>
+        </div>
+    }
 </div>
 
 @code {

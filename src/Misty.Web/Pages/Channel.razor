@@ -141,7 +141,8 @@ else
             <MessageStream Messages="_messages"
                            HasMoreOlder="@MessageStore.HasMoreOlder(ChannelId)"
                            LoadingOlder="_loadingOlder"
-                           OnLoadOlder="LoadOlderAsync" />
+                           OnLoadOlder="LoadOlderAsync"
+                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))" />
 
             <MessageComposer Placeholder="@($"Message #{_channel.Name}")"
                              ReplyingTo="_replyingTo"

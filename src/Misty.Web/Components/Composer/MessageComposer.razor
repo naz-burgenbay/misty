@@ -1,3 +1,5 @@
+@inject IUserDirectory Users
+
 @code {
     [Parameter] public string Placeholder { get; set; } = "Write a message…";
     [Parameter] public MockMessage? ReplyingTo { get; set; }
@@ -6,6 +8,21 @@
     [Parameter] public bool Disabled { get; set; }
 
     private string _draft = string.Empty;
+
+    private string ReplyAuthorName
+    {
+        get
+        {
+            if (ReplyingTo is null) return string.Empty;
+            _ = Users.EnsureAsync(ReplyingTo.AuthorId);
+            return Users.Get(ReplyingTo.AuthorId).DisplayName;
+        }
+    }
+
+    private string ReplyPreviewText =>
+        ReplyingTo is null ? string.Empty
+        : ReplyingTo.IsTombstone ? "[message deleted]"
+        : ReplyingTo.Content;
 
     private async Task Send()
     {
@@ -30,8 +47,8 @@
     {
         <div class="reply-chip">
             <span class="reply-icon"><Blazicon Svg="Lucide.CornerUpLeft" /></span>
-            <span class="reply-author">Replying to @MockDataStore.GetUser(ReplyingTo.AuthorId).DisplayName</span>
-            <span class="reply-preview">@(ReplyingTo.IsTombstone ? "message deleted" : ReplyingTo.Content)</span>
+            <span class="reply-author">Replying to @ReplyAuthorName</span>
+            <span class="reply-preview">@ReplyPreviewText</span>
             <IconButton Title="Cancel reply" OnClick="OnClearReply"><Blazicon Svg="Lucide.X" /></IconButton>
         </div>
     }

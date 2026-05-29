@@ -169,9 +169,16 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         var idempotencyKey = Guid.NewGuid().ToString("N");
         var optimisticId = Guid.NewGuid();
 
-        var optimistic = new MockMessage(optimisticId, meId, content, DateTime.UtcNow,
-            ParentMessageId: parentMessageId);
         var obs = GetConversation(conversationId);
+        var parentPreview = parentMessageId is { } pid
+            ? obs.Value.Where(m => m.Id == pid).Select(m => new MockParentPreview(
+                m.Id, m.AuthorId,
+                m.IsTombstone ? string.Empty : m.Content,
+                m.IsTombstone)).FirstOrDefault()
+            : null;
+
+        var optimistic = new MockMessage(optimisticId, meId, content, DateTime.UtcNow,
+            ParentMessageId: parentMessageId, ParentPreview: parentPreview);
         obs.Set(obs.Value.Append(optimistic).ToList());
         TrackPending(conversationId, idempotencyKey, optimisticId);
 
@@ -216,8 +223,22 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         // Echo of a message we just sent: the optimistic row was already swapped to the real Id by the 201 path; skip.
         if (existing.Any(m => m.Id == evt.MessageId)) return;
 
+        // SignalR payload doesn't carry the parent preview; backfill from the loaded window when possible.
+        MockParentPreview? preview = null;
+        if (evt.ParentMessageId is { } parentId)
+        {
+            var parent = existing.FirstOrDefault(m => m.Id == parentId);
+            if (parent is not null)
+            {
+                preview = new MockParentPreview(
+                    parent.Id, parent.AuthorId,
+                    parent.IsTombstone ? string.Empty : parent.Content,
+                    parent.IsTombstone);
+            }
+        }
+
         var msg = new MockMessage(evt.MessageId, evt.AuthorId, evt.Content, evt.CreatedAt,
-            ParentMessageId: evt.ParentMessageId);
+            ParentMessageId: evt.ParentMessageId, ParentPreview: preview);
         var next = new List<MockMessage>(existing.Count + 1);
         next.AddRange(existing);
         next.Add(msg);
@@ -315,7 +336,10 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             m.CreatedAt,
             IsTombstone: m.IsDeleted,
             IsEdited: m.EditedAt is not null,
-            ParentMessageId: m.ParentMessageId);
+            ParentMessageId: m.ParentMessageId,
+            ParentPreview: m.ParentPreview is { } p
+                ? new MockParentPreview(p.Id, p.AuthorId, p.IsDeleted ? string.Empty : p.Content, p.IsDeleted)
+                : null);
 
     public void Dispose()
     {

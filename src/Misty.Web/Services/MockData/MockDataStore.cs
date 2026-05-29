@@ -15,6 +15,12 @@ public sealed record MockUser(
 
 public sealed record MockReaction(string Emoji, int Count, bool ReactedByMe);
 
+public sealed record MockParentPreview(
+    Guid Id,
+    Guid AuthorId,
+    string Content,
+    bool IsDeleted);
+
 public sealed record MockMessage(
     Guid Id,
     Guid AuthorId,
@@ -23,6 +29,7 @@ public sealed record MockMessage(
     bool IsTombstone = false,
     bool IsEdited = false,
     Guid? ParentMessageId = null,
+    MockParentPreview? ParentPreview = null,
     IReadOnlyList<MockReaction>? Reactions = null);
 
 public sealed record MockMembership(

@@ -2,10 +2,34 @@
     display: flex;
     gap: var(--sp-3);
     padding: var(--sp-1) 0;
+    position: relative;
 }
 
 .row.mine {
     flex-direction: row-reverse;
+}
+
+.row.tombstone {
+    opacity: 0.65;
+}
+
+.actions {
+    position: absolute;
+    top: var(--sp-1);
+    right: var(--sp-2);
+    display: none;
+    background: var(--color-surface-raised, transparent);
+    border-radius: var(--radius-md, 6px);
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+    display: flex;
+}
+
+.row.mine .actions {
+    right: auto;
+    left: var(--sp-2);
 }
 
 .avatar-col {
