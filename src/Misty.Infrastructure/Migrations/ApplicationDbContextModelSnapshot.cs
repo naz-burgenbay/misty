@@ -185,6 +185,11 @@ namespace Misty.Infrastructure.Migrations
                     b.Property<Guid>("IssuedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("datetime2");
 
@@ -452,6 +457,11 @@ namespace Misty.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -472,6 +482,10 @@ namespace Misty.Infrastructure.Migrations
                         .HasColumnType("rowversion");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_User_Email");
 
                     b.HasIndex("Username")
                         .IsUnique()

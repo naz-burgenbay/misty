@@ -10,6 +10,7 @@ public record UpdateUserCommand(Guid UserId, string DisplayName, string? Bio, st
 public record UpdateUserResponse(
     Guid UserId,
     string Username,
+    string Email,
     string DisplayName,
     string? Bio,
     string? AvatarUrl,
@@ -40,6 +41,7 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
         return new UpdateUserResponse(
             user.Id,
             user.Username,
+            user.Email,
             user.DisplayName,
             user.Bio,
             user.AvatarUrl,

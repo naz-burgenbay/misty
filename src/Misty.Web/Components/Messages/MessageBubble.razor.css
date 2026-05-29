@@ -1,0 +1,71 @@
+.bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 8px 12px;
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    line-height: var(--lh-message);
+    color: var(--color-text-primary);
+    max-width: 70ch;
+    word-wrap: break-word;
+}
+
+.bubble.received {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-bubble-received);
+}
+
+.bubble.mine {
+    background: var(--color-accent-bubble);
+    color: var(--color-bubble-sent-text);
+    border-radius: var(--radius-bubble-sent);
+}
+
+.bubble.ai {
+    background: var(--color-ai-tint);
+    color: var(--color-bubble-ai-text);
+    border-radius: var(--radius-bubble-received);
+    border: 1px solid transparent;
+}
+
+.bubble.tombstone {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    font-style: italic;
+}
+
+.bubble.sending {
+    opacity: 0.65;
+}
+
+.bubble.failed {
+    border-color: var(--color-status-danger);
+    background: var(--color-status-danger-bg);
+    color: var(--color-status-danger-text);
+}
+
+.content {
+    white-space: pre-wrap;
+}
+
+.state-icon {
+    display: inline-flex;
+    align-items: center;
+    color: inherit;
+    opacity: 0.7;
+}
+
+.state-icon.retry {
+    cursor: pointer;
+    opacity: 1;
+}
+
+.state-icon ::deep svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 1.75;
+}

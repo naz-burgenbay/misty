@@ -1,0 +1,11 @@
+@* Skeleton block *@
+
+@code {
+    [Parameter] public string Width { get; set; } = "100%";
+    [Parameter] public string Height { get; set; } = "12px";
+    [Parameter] public string Radius { get; set; } = "6px";
+}
+
+<span class="shimmer"
+      style="width:@Width;height:@Height;border-radius:@Radius"
+      aria-hidden="true"></span>

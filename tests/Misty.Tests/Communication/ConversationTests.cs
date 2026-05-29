@@ -43,6 +43,7 @@ public sealed class ConversationTests : IAsyncLifetime
         var regResp = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             DisplayName = $"{username} Display",
             Password = "Str0ngPass!",
         });
@@ -53,6 +54,7 @@ public sealed class ConversationTests : IAsyncLifetime
         var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             Password = "Str0ngPass!",
         });
         var loginBody = await loginResp.Content.ReadFromJsonAsync<JsonElement>();

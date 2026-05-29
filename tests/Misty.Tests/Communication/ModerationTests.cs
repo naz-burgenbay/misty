@@ -46,6 +46,7 @@ public sealed class ModerationTests : IAsyncLifetime
         var regResp = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             DisplayName = $"{username} Display",
             Password = "Str0ngPass!",
         });
@@ -56,6 +57,7 @@ public sealed class ModerationTests : IAsyncLifetime
         var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             Password = "Str0ngPass!",
         });
         var loginBody = await loginResp.Content.ReadFromJsonAsync<JsonElement>();
@@ -86,12 +88,12 @@ public sealed class ModerationTests : IAsyncLifetime
 
     private async Task<(HttpResponseMessage Response, Guid ActionId)> ApplyModerationAsync(
         string issuerToken, Guid channelId, Guid targetUserId,
-        ModerationActionType type, DateTime? expiresAt = null)
+        ModerationActionType type, DateTime? expiresAt = null, string reason = "test reason")
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issuerToken);
         var resp = await _client.PostAsJsonAsync(
             $"/api/v1/channels/{channelId}/members/{targetUserId}/moderation",
-            new { Type = (int)type, ExpiresAt = expiresAt });
+            new { Type = (int)type, Reason = reason, ExpiresAt = expiresAt });
 
         if (resp.IsSuccessStatusCode)
         {

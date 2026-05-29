@@ -9,6 +9,7 @@ public class ModerationAction
     public Guid TargetUserId { get; private set; }
     public Guid IssuedByUserId { get; private set; }
     public ModerationActionType Type { get; private set; }
+    public string Reason { get; private set; } = null!;
     public DateTime? ExpiresAt { get; private set; }
     public DateTime? RevokedAt { get; private set; }
     public bool IsDeleted { get; private set; }
@@ -19,6 +20,7 @@ public class ModerationAction
         Guid targetUserId,
         Guid issuedByUserId,
         ModerationActionType type,
+        string reason,
         DateTime? expiresAt = null)
         => new()
         {
@@ -27,6 +29,7 @@ public class ModerationAction
             TargetUserId = targetUserId,
             IssuedByUserId = issuedByUserId,
             Type = type,
+            Reason = reason,
             ExpiresAt = expiresAt,
         };
 

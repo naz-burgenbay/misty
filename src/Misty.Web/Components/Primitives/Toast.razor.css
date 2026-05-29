@@ -1,0 +1,28 @@
+.toast {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    padding: var(--sp-3) var(--sp-4);
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    cursor: pointer;
+    box-shadow: var(--shadow-overlay);
+}
+
+.toast.warn {
+    border-color: var(--color-status-warn);
+    color: var(--color-status-warn-text);
+}
+
+.toast.danger {
+    border-color: var(--color-status-danger);
+    color: var(--color-status-danger-text);
+}
+
+.message {
+    line-height: var(--lh-ui);
+}

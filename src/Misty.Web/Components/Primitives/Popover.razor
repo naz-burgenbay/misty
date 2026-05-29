@@ -1,0 +1,26 @@
+@* Anchored floating panel. Consumer wraps Popover and anchor in a `position: relative` container; placement positions the panel relative to it. *@
+
+@code {
+    public enum PopoverPlacement { BottomLeft, BottomRight, TopLeft, TopRight }
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public PopoverPlacement Placement { get; set; } = PopoverPlacement.BottomLeft;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string PlacementClass => Placement switch
+    {
+        PopoverPlacement.BottomLeft  => "bottom-left",
+        PopoverPlacement.BottomRight => "bottom-right",
+        PopoverPlacement.TopLeft     => "top-left",
+        PopoverPlacement.TopRight    => "top-right",
+        _                            => "bottom-left",
+    };
+}
+
+@if (Open)
+{
+    <div class="popover @PlacementClass" role="dialog">
+        @ChildContent
+    </div>
+}

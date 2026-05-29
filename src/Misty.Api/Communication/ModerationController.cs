@@ -28,7 +28,7 @@ public sealed class ModerationController : ControllerBase
     {
         var issuedBy = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         var response = await _mediator.Send(
-            new ApplyModerationActionCommand(channelId, userId, issuedBy, body.Type, body.ExpiresAt), ct);
+            new ApplyModerationActionCommand(channelId, userId, issuedBy, body.Type, body.Reason, body.ExpiresAt), ct);
         return CreatedAtAction(nameof(GetActive), new { channelId, userId }, response);
     }
 
@@ -51,4 +51,4 @@ public sealed class ModerationController : ControllerBase
     }
 }
 
-public record ApplyModerationActionRequest(ModerationActionType Type, DateTime? ExpiresAt);
+public record ApplyModerationActionRequest(ModerationActionType Type, string Reason, DateTime? ExpiresAt);

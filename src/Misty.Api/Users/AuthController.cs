@@ -21,7 +21,7 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Register(RegisterUserRequest request, CancellationToken ct)
     {
         var response = await _mediator.Send(
-            new RegisterUserCommand(request.Username, request.DisplayName, request.Password),
+            new RegisterUserCommand(request.Username, request.Email, request.DisplayName, request.Password),
             ct);
 
         return Created($"/api/v1/users/{response.UserId}", new { userId = response.UserId });
@@ -47,7 +47,10 @@ public sealed class AuthController : ControllerBase
     {
         var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
         var username = User.FindFirst(JwtRegisteredClaimNames.PreferredUsername)!.Value;
-        return Ok(new { userId = Guid.Parse(userId), username });
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+            ?? string.Empty;
+        return Ok(new { userId = Guid.Parse(userId), username, email });
     }
 
     [HttpPost("refresh")]
@@ -61,6 +64,6 @@ public sealed class AuthController : ControllerBase
     }
 }
 
-public record RegisterUserRequest(string Username, string DisplayName, string Password);
+public record RegisterUserRequest(string Username, string Email, string DisplayName, string Password);
 public record LoginRequest(string Username, string Password);
 public record RefreshRequest(string RefreshToken);

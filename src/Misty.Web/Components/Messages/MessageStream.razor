@@ -1,0 +1,14 @@
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MockMessage> Messages { get; set; } = Array.Empty<MockMessage>();
+}
+
+<div class="stream">
+    <div class="scroll">
+        <div class="day-divider"><span>Today</span></div>
+
+        @foreach (var msg in Messages)
+        {
+            <MessageRow Message="msg" />
+        }
+    </div>
+</div>

@@ -1,0 +1,46 @@
+.segmented {
+    display: inline-flex;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    gap: 2px;
+}
+
+.segmented.disabled {
+    opacity: 0.5;
+}
+
+.segment {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.segment:hover:not(:disabled):not(.selected) {
+    color: var(--color-text-primary);
+}
+
+.segment.selected {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+}
+
+.segment:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-focus);
+}
+
+.segment:disabled {
+    cursor: not-allowed;
+}

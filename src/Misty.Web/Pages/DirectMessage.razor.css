@@ -1,0 +1,69 @@
+.page {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    height: 100%;
+}
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--color-surface);
+}
+
+.blocked-stream {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-8);
+    background: var(--color-surface);
+}
+
+.blocked-card {
+    text-align: center;
+    max-width: 360px;
+    padding: var(--sp-6);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--color-text-secondary);
+}
+
+.blocked-card ::deep svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 1.5;
+    color: var(--color-status-danger);
+}
+
+.blocked-card h3 {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: var(--fw-semibold);
+    color: var(--color-text-primary);
+    margin: var(--sp-1) 0 0;
+}
+
+.blocked-card p {
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--sp-3);
+}
+
+.missing {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+}

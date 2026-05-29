@@ -1,0 +1,57 @@
+.sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--color-surface-raised);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.head {
+    height: 48px;
+    padding: 0 var(--sp-3) 0 var(--sp-4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+}
+
+.search {
+    padding: 0 var(--sp-3) var(--sp-3);
+    flex-shrink: 0;
+}
+
+.scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--sp-2) var(--sp-2) var(--sp-4);
+}
+
+.group + .group {
+    margin-top: var(--sp-4);
+}
+
+.group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-2) var(--sp-2) var(--sp-1);
+}
+
+.label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+}

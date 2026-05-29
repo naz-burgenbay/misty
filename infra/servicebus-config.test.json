@@ -17,21 +17,24 @@
             "Name": "membership-events",
             "Properties": {},
             "Subscriptions": [
-              { "Name": "cache-invalidation", "Properties": {} }
+              { "Name": "cache-invalidation", "Properties": {} },
+              { "Name": "realtime-broadcast", "Properties": {} }
             ]
           },
           {
             "Name": "role-events",
             "Properties": {},
             "Subscriptions": [
-              { "Name": "cache-invalidation", "Properties": {} }
+              { "Name": "cache-invalidation", "Properties": {} },
+              { "Name": "realtime-broadcast", "Properties": {} }
             ]
           },
           {
             "Name": "moderation-events",
             "Properties": {},
             "Subscriptions": [
-              { "Name": "cache-invalidation", "Properties": {} }
+              { "Name": "cache-invalidation", "Properties": {} },
+              { "Name": "realtime-broadcast", "Properties": {} }
             ]
           }
         ]

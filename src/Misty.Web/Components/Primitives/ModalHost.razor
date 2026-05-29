@@ -1,0 +1,28 @@
+@* Global host for IModalService confirm flow *@
+@implements IDisposable
+@inject IModalService Modals
+
+<ConfirmDialog Open="@(_state is not null)"
+               Title="@(_state?.Request.Title ?? string.Empty)"
+               Message="@(_state?.Request.Message)"
+               ConfirmLabel="@(_state?.Request.ConfirmLabel ?? "Confirm")"
+               CancelLabel="@(_state?.Request.CancelLabel ?? "Cancel")"
+               Tone="@(_state?.Request.IsDestructive == true ? ConfirmDialog.ConfirmTone.Danger : ConfirmDialog.ConfirmTone.Default)"
+               OnConfirm="@(() => Modals.Resolve(true))"
+               OnCancel="@(() => Modals.Resolve(false))" />
+
+@code {
+    private (ConfirmRequest Request, TaskCompletionSource<bool> Tcs)? _state;
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        _sub = Modals.Current.Subscribe(s =>
+        {
+            _state = s;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose() => _sub?.Dispose();
+}

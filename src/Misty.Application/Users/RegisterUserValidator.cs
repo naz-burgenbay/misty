@@ -12,6 +12,11 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
             .Matches(@"^[a-zA-Z0-9_]+$")
             .WithMessage("Username may only contain letters, numbers, and underscores.");
 
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .MaximumLength(256)
+            .EmailAddress();
+
         RuleFor(x => x.DisplayName)
             .NotEmpty()
             .MaximumLength(64);

@@ -21,7 +21,11 @@ public sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserCom
         if (await _users.UsernameExistsAsync(cmd.Username, ct))
             throw new ConflictException($"Username '{cmd.Username}' is already taken.");
 
-        var user = User.Create(Guid.NewGuid(), cmd.Username, cmd.DisplayName);
+        var email = cmd.Email.Trim().ToLowerInvariant();
+        if (await _users.EmailExistsAsync(email, ct))
+            throw new ConflictException($"Email '{email}' is already registered.");
+
+        var user = User.Create(Guid.NewGuid(), cmd.Username, email, cmd.DisplayName);
         user.SetPasswordHash(_hasher.HashPassword(user, cmd.Password));
 
         await _users.AddAsync(user, ct);

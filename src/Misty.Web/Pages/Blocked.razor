@@ -1,0 +1,40 @@
+@page "/profile/blocked"
+
+<PageTitle>Blocked users | Misty</PageTitle>
+
+@code {
+    private IReadOnlyList<MockUser> BlockedUsers => new[] { MockDataStore.GetUser(MockDataStore.BlockedUserId) };
+}
+
+<div class="page">
+    <div class="content">
+        <header class="head">
+            <h1>Blocked users</h1>
+            <p>People you've blocked can't message you and can't see your activity.</p>
+        </header>
+
+        <section class="card">
+            @if (BlockedUsers.Count == 0)
+            {
+                <div class="empty">You haven't blocked anyone.</div>
+            }
+            else
+            {
+                @foreach (var user in BlockedUsers)
+                {
+                    <div class="row">
+                        <Avatar Name="@user.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        <div class="info">
+                            <div class="name">@user.DisplayName</div>
+                            <div class="handle">@user.Username</div>
+                        </div>
+                        <Badge Variant="Badge.BadgeVariant.Blocked" Label="Blocked" />
+                        <Button Variant="Button.ButtonVariant.Ghost">Unblock</Button>
+                    </div>
+                }
+            }
+        </section>
+
+        <a class="back" href="/profile">← Back to profile</a>
+    </div>
+</div>

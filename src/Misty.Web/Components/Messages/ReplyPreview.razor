@@ -1,0 +1,14 @@
+@code {
+    [Parameter, EditorRequired] public MockMessage Parent { get; set; } = default!;
+
+    private MockUser Author => MockDataStore.GetUser(Parent.AuthorId);
+    private string Preview =>
+        Parent.IsTombstone ? "message deleted"
+            : Parent.Content.Length > 80 ? Parent.Content[..80] + "…" : Parent.Content;
+}
+
+<div class="reply @(Parent.IsTombstone ? "tombstone" : "")">
+    <span class="arrow"><Blazicon Svg="Lucide.CornerUpLeft" /></span>
+    <span class="author">@Author.DisplayName</span>
+    <span class="preview">@Preview</span>
+</div>

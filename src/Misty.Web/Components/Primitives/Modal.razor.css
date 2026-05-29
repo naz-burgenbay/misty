@@ -1,0 +1,50 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--color-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-6);
+    z-index: 200;
+}
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-overlay);
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.header {
+    padding: var(--sp-4) var(--sp-6);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: var(--fw-medium);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.body {
+    padding: var(--sp-4) var(--sp-6);
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    color: var(--color-text-primary);
+}
+
+.footer {
+    padding: var(--sp-3) var(--sp-6) var(--sp-4);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+}

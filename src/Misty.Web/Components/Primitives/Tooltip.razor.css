@@ -1,0 +1,67 @@
+.tooltip-host {
+    position: relative;
+    display: inline-flex;
+}
+
+.tooltip {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    background: var(--color-text-primary);
+    color: var(--color-surface);
+    font-family: var(--font-ui);
+    font-size: var(--fs-timestamp);
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    z-index: 100;
+}
+
+.tooltip-host:hover .tooltip,
+.tooltip-host:focus-within .tooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.tooltip-host.top .tooltip {
+    bottom: calc(100% + var(--sp-1));
+    left: 50%;
+    transform: translateX(-50%) translateY(-2px);
+}
+
+.tooltip-host.top:hover .tooltip {
+    transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-host.bottom .tooltip {
+    top: calc(100% + var(--sp-1));
+    left: 50%;
+    transform: translateX(-50%) translateY(2px);
+}
+
+.tooltip-host.bottom:hover .tooltip {
+    transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-host.left .tooltip {
+    right: calc(100% + var(--sp-1));
+    top: 50%;
+    transform: translateY(-50%) translateX(-2px);
+}
+
+.tooltip-host.left:hover .tooltip {
+    transform: translateY(-50%) translateX(0);
+}
+
+.tooltip-host.right .tooltip {
+    left: calc(100% + var(--sp-1));
+    top: 50%;
+    transform: translateY(-50%) translateX(2px);
+}
+
+.tooltip-host.right:hover .tooltip {
+    transform: translateY(-50%) translateX(0);
+}

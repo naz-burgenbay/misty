@@ -10,6 +10,7 @@ public record ModerationActionDto(
     Guid ActionId,
     ModerationActionType Type,
     Guid IssuedByUserId,
+    string Reason,
     DateTime? ExpiresAt);
 
 public sealed class GetModerationActionsQueryHandler
@@ -27,7 +28,7 @@ public sealed class GetModerationActionsQueryHandler
             request.ChannelId, request.TargetUserId, ct);
 
         return actions
-            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.ExpiresAt))
+            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.Reason, a.ExpiresAt))
             .ToList();
     }
 }

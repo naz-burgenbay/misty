@@ -44,6 +44,7 @@ public sealed class LoginTests : IAsyncLifetime
         await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = "loginuser",
+            Email = "loginuser@test.misty",
             DisplayName = "Login User",
             Password = "Str0ngPass!",
         });
@@ -74,6 +75,7 @@ public sealed class LoginTests : IAsyncLifetime
         await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = "wrongpass",
+            Email = "wrongpass@test.misty",
             DisplayName = "Wrong Pass",
             Password = "Str0ngPass!",
         });
@@ -113,6 +115,7 @@ public sealed class LoginTests : IAsyncLifetime
         await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = "meuser",
+            Email = "meuser@test.misty",
             DisplayName = "Me User",
             Password = "Str0ngPass!",
         });
@@ -139,6 +142,7 @@ public sealed class LoginTests : IAsyncLifetime
 
         var meBody = await meResp.Content.ReadFromJsonAsync<JsonElement>();
         meBody.GetProperty("username").GetString().Should().Be("meuser");
+        meBody.GetProperty("email").GetString().Should().Be("meuser@test.misty");
         meBody.GetProperty("userId").GetGuid().Should().NotBeEmpty();
     }
 }

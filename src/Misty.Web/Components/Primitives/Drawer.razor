@@ -1,0 +1,37 @@
+@* Slide-in panel from a side. Open/close fully controlled by parent. *@
+
+@code {
+    public enum DrawerSide { Right, Left }
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public DrawerSide Side { get; set; } = DrawerSide.Right;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool CloseOnBackdropClick { get; set; } = true;
+
+    private string SideClass => Side.ToString().ToLowerInvariant();
+
+    private Task BackdropClickAsync() =>
+        CloseOnBackdropClick ? OnClose.InvokeAsync() : Task.CompletedTask;
+}
+
+@if (Open)
+{
+    <div class="backdrop" @onclick="BackdropClickAsync">
+        <aside class="panel @SideClass"
+               role="dialog"
+               aria-modal="true"
+               @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <header class="header">
+                    <h2 class="title">@Title</h2>
+                </header>
+            }
+            <div class="body">
+                @ChildContent
+            </div>
+        </aside>
+    </div>
+}

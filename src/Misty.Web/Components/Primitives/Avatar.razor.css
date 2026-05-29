@@ -1,0 +1,17 @@
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #ffffff;
+    font-family: var(--font-ui);
+    font-weight: var(--fw-medium);
+    user-select: none;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ai-glyph {
+    font-size: 1.1em;
+    line-height: 1;
+}

@@ -23,6 +23,9 @@ public class UserRepository : IUserRepository
     public Task<bool> UsernameExistsAsync(string username, CancellationToken ct = default)
         => _db.Users.AnyAsync(u => u.Username == username, ct);
 
+    public Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
+        => _db.Users.AnyAsync(u => u.Email == email, ct);
+
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
         await _db.Users.AddAsync(user, ct);

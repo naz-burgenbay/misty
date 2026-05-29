@@ -1,0 +1,67 @@
+.reactions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    margin-top: var(--sp-1);
+    flex-wrap: wrap;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.chip:hover {
+    background: var(--color-surface-raised);
+}
+
+.chip.active {
+    background: var(--color-accent-tint);
+    border-color: var(--color-accent);
+    color: var(--color-accent-text);
+}
+
+.emoji {
+    font-size: 13px;
+    line-height: 1;
+}
+
+.count {
+    font-weight: var(--fw-medium);
+    line-height: 1;
+}
+
+.add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 22px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 999px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.add:hover {
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+}
+
+.add ::deep svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 1.75;
+}

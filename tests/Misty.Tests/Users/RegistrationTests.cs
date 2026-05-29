@@ -42,6 +42,7 @@ public sealed class RegistrationTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = "alice",
+            Email = "alice@test.misty",
             DisplayName = "Alice Wonderland",
             Password = "Str0ngPass!",
         });
@@ -59,7 +60,7 @@ public sealed class RegistrationTests : IAsyncLifetime
     [Fact]
     public async Task Register_WithDuplicateUsername_Returns409()
     {
-        var body = new { Username = "duplicate", DisplayName = "First", Password = "Str0ngPass!" };
+        var body = new { Username = "duplicate", Email = "duplicate@test.misty", DisplayName = "First", Password = "Str0ngPass!" };
 
         await _client.PostAsJsonAsync("/api/v1/auth/register", body);
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", body);
@@ -73,6 +74,7 @@ public sealed class RegistrationTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = "",
+            Email = "not-an-email",
             DisplayName = "",
             Password = "x",
         });
@@ -80,5 +82,26 @@ public sealed class RegistrationTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("errors").ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
+    [Fact]
+    public async Task Register_WithDuplicateEmail_Returns409()
+    {
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new
+        {
+            Username = "firstuser",
+            Email = "shared@test.misty",
+            DisplayName = "First",
+            Password = "Str0ngPass!",
+        });
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
+        {
+            Username = "seconduser",
+            Email = "shared@test.misty",
+            DisplayName = "Second",
+            Password = "Str0ngPass!",
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

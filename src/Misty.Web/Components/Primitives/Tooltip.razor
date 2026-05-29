@@ -1,0 +1,16 @@
+@* CSS-only hover tooltip wrapper. *@
+
+@code {
+    public enum TooltipPlacement { Top, Bottom, Left, Right }
+
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+    [Parameter] public TooltipPlacement Placement { get; set; } = TooltipPlacement.Top;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string PlacementClass => Placement.ToString().ToLowerInvariant();
+}
+
+<span class="tooltip-host @PlacementClass">
+    @ChildContent
+    <span class="tooltip" role="tooltip">@Text</span>
+</span>

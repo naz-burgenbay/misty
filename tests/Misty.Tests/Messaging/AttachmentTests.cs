@@ -54,6 +54,7 @@ public sealed class AttachmentTests : IAsyncLifetime
         var reg = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             DisplayName = $"{username} Display",
             Password = "Str0ngPass!",
         });
@@ -63,6 +64,7 @@ public sealed class AttachmentTests : IAsyncLifetime
         var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             Password = "Str0ngPass!",
         });
         var token = (await login.Content.ReadFromJsonAsync<JsonElement>())

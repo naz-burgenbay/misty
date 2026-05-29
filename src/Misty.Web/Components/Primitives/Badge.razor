@@ -1,0 +1,13 @@
+@* Single-token status chip. Variant drives color pair, label drives text. *@
+
+@code {
+    public enum BadgeVariant { Muted, Warned, Owner, Admin, Banned, AI, Blocked }
+
+    [Parameter] public BadgeVariant Variant { get; set; } = BadgeVariant.Owner;
+    [Parameter] public string? Label { get; set; }
+
+    private string VariantClass => Variant.ToString().ToLowerInvariant();
+    private string Text => Label ?? Variant.ToString();
+}
+
+<span class="badge @VariantClass">@Text</span>

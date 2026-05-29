@@ -1,0 +1,30 @@
+.popover {
+    position: absolute;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    padding: var(--sp-3);
+    min-width: 180px;
+    box-shadow: var(--shadow-overlay);
+    z-index: 150;
+}
+
+.popover.bottom-left {
+    top: calc(100% + var(--sp-1));
+    left: 0;
+}
+
+.popover.bottom-right {
+    top: calc(100% + var(--sp-1));
+    right: 0;
+}
+
+.popover.top-left {
+    bottom: calc(100% + var(--sp-1));
+    left: 0;
+}
+
+.popover.top-right {
+    bottom: calc(100% + var(--sp-1));
+    right: 0;
+}

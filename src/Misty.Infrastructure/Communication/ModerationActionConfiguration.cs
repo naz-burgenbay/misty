@@ -18,6 +18,10 @@ public class ModerationActionConfiguration : IEntityTypeConfiguration<Moderation
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(m => m.Reason)
+            .IsRequired()
+            .HasMaxLength(512);
+
         builder.HasOne<Channel>()
             .WithMany()
             .HasForeignKey(m => m.ChannelId)

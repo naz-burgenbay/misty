@@ -39,3 +39,6 @@ coverage/
 
 *.log
 logs/
+
+_Gallery.razor
+_Gallery.razor.css

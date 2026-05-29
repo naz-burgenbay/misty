@@ -1,0 +1,42 @@
+.stream {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+}
+
+.scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--sp-4) var(--sp-6) var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.day-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: var(--sp-3) 0;
+    position: relative;
+}
+
+.day-divider::before,
+.day-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+}
+
+.day-divider span {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    padding: 0 var(--sp-3);
+}

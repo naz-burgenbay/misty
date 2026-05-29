@@ -11,6 +11,7 @@ public record ApplyModerationActionCommand(
     Guid TargetUserId,
     Guid IssuedByUserId,
     ModerationActionType Type,
+    string Reason,
     DateTime? ExpiresAt)
     : IRequest<ApplyModerationActionResponse>;
 
@@ -44,6 +45,7 @@ public sealed class ApplyModerationActionCommandHandler
             request.TargetUserId,
             request.IssuedByUserId,
             request.Type,
+            request.Reason.Trim(),
             request.ExpiresAt);
 
         await _moderation.AddAsync(action, ct);
@@ -57,6 +59,10 @@ public sealed class ApplyModerationActionValidator : AbstractValidator<ApplyMode
 {
     public ApplyModerationActionValidator()
     {
+        RuleFor(x => x.Reason)
+            .NotEmpty()
+            .MaximumLength(512);
+
         RuleFor(x => x.ExpiresAt)
             .GreaterThan(DateTime.UtcNow)
             .When(x => x.ExpiresAt.HasValue)

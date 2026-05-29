@@ -1,0 +1,65 @@
+@inject NavigationManager Nav
+@implements IDisposable
+
+<aside class="sidebar">
+    <header class="head">
+        <h1 class="title">Misty</h1>
+        <IconButton Title="New conversation"><Blazicon Svg="Lucide.SquarePen" /></IconButton>
+    </header>
+
+    <div class="search">
+        <TextField Value="@_search" ValueChanged="@(v => _search = v ?? string.Empty)"
+                   Placeholder="Search conversations" />
+    </div>
+
+    <div class="scroll">
+        <section class="group">
+            <div class="group-head">
+                <span class="label">Channels</span>
+                <IconButton Title="New channel"><Blazicon Svg="Lucide.Plus" /></IconButton>
+            </div>
+            @foreach (var channel in FilteredChannels)
+            {
+                <ChannelListItem Channel="channel"
+                                 Selected="@IsChannelActive(channel.Id)"
+                                 Href="@($"/c/{channel.Id}")" />
+            }
+        </section>
+
+        <section class="group">
+            <div class="group-head">
+                <span class="label">Direct messages</span>
+                <IconButton Title="New DM"><Blazicon Svg="Lucide.Plus" /></IconButton>
+            </div>
+            @foreach (var dm in FilteredDirects)
+            {
+                <DirectMessageListItem Conversation="dm"
+                                       Selected="@IsDmActive(dm.Id)"
+                                       Href="@($"/dm/{dm.Id}")" />
+            }
+        </section>
+    </div>
+</aside>
+
+@code {
+    private string _search = string.Empty;
+
+    private IEnumerable<MockChannel> FilteredChannels =>
+        string.IsNullOrWhiteSpace(_search)
+            ? MockDataStore.Channels
+            : MockDataStore.Channels.Where(c => c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<MockDirectConversation> FilteredDirects =>
+        string.IsNullOrWhiteSpace(_search)
+            ? MockDataStore.DirectMessages
+            : MockDataStore.DirectMessages.Where(d =>
+                MockDataStore.GetUser(d.OtherUserId).DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/');
+    private bool IsChannelActive(Guid id) => CurrentPath.Equals($"/c/{id}", StringComparison.OrdinalIgnoreCase);
+    private bool IsDmActive(Guid id) => CurrentPath.Equals($"/dm/{id}", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocation;
+    public void Dispose() => Nav.LocationChanged -= OnLocation;
+    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+}

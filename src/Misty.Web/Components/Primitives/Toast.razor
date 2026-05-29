@@ -1,0 +1,19 @@
+@* Single transient notification. Open/close fully controlled by parent. The queue and host live in `ToastService` + `ToastHost`. *@
+
+@code {
+    public enum ToastVariant { Info, Warn, Danger }
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public ToastVariant Variant { get; set; } = ToastVariant.Info;
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private string VariantClass => Variant.ToString().ToLowerInvariant();
+}
+
+@if (Open)
+{
+    <div class="toast @VariantClass" role="status" @onclick="OnDismiss">
+        <span class="message">@Message</span>
+    </div>
+}

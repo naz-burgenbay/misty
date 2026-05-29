@@ -17,6 +17,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(32);
 
+        builder.Property(u => u.Email)
+            .IsRequired()
+            .HasMaxLength(256);
+
         builder.Property(u => u.DisplayName)
             .IsRequired()
             .HasMaxLength(64);
@@ -37,5 +41,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.Username)
             .IsUnique()
             .HasDatabaseName("UX_User_Username");
+
+        builder.HasIndex(u => u.Email)
+            .IsUnique()
+            .HasDatabaseName("UX_User_Email");
     }
 }

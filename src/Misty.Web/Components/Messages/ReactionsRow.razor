@@ -1,0 +1,16 @@
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MockReaction> Reactions { get; set; } = Array.Empty<MockReaction>();
+}
+
+<div class="reactions">
+    @foreach (var r in Reactions)
+    {
+        <button class="chip @(r.ReactedByMe ? "active" : "")" type="button">
+            <span class="emoji">@r.Emoji</span>
+            <span class="count">@r.Count</span>
+        </button>
+    }
+    <button class="add" type="button" title="Add reaction">
+        <Blazicon Svg="Lucide.SmilePlus" />
+    </button>
+</div>

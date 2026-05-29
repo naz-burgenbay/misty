@@ -1,0 +1,30 @@
+@* Typed confirmation modal. Composes Modal + Button primitives. *@
+
+@code {
+    public enum ConfirmTone { Default, Danger }
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ConfirmLabel { get; set; } = "Confirm";
+    [Parameter] public string CancelLabel { get; set; } = "Cancel";
+    [Parameter] public ConfirmTone Tone { get; set; } = ConfirmTone.Default;
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Button.ButtonVariant ConfirmVariant =>
+        Tone == ConfirmTone.Danger ? Button.ButtonVariant.Danger : Button.ButtonVariant.Primary;
+}
+
+<Modal Open="Open" Title="@Title" OnClose="OnCancel">
+    <ChildContent>
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <p class="message">@Message</p>
+        }
+    </ChildContent>
+    <Footer>
+        <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnCancel">@CancelLabel</Button>
+        <Button Variant="ConfirmVariant" OnClick="OnConfirm">@ConfirmLabel</Button>
+    </Footer>
+</Modal>

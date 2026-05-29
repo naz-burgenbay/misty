@@ -1,0 +1,36 @@
+@* Backdrop + centered card. Open/close fully controlled by parent. *@
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public bool CloseOnBackdropClick { get; set; } = true;
+
+    private Task BackdropClickAsync() =>
+        CloseOnBackdropClick ? OnClose.InvokeAsync() : Task.CompletedTask;
+}
+
+@if (Open)
+{
+    <div class="backdrop" @onclick="BackdropClickAsync">
+        <div class="card" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <header class="header">
+                    <h2 class="title">@Title</h2>
+                </header>
+            }
+            <div class="body">
+                @ChildContent
+            </div>
+            @if (Footer is not null)
+            {
+                <footer class="footer">
+                    @Footer
+                </footer>
+            }
+        </div>
+    </div>
+}

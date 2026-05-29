@@ -46,6 +46,7 @@ public sealed class MessageTests : IAsyncLifetime
         var regResp = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             DisplayName = $"{username} Display",
             Password = "Str0ngPass!",
         });
@@ -56,6 +57,7 @@ public sealed class MessageTests : IAsyncLifetime
         var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = username,
+            Email = $"{username}@test.misty",
             Password = "Str0ngPass!",
         });
         var loginBody = await loginResp.Content.ReadFromJsonAsync<JsonElement>();
@@ -203,7 +205,7 @@ public sealed class MessageTests : IAsyncLifetime
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var banResp = await _client.PostAsJsonAsync(
             $"/api/v1/channels/{channelId}/members/{memberId}/moderation",
-            new { Type = 1 /* Ban */, ExpiresAt = (DateTime?)null });
+            new { Type = 1 /* Ban */, Reason = "test reason", ExpiresAt = (DateTime?)null });
         banResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Redis is cleared directly here so the test stays deterministic and does not depend on asynchronous Service Bus processing timing in the emulator. 

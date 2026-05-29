@@ -39,5 +39,6 @@ public sealed class ServiceBusEventPublisher : Application.Communication.Contrac
     }
 }
 
-// (Message body shared by all three cache-invalidation topics)
-internal sealed record CacheInvalidationPayload(Guid? UserId, Guid ChannelId);
+// Message body shared by all three permission-related topics (membership-events, role-events, moderation-events). 
+// Public so consumers outside this assembly (e.g. the SignalR broadcast worker in Misty.Api) can deserialize it directly.
+public sealed record CacheInvalidationPayload(Guid? UserId, Guid ChannelId);

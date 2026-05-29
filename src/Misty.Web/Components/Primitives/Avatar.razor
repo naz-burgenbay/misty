@@ -1,0 +1,45 @@
+@code {
+    public enum AvatarSize { Small = 26, Medium = 28, Large = 44 }
+
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+    [Parameter] public AvatarSize Size { get; set; } = AvatarSize.Medium;
+    [Parameter] public bool IsAi { get; set; }
+
+    private int Px => (int)Size;
+    private string Initials => GetInitials(Name);
+    private string ColorVar => IsAi ? "var(--color-ai)" : $"var(--color-avatar-{PickAvatarIndex(Name)})";
+    private string FontSize => $"{(int)Math.Round(Px * 0.38)}px";
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..1].ToUpperInvariant();
+        return (parts[0][..1] + parts[^1][..1]).ToUpperInvariant();
+    }
+
+    private static int PickAvatarIndex(string seed)
+    {
+        // Stable, deterministic 1..6 pick from the user-supplied string.
+        unchecked
+        {
+            var hash = 5381;
+            foreach (var c in seed) hash = ((hash << 5) + hash) ^ c;
+            return Math.Abs(hash) % 6 + 1;
+        }
+    }
+}
+
+<span class="avatar"
+      style="width:@(Px)px;height:@(Px)px;background:@ColorVar;font-size:@FontSize"
+      role="img"
+      aria-label="@Name">
+    @if (IsAi)
+    {
+        <span class="ai-glyph">✦</span>
+    }
+    else
+    {
+        @Initials
+    }
+</span>
