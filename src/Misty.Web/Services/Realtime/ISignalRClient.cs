@@ -18,6 +18,8 @@ public sealed record ReactionChangedEvent(Guid MessageId, Guid? ChannelId, Guid 
 
 public sealed record PermissionInvalidationEvent(Guid? UserId, Guid ChannelId);
 
+public sealed record PresenceChangedEvent(Guid UserId, bool IsOnline, DateTime OccurredAt);
+
 // Single hub per tab owned by the client. Group membership is established server-side in MistyHub.OnConnectedAsync from the DB; the client never calls join/leave. After a MembershipChanged event the client forces a reconnect (StartAsync after StopAsync) so the server re-reads memberships.
 public interface ISignalRClient
 {
@@ -36,6 +38,7 @@ public interface ISignalRClient
     IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> handler);
     IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> handler);
     IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> handler);
+    IDisposable OnPresenceChanged(Action<PresenceChangedEvent> handler);
 }
 
 public sealed class StubSignalRClient : ISignalRClient
@@ -54,6 +57,7 @@ public sealed class StubSignalRClient : ISignalRClient
     public IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> handler) => NoopSub.Instance;
     public IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> handler)       => NoopSub.Instance;
     public IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> handler) => NoopSub.Instance;
+    public IDisposable OnPresenceChanged(Action<PresenceChangedEvent> handler)                => NoopSub.Instance;
 
     private sealed class NoopSub : IDisposable
     {

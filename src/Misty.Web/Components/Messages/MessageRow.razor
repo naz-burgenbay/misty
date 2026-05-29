@@ -1,5 +1,6 @@
 @inject IUserDirectory Users
 @inject IAuthService Auth
+@inject IPresenceService Presence
 @implements IDisposable
 
 @code {
@@ -13,6 +14,8 @@
 
     private UserSummary _author = default!;
     private Guid _watchedAuthor;
+    private PresenceState _presence = PresenceState.Unknown;
+    private IDisposable? _presenceSub;
 
     private bool IsMine => Message.AuthorId == Auth.CurrentUser?.Id;
     private bool IsAi => _author.IsAi;
@@ -27,6 +30,15 @@
         _watchedAuthor = Message.AuthorId;
         _author = Users.Get(_watchedAuthor);
         _ = Users.EnsureAsync(_watchedAuthor);
+
+        _presenceSub?.Dispose();
+        var obs = Presence.Watch(_watchedAuthor);
+        _presence = obs.Value;
+        _presenceSub = obs.Subscribe(s =>
+        {
+            _presence = s;
+            InvokeAsync(StateHasChanged);
+        });
     }
 
     private void OnUserUpdated(Guid id)
@@ -48,12 +60,16 @@
     private Task ModerateClicked()
         => OnModerateUser.HasDelegate ? OnModerateUser.InvokeAsync(Message.AuthorId) : Task.CompletedTask;
 
-    public void Dispose() => Users.Updated -= OnUserUpdated;
+    public void Dispose()
+    {
+        Users.Updated -= OnUserUpdated;
+        _presenceSub?.Dispose();
+    }
 }
 
 <div class="row @(IsMine ? "mine" : "") @(IsTombstone ? "tombstone" : "")">
     <div class="avatar-col">
-        <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
+        <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Presence="_presence" Size="Avatar.AvatarSize.Medium" />
     </div>
     <div class="body">
         <div class="header">

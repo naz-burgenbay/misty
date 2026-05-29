@@ -74,6 +74,7 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
     public IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> h) => On("MembershipChanged", h);
     public IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> h) => On("RoleChanged", h);
     public IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> h) => On("ModerationActionApplied", h);
+    public IDisposable OnPresenceChanged(Action<PresenceChangedEvent> h) => On("PresenceChanged", h);
 
     private IDisposable On<T>(string method, Action<T> handler)
     {

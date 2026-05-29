@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject IUserDirectory Users
+@inject IPresenceService Presence
 
 @code {
     [Parameter, EditorRequired] public DirectConversationDto Conversation { get; set; } = default!;
@@ -8,6 +9,9 @@
 
     private UserSummary _other = default!;
     private bool _subscribed;
+    private PresenceState _presence = PresenceState.Unknown;
+    private IDisposable? _presenceSub;
+    private Guid _watched;
 
     protected override void OnParametersSet()
     {
@@ -17,6 +21,17 @@
         {
             Users.Updated += OnUserUpdated;
             _subscribed = true;
+        }
+
+        if (_watched != Conversation.OtherUserId)
+        {
+            _watched = Conversation.OtherUserId;
+            _presenceSub?.Dispose();
+            _presenceSub = Presence.Watch(_watched).Subscribe(s =>
+            {
+                _presence = s;
+                InvokeAsync(StateHasChanged);
+            });
         }
     }
 
@@ -30,11 +45,13 @@
     public void Dispose()
     {
         if (_subscribed) Users.Updated -= OnUserUpdated;
+        _presenceSub?.Dispose();
     }
 }
 
 <a class="row @(Selected ? "selected" : "")" href="@Href">
     <Avatar Name="@_other.DisplayName"
+            Presence="_presence"
             Size="Avatar.AvatarSize.Medium" />
     <div class="text">
         <div class="line">

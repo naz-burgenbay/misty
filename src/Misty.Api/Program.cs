@@ -202,6 +202,7 @@ builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
 builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
 builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
+builder.Services.AddSingleton<Misty.Application.Presence.IPresenceTracker, Misty.Infrastructure.Presence.RedisPresenceTracker>();
 
 var app = builder.Build();
 

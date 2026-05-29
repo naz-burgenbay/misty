@@ -15,3 +15,32 @@
     font-size: 1.1em;
     line-height: 1;
 }
+
+.presence-dot {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 30%;
+    height: 30%;
+    min-width: 8px;
+    min-height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--color-surface-base);
+}
+
+.presence-dot.online {
+    background: var(--color-presence-online, #2ea043);
+}
+
+.presence-dot.idle {
+    background: var(--color-presence-idle, #d29922);
+}
+
+.presence-dot.offline {
+    background: var(--color-presence-offline, #8b949e);
+}
+
+.presence-dot.unknown {
+    background: transparent;
+    box-shadow: none;
+}

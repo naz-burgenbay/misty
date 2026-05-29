@@ -1,14 +1,24 @@
+@using Misty.Web.Services.Presence
 @code {
     public enum AvatarSize { Small = 26, Medium = 28, Large = 44 }
 
     [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
     [Parameter] public AvatarSize Size { get; set; } = AvatarSize.Medium;
     [Parameter] public bool IsAi { get; set; }
+    [Parameter] public PresenceState Presence { get; set; } = PresenceState.Unknown;
 
     private int Px => (int)Size;
     private string Initials => GetInitials(Name);
     private string ColorVar => IsAi ? "var(--color-ai)" : $"var(--color-avatar-{PickAvatarIndex(Name)})";
     private string FontSize => $"{(int)Math.Round(Px * 0.38)}px";
+    private bool ShowDot => !IsAi && Presence is PresenceState.Online or PresenceState.Offline or PresenceState.Idle;
+    private string DotClass => Presence switch
+    {
+        PresenceState.Online => "online",
+        PresenceState.Idle => "idle",
+        PresenceState.Offline => "offline",
+        _ => "unknown"
+    };
 
     private static string GetInitials(string name)
     {
@@ -41,5 +51,9 @@
     else
     {
         @Initials
+    }
+    @if (ShowDot)
+    {
+        <span class="presence-dot @DotClass" aria-hidden="true"></span>
     }
 </span>

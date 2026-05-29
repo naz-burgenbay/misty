@@ -44,7 +44,7 @@ builder.Services.AddScoped<IUserDirectory, HttpUserDirectory>();
 builder.Services.AddScoped<IChannelService, HttpChannelService>();
 builder.Services.AddScoped<IDirectMessageService, HttpDirectMessageService>();
 builder.Services.AddScoped<IMessageStore, HttpMessageStore>();
-builder.Services.AddScoped<IPresenceService, StubPresenceService>();
+builder.Services.AddScoped<IPresenceService, HttpPresenceService>();
 builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
 builder.Services.AddScoped<IModerationService, HttpModerationService>();
 builder.Services.AddScoped<IToastService, StubToastService>();
