@@ -184,7 +184,9 @@ builder.Services.AddOpenTelemetry()
 
 var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
     ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
-builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
+// Pin the wire version: Azurite rejects newer SDK defaults with "InvalidHeaderValue: API version ... is not supported".
+var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
+builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 
 builder.Services.AddScoped<PermissionService>();
