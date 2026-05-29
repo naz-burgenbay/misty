@@ -1,4 +1,6 @@
 @page "/dm/{ConversationId:guid}"
+@implements IDisposable
+@inject IMessageStore MessageStore
 
 @code {
     [Parameter] public Guid ConversationId { get; set; }
@@ -6,13 +8,27 @@
     private MockDirectConversation? _dm;
     private MockUser? _other;
     private IReadOnlyList<MockMessage> _messages = Array.Empty<MockMessage>();
+    private IDisposable? _messagesSub;
 
     protected override void OnParametersSet()
     {
         _dm = MockDataStore.GetDirect(ConversationId);
         _other = _dm is null ? null : MockDataStore.GetUser(_dm.OtherUserId);
-        _messages = MockDataStore.GetMessages(ConversationId);
+
+        _messagesSub?.Dispose();
+        _messagesSub = MessageStore.GetConversation(ConversationId).Subscribe(list =>
+        {
+            _messages = list;
+            InvokeAsync(StateHasChanged);
+        });
     }
+
+    private Task SendAsync(string content) =>
+        string.IsNullOrWhiteSpace(content)
+            ? Task.CompletedTask
+            : MessageStore.SendAsync(ConversationId, content);
+
+    public void Dispose() => _messagesSub?.Dispose();
 }
 
 @if (_dm is null || _other is null)
@@ -48,7 +64,7 @@ else
             {
                 <MessageStream Messages="_messages" />
                 <MessageComposer Placeholder="@($"Message {_other.DisplayName}")"
-                                 OnSend="@(_ => Task.CompletedTask)" />
+                                 OnSend="SendAsync" />
             }
         </div>
     </div>

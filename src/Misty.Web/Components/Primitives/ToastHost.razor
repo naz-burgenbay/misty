@@ -1,0 +1,36 @@
+@* Global host for IToastService. Mounted once in AppShell. *@
+@implements IDisposable
+@inject IToastService Toasts
+
+<div class="toast-host">
+    @foreach (var t in _toasts)
+    {
+        <Toast Open="true"
+               Message="@t.Message"
+               Variant="@MapVariant(t.Kind)"
+               OnDismiss="@(() => Toasts.Dismiss(t.Id))" />
+    }
+</div>
+
+@code {
+    private IReadOnlyList<ToastRequest> _toasts = Array.Empty<ToastRequest>();
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        _sub = Toasts.Toasts.Subscribe(list =>
+        {
+            _toasts = list;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private static Toast.ToastVariant MapVariant(ToastKind kind) => kind switch
+    {
+        ToastKind.Warning => Toast.ToastVariant.Warn,
+        ToastKind.Error   => Toast.ToastVariant.Danger,
+        _                 => Toast.ToastVariant.Info,
+    };
+
+    public void Dispose() => _sub?.Dispose();
+}
