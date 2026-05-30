@@ -188,6 +188,7 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
 var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
+builder.Services.AddScoped<IChannelIconService, AzureBlobChannelIconService>();
 
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<IPermissionService, CachedPermissionService>();

@@ -58,4 +58,13 @@ public sealed class ChannelRepository : IChannelRepository
         channel.SoftDelete();
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task UpdateIconUrlAsync(Channel channel, string? iconUrl, CancellationToken ct = default)
+    {
+        if (iconUrl is null)
+            channel.ClearIconUrl();
+        else
+            channel.SetIconUrl(iconUrl);
+        await _db.SaveChangesAsync(ct);
+    }
 }

@@ -108,6 +108,38 @@ public sealed class ChannelsController : ControllerBase
         var result = await _mediator.Send(new GetMyChannelPermissionsQuery(userId, id), ct);
         return Ok(result);
     }
+
+    [HttpPost("{id:guid}/icon")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(UploadChannelIconResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadIcon(Guid id, IFormFile file, CancellationToken ct)
+    {
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new ProblemDetails { Status = 400, Title = "File exceeds 5 MB limit." });
+
+        string[] allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        if (!allowedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+            return BadRequest(new ProblemDetails { Status = 400, Title = "Unsupported image type. Allowed: jpeg, png, webp, gif." });
+
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await using var stream = file.OpenReadStream();
+        var result = await _mediator.Send(new UploadChannelIconCommand(id, userId, stream, file.ContentType), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/icon")]
+    [ProducesResponseType(typeof(RemoveChannelIconResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveIcon(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new RemoveChannelIconCommand(id, userId), ct);
+        return Ok(result);
+    }
 }
 
 public record CreateChannelRequest(
