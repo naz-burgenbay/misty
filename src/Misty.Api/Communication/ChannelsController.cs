@@ -140,7 +140,45 @@ public sealed class ChannelsController : ControllerBase
         var result = await _mediator.Send(new RemoveChannelIconCommand(id, userId), ct);
         return Ok(result);
     }
+
+    [HttpPost("{id:guid}/invites")]
+    [ProducesResponseType(typeof(ChannelInviteDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SendInvite(Guid id, SendChannelInviteRequest request, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new SendChannelInviteCommand(userId, id, request.Username), ct);
+        return CreatedAtAction(nameof(GetChannel), new { id }, result);
+    }
+
+    [HttpPost("invites/{id:guid}/accept")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AcceptInvite(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new AcceptChannelInviteCommand(userId, id), ct);
+        return Ok();
+    }
+
+    [HttpPost("invites/{id:guid}/decline")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeclineInvite(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new DeclineChannelInviteCommand(userId, id), ct);
+        return NoContent();
+    }
 }
+
+public record SendChannelInviteRequest(string Username);
 
 public record CreateChannelRequest(
     string Name,
