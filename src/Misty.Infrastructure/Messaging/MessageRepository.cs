@@ -86,6 +86,9 @@ public sealed class MessageRepository : IMessageRepository
     public Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default)
         => _db.Messages.AnyAsync(m => m.ParentMessageId == messageId, ct);
 
+    public Task<bool> AnyForConversationAsync(Guid conversationId, CancellationToken ct = default)
+        => _db.Messages.AnyAsync(m => m.ConversationId == conversationId, ct);
+
     public async Task AddAsync(Message message, CancellationToken ct = default)
     {
         // Serialize the MessageCreated event payload for the outbox.

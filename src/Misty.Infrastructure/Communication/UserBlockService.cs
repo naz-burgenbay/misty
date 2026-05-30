@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Communication;
 using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -8,8 +9,13 @@ namespace Misty.Infrastructure.Communication;
 public sealed class UserBlockService : IUserBlockService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IFriendshipRepository _friendships;
 
-    public UserBlockService(ApplicationDbContext db) => _db = db;
+    public UserBlockService(ApplicationDbContext db, IFriendshipRepository friendships)
+    {
+        _db = db;
+        _friendships = friendships;
+    }
 
     public async Task BlockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
     {
@@ -19,6 +25,8 @@ public sealed class UserBlockService : IUserBlockService
 
         await _db.UserBlocks.AddAsync(UserBlock.Create(blockerId, blockedId), ct);
         await _db.SaveChangesAsync(ct);
+
+        await _friendships.DeleteForPairAsync(blockerId, blockedId, ct);
     }
 
     public async Task UnblockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)

@@ -189,6 +189,7 @@ var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_1
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 builder.Services.AddScoped<IChannelIconService, AzureBlobChannelIconService>();
+builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
 
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<IPermissionService, CachedPermissionService>();

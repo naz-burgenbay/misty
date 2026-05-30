@@ -21,15 +21,21 @@ public sealed class SendConversationMessageCommandHandler
     private readonly IMessageRepository _messages;
     private readonly IConversationRepository _conversations;
     private readonly IUserBlockService _blocks;
+    private readonly IFriendshipRepository _friendships;
+    private readonly IOutboxWriter _outbox;
 
     public SendConversationMessageCommandHandler(
         IMessageRepository messages,
         IConversationRepository conversations,
-        IUserBlockService blocks)
+        IUserBlockService blocks,
+        IFriendshipRepository friendships,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _conversations = conversations;
         _blocks = blocks;
+        _friendships = friendships;
+        _outbox = outbox;
     }
 
     public async Task<SendMessageResponse> Handle(SendConversationMessageCommand request, CancellationToken ct)
@@ -58,6 +64,18 @@ public sealed class SendConversationMessageCommandHandler
         var existing = await _messages.FindByIdempotencyKeyAsync(request.AuthorId, request.IdempotencyKey, ct);
         if (existing is not null)
             return ToResponse(existing, wasIdempotent: true);
+
+        // First-DM-between-non-friends inbox trigger: check before insert so the outbox row rides the same SaveChanges as the message.
+        var isFirst = !await _messages.AnyForConversationAsync(request.ConversationId, ct);
+        if (isFirst && !await _friendships.ExistsAsync(request.AuthorId, otherUserId, ct))
+        {
+            _outbox.Queue(
+                SocialEventTopics.Message,
+                SocialEventTypes.FirstDirectMessageSent,
+                request.ConversationId,
+                new FirstDirectMessageSentPayload(
+                    request.ConversationId, request.AuthorId, otherUserId, DateTime.UtcNow));
+        }
 
         var message = Message.CreateForConversation(
             Guid.NewGuid(),
