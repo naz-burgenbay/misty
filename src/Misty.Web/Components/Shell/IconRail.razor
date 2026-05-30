@@ -3,37 +3,79 @@
 @implements IDisposable
 
 <nav class="rail">
-    <div class="brand" title="Misty">M</div>
+    <img class="logo" src="images/logo.svg" alt="Misty" />
+
+    <div class="spacer"></div>
 
     <div class="items">
         <a class="item @(IsActive("/", exact: true) || IsActive("/c/") || IsActive("/dm/") ? "active" : "")"
            href="/" title="Messages">
             <Blazicon Svg="Lucide.MessageCircle" />
         </a>
-        <a class="item @(IsActive("/profile") ? "active" : "")"
-           href="/profile" title="Profile">
+        <a class="item @(IsActive("/friends") ? "active" : "")"
+           href="/friends" title="Friends">
             <Blazicon Svg="Lucide.User" />
         </a>
-        <a class="item @(IsActive("/_gallery") ? "active" : "")"
-           href="/_gallery" title="Design gallery">
-            <Blazicon Svg="Lucide.LayoutGrid" />
+        <a class="item @(IsActive("/inbox") ? "active" : "")"
+           href="/inbox" title="Inbox">
+            <Blazicon Svg="Lucide.Inbox" />
+        </a>
+        <a class="item @(IsActive("/profile") ? "active" : "")"
+           href="/profile" title="Settings">
+            <Blazicon Svg="Lucide.Settings" />
         </a>
     </div>
 
     <div class="spacer"></div>
 
-    <div class="items">
-        <a class="item" href="/login" title="Sign out">
-            <Blazicon Svg="Lucide.LogOut" />
-        </a>
-    </div>
+    <a class="item" href="/login" title="Sign out">
+        <Blazicon Svg="Lucide.LogOut" />
+    </a>
 
-    <Avatar Name="@(Auth.CurrentUser?.DisplayName ?? "Guest")"
-            ImageUrl="@Auth.CurrentUser?.AvatarUrl"
-            Size="Avatar.AvatarSize.Medium" />
+    <div class="avatar-anchor @(cardOpen ? "open" : "")">
+        @if (cardOpen)
+        {
+            <div class="user-card-backdrop" @onclick="CloseCard"></div>
+        }
+        <button type="button"
+                class="avatar-button"
+                title="@(Auth.CurrentUser?.DisplayName ?? "Guest")"
+                @onclick="ToggleCard"
+                @onclick:stopPropagation="true">
+            <Avatar Name="@(Auth.CurrentUser?.DisplayName ?? "Guest")"
+                    ImageUrl="@Auth.CurrentUser?.AvatarUrl"
+                    Size="Avatar.AvatarSize.Medium" />
+        </button>
+
+        <Popover Open="cardOpen"
+                 Placement="Popover.PopoverPlacement.TopRight"
+                 OnClose="CloseCard">
+            <div class="user-card" @onclick:stopPropagation="true">
+                <div class="user-card-header">
+                    <Avatar Name="@(Auth.CurrentUser?.DisplayName ?? "Guest")"
+                            ImageUrl="@Auth.CurrentUser?.AvatarUrl"
+                            Size="Avatar.AvatarSize.Large" />
+                    <div class="user-card-identity">
+                        <div class="user-card-display-name">@(Auth.CurrentUser?.DisplayName ?? "Guest")</div>
+                        @if (!string.IsNullOrWhiteSpace(Auth.CurrentUser?.Username))
+                        {
+                            <div class="user-card-username">@@@Auth.CurrentUser!.Username</div>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Auth.CurrentUser?.Bio))
+                {
+                    <div class="user-card-divider"></div>
+                    <div class="user-card-bio">@Auth.CurrentUser!.Bio</div>
+                }
+            </div>
+        </Popover>
+    </div>
 </nav>
 
 @code {
+    private bool cardOpen;
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocation;
@@ -46,8 +88,16 @@
         Auth.AuthStateChanged -= OnAuthChanged;
     }
 
-    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+    {
+        cardOpen = false;
+        StateHasChanged();
+    }
+
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleCard() => cardOpen = !cardOpen;
+    private void CloseCard() => cardOpen = false;
 
     private bool IsActive(string prefix, bool exact = false)
     {
