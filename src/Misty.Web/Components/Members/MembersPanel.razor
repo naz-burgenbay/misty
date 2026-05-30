@@ -26,11 +26,16 @@
             @foreach (var membership in group)
             {
                 var user = Users.Get(membership.UserId);
-                <div class="member">
-                    <Avatar Name="@user.DisplayName"
-                            IsAi="@user.IsAi"
-                            Size="Avatar.AvatarSize.Medium" />
-                    <div class="info">
+                <UserContextMenu UserId="@membership.UserId"
+                                 UserName="@user.DisplayName"
+                                 UserUsername="@user.Username"
+                                 ChannelId="@Channel.Id"
+                                 Class="member-anchor">
+                    <div class="member">
+                        <Avatar Name="@user.DisplayName"
+                                IsAi="@user.IsAi"
+                                Size="Avatar.AvatarSize.Medium" />
+                        <div class="info">
                         <div class="line">
                             <span class="name">@user.DisplayName</span>
                             @if (membership.Role == MemberRoleKind.Owner)
@@ -57,6 +62,7 @@
                         <div class="handle">@user.Username</div>
                     </div>
                 </div>
+                </UserContextMenu>
             }
         </section>
     }

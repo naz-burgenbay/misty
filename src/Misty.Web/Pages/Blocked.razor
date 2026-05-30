@@ -23,7 +23,9 @@
                 @foreach (var user in BlockedUsers)
                 {
                     <div class="row">
-                        <Avatar Name="@user.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        <UserContextMenu UserId="@user.Id" UserName="@user.DisplayName" UserUsername="@user.Username">
+                            <Avatar Name="@user.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        </UserContextMenu>
                         <div class="info">
                             <div class="name">@user.DisplayName</div>
                             <div class="handle">@user.Username</div>

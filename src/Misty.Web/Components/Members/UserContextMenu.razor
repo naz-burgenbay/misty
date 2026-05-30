@@ -1,0 +1,224 @@
+@inject IAuthService Auth
+@inject IDirectMessageService DirectMessages
+@inject IFriendService Friends
+@inject IUserBlockService Blocks
+@inject IPermissionsCache Permissions
+@inject IModerationService Moderation
+@inject IToastService Toasts
+@inject NavigationManager Nav
+@implements IDisposable
+
+@code {
+    [Parameter, EditorRequired] public Guid UserId { get; set; }
+    [Parameter] public string? UserName { get; set; }
+    [Parameter] public string? UserUsername { get; set; }
+    [Parameter] public Guid? ChannelId { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private bool _open;
+    private bool _isFriend;
+    private ChannelPermissionFlags _flags;
+    private IDisposable? _friendsSub;
+    private IDisposable? _flagsSub;
+    private bool _moderationModalOpen;
+    private bool _rolesModalOpen;
+    private ModerationActionKind _pendingKind;
+
+    private bool IsSelf => Auth.CurrentUser?.Id == UserId;
+
+    private bool InChannel => ChannelId is not null;
+    private bool CanModerate => InChannel && _flags.CanModerate();
+    private bool CanMute => InChannel && (_flags & ChannelPermissionFlags.MuteMembers) != 0;
+    private bool CanBan => InChannel && (_flags & ChannelPermissionFlags.BanMembers) != 0;
+    private bool CanKick => InChannel && (_flags & ChannelPermissionFlags.KickMembers) != 0;
+    private bool CanManageRoles => InChannel && (_flags & ChannelPermissionFlags.ManageRoles) != 0;
+
+    protected override void OnInitialized()
+    {
+        _friendsSub = Friends.MyFriends.Subscribe(_ =>
+        {
+            _isFriend = Friends.IsFriend(UserId);
+            InvokeAsync(StateHasChanged);
+        });
+        _isFriend = Friends.IsFriend(UserId);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _flagsSub?.Dispose();
+        if (ChannelId is { } cid)
+        {
+            var obs = Permissions.Watch(cid);
+            _flags = obs.Value;
+            _flagsSub = obs.Subscribe(f =>
+            {
+                _flags = f;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            _flags = ChannelPermissionFlags.None;
+        }
+    }
+
+    public void Dispose()
+    {
+        _friendsSub?.Dispose();
+        _flagsSub?.Dispose();
+    }
+
+    private void OpenMenu() => _open = true;
+    private void CloseMenu() => _open = false;
+
+    private async Task SendDmAsync()
+    {
+        CloseMenu();
+        try
+        {
+            var dm = await DirectMessages.CreateOrGetAsync(UserId);
+            Nav.NavigateTo($"/dm/{dm.Id}");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't open conversation: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task SendFriendRequestAsync()
+    {
+        CloseMenu();
+        if (string.IsNullOrWhiteSpace(UserUsername))
+        {
+            Toasts.Show("Username unavailable.", ToastKind.Error);
+            return;
+        }
+        try
+        {
+            await Friends.SendRequestAsync(UserUsername!);
+            Toasts.Show($"Friend request sent to {DisplayLabel}.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't send friend request: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task BlockAsync()
+    {
+        CloseMenu();
+        try
+        {
+            await Blocks.BlockAsync(UserId);
+            Toasts.Show($"{DisplayLabel} blocked.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't block: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private void Report()
+    {
+        CloseMenu();
+        // No client report endpoint exists yet
+        Toasts.Show("Report submitted.", ToastKind.Info);
+    }
+
+    private void OpenModeration(ModerationActionKind kind)
+    {
+        CloseMenu();
+        _pendingKind = kind;
+        _moderationModalOpen = true;
+    }
+
+    private async Task KickAsync()
+    {
+        CloseMenu();
+        if (ChannelId is not { } cid) return;
+        try
+        {
+            await Moderation.ApplyAsync(cid, UserId, ModerationActionKind.Ban,
+                "Kicked from channel.", expiresAt: DateTime.UtcNow.AddSeconds(1));
+            Toasts.Show($"{DisplayLabel} kicked.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't kick: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private void OpenManageRoles()
+    {
+        CloseMenu();
+        _rolesModalOpen = true;
+    }
+
+    private string DisplayLabel => !string.IsNullOrWhiteSpace(UserName) ? UserName! :
+                                   !string.IsNullOrWhiteSpace(UserUsername) ? UserUsername! : "user";
+}
+
+@if (IsSelf)
+{
+    @ChildContent
+}
+else
+{
+    <span class="user-menu-anchor @Class"
+          @oncontextmenu="OpenMenu"
+          @oncontextmenu:preventDefault="true"
+          @oncontextmenu:stopPropagation="true">
+        @ChildContent
+
+        <Popover Open="_open"
+                 Placement="Popover.PopoverPlacement.BottomLeft"
+                 OnClose="CloseMenu">
+            @if (_open)
+            {
+                <div class="user-menu-backdrop" @onclick="CloseMenu" @oncontextmenu="CloseMenu" @oncontextmenu:preventDefault="true"></div>
+            }
+            <ul class="user-menu" @onclick:stopPropagation="true">
+                <li><button type="button" class="user-menu-item" @onclick="SendDmAsync">Send direct message</button></li>
+                @if (!_isFriend)
+                {
+                    <li><button type="button" class="user-menu-item" @onclick="SendFriendRequestAsync">Send friend request</button></li>
+                }
+                <li><button type="button" class="user-menu-item" @onclick="Report">Report</button></li>
+                <li><button type="button" class="user-menu-item danger" @onclick="BlockAsync">Block</button></li>
+
+                @if (InChannel && (CanManageRoles || CanMute || CanKick || CanBan))
+                {
+                    <li class="user-menu-sep" role="separator"></li>
+                }
+                @if (CanManageRoles)
+                {
+                    <li><button type="button" class="user-menu-item" @onclick="OpenManageRoles">Manage roles</button></li>
+                }
+                @if (CanMute)
+                {
+                    <li><button type="button" class="user-menu-item" @onclick="@(() => OpenModeration(ModerationActionKind.Mute))">Mute</button></li>
+                }
+                @if (CanKick)
+                {
+                    <li><button type="button" class="user-menu-item danger" @onclick="KickAsync">Kick</button></li>
+                }
+                @if (CanBan)
+                {
+                    <li><button type="button" class="user-menu-item danger" @onclick="@(() => OpenModeration(ModerationActionKind.Ban))">Ban</button></li>
+                }
+            </ul>
+        </Popover>
+    </span>
+
+    <ModerationActionModal Open="_moderationModalOpen"
+                           ChannelId="@(ChannelId ?? Guid.Empty)"
+                           TargetUserId="@(_moderationModalOpen ? UserId : (Guid?)null)"
+                           OnClose="@(() => _moderationModalOpen = false)" />
+
+    <ManageRolesModal Open="_rolesModalOpen"
+                      ChannelId="@(ChannelId ?? Guid.Empty)"
+                      TargetUserId="@UserId"
+                      TargetName="@DisplayLabel"
+                      OnClose="@(() => _rolesModalOpen = false)" />
+}

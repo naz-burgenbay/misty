@@ -5,6 +5,7 @@
 
 @code {
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
+    [Parameter] public Guid? ChannelId { get; set; }
     [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
     [Parameter] public bool ReactionsEnabled { get; set; }
     [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnAddReaction { get; set; }
@@ -69,7 +70,12 @@
 
 <div class="row @(IsMine ? "mine" : "") @(IsTombstone ? "tombstone" : "")">
     <div class="avatar-col">
-        <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Presence="_presence" Size="Avatar.AvatarSize.Medium" />
+        <UserContextMenu UserId="@Message.AuthorId"
+                         UserName="@_author.DisplayName"
+                         UserUsername="@_author.Username"
+                         ChannelId="@ChannelId">
+            <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Presence="_presence" Size="Avatar.AvatarSize.Medium" />
+        </UserContextMenu>
     </div>
     <div class="body">
         <div class="header">

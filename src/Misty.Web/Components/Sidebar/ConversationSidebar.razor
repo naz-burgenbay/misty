@@ -115,7 +115,9 @@
                         @foreach (var user in _dmResults)
                         {
                             <button type="button" class="user-result" @onclick="@(() => StartDmAsync(user.Id))" disabled="@_creatingDm">
-                                <Avatar Name="@user.DisplayName" ImageUrl="@user.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                <UserContextMenu UserId="@user.Id" UserName="@user.DisplayName" UserUsername="@user.Username">
+                                    <Avatar Name="@user.DisplayName" ImageUrl="@user.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                </UserContextMenu>
                                 <span class="user-result-text">
                                     <span class="display-name">@user.DisplayName</span>
                                     <span class="username">@@@user.Username</span>

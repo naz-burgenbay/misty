@@ -50,9 +50,13 @@
 }
 
 <a class="row @(Selected ? "selected" : "")" href="@Href">
-    <Avatar Name="@_other.DisplayName"
-            Presence="_presence"
-            Size="Avatar.AvatarSize.Medium" />
+    <UserContextMenu UserId="@Conversation.OtherUserId"
+                     UserName="@_other.DisplayName"
+                     UserUsername="@_other.Username">
+        <Avatar Name="@_other.DisplayName"
+                Presence="_presence"
+                Size="Avatar.AvatarSize.Medium" />
+    </UserContextMenu>
     <div class="text">
         <div class="line">
             <span class="name">@_other.DisplayName</span>

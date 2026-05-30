@@ -1,0 +1,34 @@
+.manage-roles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: calc(var(--sp-8) * 10);
+}
+
+.manage-roles .hint {
+    color: var(--color-text-secondary);
+    font-size: var(--fs-body);
+    padding: var(--sp-2) 0;
+}
+
+.role-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+}
+
+.role-name {
+    font-size: var(--fs-body);
+    color: var(--color-text-primary);
+    font-weight: var(--fw-medium);
+}
+
+.role-actions {
+    display: flex;
+    gap: var(--sp-2);
+}

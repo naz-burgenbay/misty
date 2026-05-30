@@ -124,8 +124,12 @@ else
             <ConversationHeader Title="@OtherName"
                                 ShowChannelActions="false">
                 <TitleIcon>
-                    <Avatar Name="@OtherName"
-                            Size="Avatar.AvatarSize.Small" />
+                    <UserContextMenu UserId="@(_dm?.OtherUserId ?? Guid.Empty)"
+                                     UserName="@OtherName"
+                                     UserUsername="@(_other?.Username)">
+                        <Avatar Name="@OtherName"
+                                Size="Avatar.AvatarSize.Small" />
+                    </UserContextMenu>
                 </TitleIcon>
             </ConversationHeader>
 
