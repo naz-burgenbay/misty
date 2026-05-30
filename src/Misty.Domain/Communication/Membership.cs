@@ -8,6 +8,8 @@ public class Membership
     public Guid ChannelId { get; private set; }
     public Guid UserId { get; private set; }
     public DateTime JoinedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static Membership Create(Guid id, Guid channelId, Guid userId)
         => new()
@@ -17,4 +19,10 @@ public class Membership
             UserId = userId,
             JoinedAt = DateTime.UtcNow,
         };
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+    }
 }

@@ -139,8 +139,7 @@
         if (ChannelId is not { } cid) return;
         try
         {
-            await Moderation.ApplyAsync(cid, UserId, ModerationActionKind.Ban,
-                "Kicked from channel.", expiresAt: DateTime.UtcNow.AddSeconds(1));
+            await Moderation.KickAsync(cid, UserId, "Kicked from channel.");
             Toasts.Show($"{DisplayLabel} kicked.", ToastKind.Success);
         }
         catch (Exception ex)

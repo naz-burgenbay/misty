@@ -28,6 +28,13 @@ public sealed class MembershipRepository : IMembershipRepository
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task SoftRemoveAsync(Membership membership, Channel channel, CancellationToken ct = default)
+    {
+        channel.DecrementMemberCount();
+        membership.SoftDelete();
+        await _db.SaveChangesAsync(ct);
+    }
+
     public Task<MemberRole?> GetRoleAssignmentAsync(Guid membershipId, Guid roleId, CancellationToken ct = default)
         => _db.MemberRoles.FirstOrDefaultAsync(mr => mr.MembershipId == membershipId && mr.RoleId == roleId, ct);
 

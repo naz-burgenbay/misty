@@ -18,8 +18,12 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
             .HasForeignKey(m => m.ChannelId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Filtered unique index allows a new active membership row to coexist with prior soft-deleted (kicked) rows for the same (channel, user).
         builder.HasIndex(m => new { m.ChannelId, m.UserId })
             .IsUnique()
+            .HasFilter("[IsDeleted] = 0")
             .HasDatabaseName("UX_Membership_Channel_User");
+
+        builder.HasQueryFilter(m => !m.IsDeleted);
     }
 }

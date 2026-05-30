@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,4 +33,19 @@ public sealed class ChannelMembersController : ControllerBase
         await _mediator.Send(new RevokeRoleCommand(channelId, userId, roleId), ct);
         return NoContent();
     }
+
+    [HttpDelete("{userId:guid}")]
+    [ProducesResponseType(typeof(KickMemberResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Kick(Guid channelId, Guid userId, KickRequest? request, CancellationToken ct)
+    {
+        var issuerId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var reason = string.IsNullOrWhiteSpace(request?.Reason) ? "Kicked from channel." : request!.Reason!;
+        var result = await _mediator.Send(new KickMemberCommand(channelId, userId, issuerId, reason), ct);
+        return Ok(result);
+    }
 }
+
+public record KickRequest(string? Reason);
