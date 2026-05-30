@@ -38,7 +38,8 @@ public sealed class ModerationController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Revoke(Guid channelId, Guid userId, Guid actionId, CancellationToken ct)
     {
-        await _mediator.Send(new RevokeModerationActionCommand(channelId, actionId), ct);
+        var revokedBy = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new RevokeModerationActionCommand(channelId, revokedBy, actionId), ct);
         return NoContent();
     }
 

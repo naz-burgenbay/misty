@@ -31,10 +31,13 @@ public sealed class ModerationRepository : IModerationRepository
         Guid channelId, Guid targetUserId, CancellationToken ct = default)
     {
         var utcNow = DateTime.UtcNow;
+        // Kick is a historical event (no expiry, no revocation), not an active  sanction, so we exclude it here
+        // so accumulated kicks don't pollute the active-actions list. Use a dedicated history query for kicks.
         return await _db.ModerationActions
             .AsNoTracking()
             .Where(a => a.ChannelId == channelId
                      && a.TargetUserId == targetUserId
+                     && a.Type != ModerationActionType.Kick
                      && a.RevokedAt == null
                      && (a.ExpiresAt == null || a.ExpiresAt > utcNow))
             .ToListAsync(ct);
