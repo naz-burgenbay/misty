@@ -43,7 +43,7 @@ public sealed class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelC
                 [new("Version", "Invalid version token.")]);
         }
 
-        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions);
+        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions, channel.Description);
         await _channels.UpdateAsync(channel, concurrencyToken, ct);
 
         return new UpdateChannelResponse(
