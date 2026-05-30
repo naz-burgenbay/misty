@@ -18,6 +18,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+    public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<ChannelInvite> ChannelInvites => Set<ChannelInvite>();
+    public DbSet<InboxItem> InboxItems => Set<InboxItem>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

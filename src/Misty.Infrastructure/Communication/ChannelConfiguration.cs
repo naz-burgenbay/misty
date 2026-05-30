@@ -17,6 +17,12 @@ public class ChannelConfiguration : IEntityTypeConfiguration<Channel>
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(c => c.Description)
+            .HasMaxLength(500);
+
+        builder.Property(c => c.IconUrl)
+            .HasMaxLength(512);
+
         builder.Property(c => c.InviteCode)
             .HasMaxLength(32);
 
