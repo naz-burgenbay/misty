@@ -1,12 +1,14 @@
 using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
 public record UpdateChannelCommand(
     Guid ChannelId,
+    Guid ActorUserId,
     string Name,
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
@@ -27,13 +29,23 @@ public record UpdateChannelResponse(
 public sealed class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelCommand, UpdateChannelResponse>
 {
     private readonly IChannelRepository _channels;
+    private readonly IPermissionService _permissions;
 
-    public UpdateChannelCommandHandler(IChannelRepository channels) => _channels = channels;
+    public UpdateChannelCommandHandler(IChannelRepository channels, IPermissionService permissions)
+    {
+        _channels = channels;
+        _permissions = permissions;
+    }
 
     public async Task<UpdateChannelResponse> Handle(UpdateChannelCommand request, CancellationToken ct)
     {
         var channel = await _channels.GetByIdAsync(request.ChannelId, ct)
             ?? throw new NotFoundException($"Channel '{request.ChannelId}' was not found.");
+
+        var hasPermission = await _permissions.CheckPermissionAsync(
+            request.ActorUserId, request.ChannelId, ChannelPermission.ManageChannel, ct);
+        if (!hasPermission)
+            throw new ForbiddenException("Missing ManageChannel permission.");
 
         byte[] concurrencyToken;
         try { concurrencyToken = Convert.FromBase64String(request.Version); }

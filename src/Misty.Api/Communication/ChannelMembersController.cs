@@ -17,20 +17,24 @@ public sealed class ChannelMembersController : ControllerBase
 
     [HttpPost("{userId:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignRole(Guid channelId, Guid userId, Guid roleId, CancellationToken ct)
     {
-        await _mediator.Send(new AssignRoleCommand(channelId, userId, roleId), ct);
+        var actorId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new AssignRoleCommand(channelId, actorId, userId, roleId), ct);
         return NoContent();
     }
 
     [HttpDelete("{userId:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeRole(Guid channelId, Guid userId, Guid roleId, CancellationToken ct)
     {
-        await _mediator.Send(new RevokeRoleCommand(channelId, userId, roleId), ct);
+        var actorId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new RevokeRoleCommand(channelId, actorId, userId, roleId), ct);
         return NoContent();
     }
 

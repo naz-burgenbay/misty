@@ -58,9 +58,11 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateChannel(Guid id, UpdateChannelRequest request, CancellationToken ct)
     {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         var result = await _mediator.Send(
             new UpdateChannelCommand(
                 id,
+                userId,
                 request.Name,
                 request.IsAiAssistantEnabled,
                 request.DefaultPermissions,
@@ -74,7 +76,8 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteChannel(Guid id, CancellationToken ct)
     {
-        await _mediator.Send(new DeleteChannelCommand(id), ct);
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new DeleteChannelCommand(id, userId), ct);
         return NoContent();
     }
 
