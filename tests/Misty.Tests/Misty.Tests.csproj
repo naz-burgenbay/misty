@@ -32,6 +32,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Link the frontend enum source so the parity test compiles against the actual definition without taking a project reference to the BlazorWebAssembly SDK project. -->
+    <Compile Include="..\..\src\Misty.Web\Services\Permissions\ChannelPermissionFlags.cs"
+             Link="Communication\ChannelPermissionFlags.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Misty.Api\Misty.Api.csproj" />
     <ProjectReference Include="..\..\src\Misty.Infrastructure\Misty.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Misty.Application\Misty.Application.csproj" />
