@@ -10,7 +10,8 @@
             "Properties": {},
             "Subscriptions": [
               { "Name": "realtime-delivery", "Properties": {} },
-              { "Name": "ai-response", "Properties": {} }
+              { "Name": "ai-response", "Properties": {} },
+              { "Name": "inbox-worker", "Properties": {} }
             ]
           },
           {
@@ -35,6 +36,20 @@
             "Subscriptions": [
               { "Name": "cache-invalidation", "Properties": {} },
               { "Name": "realtime-broadcast", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "friend-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "inbox-worker", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "channel-invite-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "inbox-worker", "Properties": {} }
             ]
           }
         ]

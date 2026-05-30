@@ -166,6 +166,7 @@ builder.Services.AddHostedService<OutboxRelayWorker>();
 builder.Services.AddHostedService<RealtimeDeliveryWorker>();
 builder.Services.AddHostedService<PermissionEventsBroadcastWorker>();
 builder.Services.AddHostedService<AIResponseWorker>();
+builder.Services.AddHostedService<InboxWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
