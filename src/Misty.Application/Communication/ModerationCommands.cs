@@ -137,8 +137,8 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
         if (action.Type == ModerationActionType.Kick)
             throw new ConflictException("Kick actions are historical and cannot be revoked.");
 
-        if (action.RevokedAt is not null)
-            throw new ConflictException("Moderation action has already been revoked.");
+        if (!action.IsActive(DateTime.UtcNow))
+            throw new ConflictException("Moderation action is no longer active and cannot be revoked.");
 
         var required = ApplyModerationActionCommandHandler.RequiredPermissionFor(action.Type);
         var allowed = await _permissions.CheckPermissionAsync(

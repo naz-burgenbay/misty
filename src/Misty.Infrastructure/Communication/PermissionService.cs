@@ -49,13 +49,11 @@ public sealed class PermissionService : IPermissionService
         var utcNow = DateTime.UtcNow;
 
         // If banned, deny everything
-        var isBanned = await _db.ModerationActions.AnyAsync(
-            m => m.ChannelId == channelId
-              && m.TargetUserId == userId
-              && m.Type == ModerationActionType.Ban
-              && m.RevokedAt == null
-              && (m.ExpiresAt == null || m.ExpiresAt > utcNow),
-            ct);
+        var isBanned = await _db.ModerationActions
+            .Where(m => m.ChannelId == channelId
+                     && m.TargetUserId == userId
+                     && m.Type == ModerationActionType.Ban)
+            .AnyAsync(ModerationAction.IsActiveExpr(utcNow), ct);
 
         if (isBanned)
             return DeniedSentinel;
@@ -81,13 +79,11 @@ public sealed class PermissionService : IPermissionService
         var aggregated = rolePerms.Aggregate(ChannelPermission.None, (acc, p) => acc | p);
 
         // If muted, strip write-class bits
-        var isMuted = await _db.ModerationActions.AnyAsync(
-            m => m.ChannelId == channelId
-              && m.TargetUserId == userId
-              && m.Type == ModerationActionType.Mute
-              && m.RevokedAt == null
-              && (m.ExpiresAt == null || m.ExpiresAt > utcNow),
-            ct);
+        var isMuted = await _db.ModerationActions
+            .Where(m => m.ChannelId == channelId
+                     && m.TargetUserId == userId
+                     && m.Type == ModerationActionType.Mute)
+            .AnyAsync(ModerationAction.IsActiveExpr(utcNow), ct);
 
         if (isMuted)
             aggregated &= ~WriteMask;

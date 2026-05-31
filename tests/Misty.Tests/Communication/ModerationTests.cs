@@ -439,4 +439,41 @@ public sealed class ModerationTests : IAsyncLifetime
         var actions = await getResp.Content.ReadFromJsonAsync<JsonElement[]>();
         actions.Should().BeEmpty("kick actions are historical and must not appear in active actions");
     }
+
+    [Fact]
+    public async Task ExpiredBan_IsNotDuplicateForApply_AndIsNotEnforcedByPermissions()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_exp_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_exp_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-exp-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
+        await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
+
+        // Seed an already-expired ban directly (the validator would reject a past ExpiresAt over the wire).
+        await using (var db = _factory.CreateDbContext())
+        {
+            var expired = ModerationAction.Create(
+                Guid.NewGuid(),
+                channelId,
+                memberId,
+                issuedByUserId: memberId, // value irrelevant for this test
+                ModerationActionType.Ban,
+                reason: "expired ban",
+                expiresAt: DateTime.UtcNow.AddMinutes(-5));
+            db.ModerationActions.Add(expired);
+            await db.SaveChangesAsync();
+        }
+
+        // PermissionService must NOT enforce the expired ban.
+        var allowed = await CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
+        allowed.Should().BeTrue("an expired ban is no longer active and must not deny permissions");
+
+        // Apply handler must NOT treat the expired ban as a duplicate active sanction.
+        var (resp, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Ban);
+        resp.StatusCode.Should().Be(HttpStatusCode.Created,
+            "an expired ban must not count as an active duplicate when applying a new ban");
+        actionId.Should().NotBe(Guid.Empty);
+    }
 }
