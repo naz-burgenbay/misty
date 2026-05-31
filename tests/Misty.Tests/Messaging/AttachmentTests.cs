@@ -332,8 +332,8 @@ public sealed class AttachmentTests : IAsyncLifetime
         var attachmentId = (await up.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("attachmentId").GetGuid();
 
-        // ViewChannel|ReadHistory|ManageMessages = 1|2|64 = 67
-        var roleId = await CreateRoleAsync(channelId, "Mod", 67L);
+        // ViewChannel|ReadHistory|ManageMessages = 1|2|512 = 515
+        var roleId = await CreateRoleAsync(channelId, "Mod", 515L);
 
         var (tokenB, userBId) = await RegisterAndLoginAsync("att_mod_B");
         SetToken(tokenB);
