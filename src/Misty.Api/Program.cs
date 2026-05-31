@@ -160,7 +160,7 @@ var serviceBusConnectionString = builder.Configuration.GetConnectionString("Serv
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
 
 builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
-builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+builder.Services.AddScoped<IEventPublisher, ServiceBusEventPublisher>();
 builder.Services.AddHostedService<CacheInvalidationWorker>();
 builder.Services.AddHostedService<OutboxRelayWorker>();
 builder.Services.AddHostedService<RealtimeDeliveryWorker>();

@@ -15,13 +15,16 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
 {
     private readonly IMessageRepository _messages;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public DeleteMessageCommandHandler(
         IMessageRepository messages,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task Handle(DeleteMessageCommand request, CancellationToken ct)
@@ -52,11 +55,29 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
         {
             // Tombstone: clear content and mark as deleted
             message.Tombstone();
+            _outbox.Queue(
+                MessageEventTopics.Message,
+                MessageEventTypes.MessageDeleted,
+                message.Id,
+                new MessageDeletedPayload(
+                    message.Id,
+                    message.ChannelId,
+                    message.ConversationId,
+                    IsTombstone: true));
             await _messages.UpdateAsync(message, ct);
         }
         else
         {
             // Hard-delete: remove the message entirely
+            _outbox.Queue(
+                MessageEventTopics.Message,
+                MessageEventTypes.MessageDeleted,
+                message.Id,
+                new MessageDeletedPayload(
+                    message.Id,
+                    message.ChannelId,
+                    message.ConversationId,
+                    IsTombstone: false));
             await _messages.DeleteAsync(message, ct);
         }
     }

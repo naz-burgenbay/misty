@@ -2,7 +2,7 @@ using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Misty.Infrastructure.Messaging;
+using Misty.Application.Messaging;
 using System.Text.Json;
 
 namespace Misty.Api.Realtime;

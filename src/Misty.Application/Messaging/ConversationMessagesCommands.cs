@@ -85,6 +85,19 @@ public sealed class SendConversationMessageCommandHandler
             request.IdempotencyKey,
             request.ParentMessageId);
 
+        _outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.MessageCreated,
+            message.Id,
+            new MessageCreatedPayload(
+                message.Id,
+                message.ChannelId,
+                message.ConversationId,
+                message.AuthorId,
+                message.Content,
+                message.ParentMessageId,
+                message.CreatedAt));
+
         await _messages.AddAsync(message, ct);
         return ToResponse(message, wasIdempotent: false);
     }

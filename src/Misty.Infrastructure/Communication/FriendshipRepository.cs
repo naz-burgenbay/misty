@@ -54,5 +54,5 @@ public sealed class FriendshipRepository : IFriendshipRepository
     }
 
     private static (Guid A, Guid B) Canonical(Guid x, Guid y)
-        => x.CompareTo(y) < 0 ? (x, y) : (y, x);
+        => new System.Data.SqlTypes.SqlGuid(x).CompareTo(new System.Data.SqlTypes.SqlGuid(y)) < 0 ? (x, y) : (y, x);
 }

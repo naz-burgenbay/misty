@@ -123,7 +123,7 @@ public sealed class FriendRequestTests : IAsyncLifetime
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var db2 = _factory.CreateDbContext();
-        var (expectedA, expectedB) = userA.CompareTo(userB) < 0 ? (userA, userB) : (userB, userA);
+        var (expectedA, expectedB) = new System.Data.SqlTypes.SqlGuid(userA).CompareTo(new System.Data.SqlTypes.SqlGuid(userB)) < 0 ? (userA, userB) : (userB, userA);
         var friendship = await db2.Friendships.SingleAsync();
         friendship.UserAId.Should().Be(expectedA);
         friendship.UserBId.Should().Be(expectedB);

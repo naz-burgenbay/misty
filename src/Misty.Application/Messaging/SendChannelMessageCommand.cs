@@ -30,13 +30,16 @@ public sealed class SendChannelMessageCommandHandler
 {
     private readonly IMessageRepository _messages;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public SendChannelMessageCommandHandler(
         IMessageRepository messages,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task<SendMessageResponse> Handle(SendChannelMessageCommand request, CancellationToken ct)
@@ -72,6 +75,19 @@ public sealed class SendChannelMessageCommandHandler
             request.Content,
             request.IdempotencyKey,
             request.ParentMessageId);
+
+        _outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.MessageCreated,
+            message.Id,
+            new MessageCreatedPayload(
+                message.Id,
+                message.ChannelId,
+                message.ConversationId,
+                message.AuthorId,
+                message.Content,
+                message.ParentMessageId,
+                message.CreatedAt));
 
         await _messages.AddAsync(message, ct);
 

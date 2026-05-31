@@ -19,15 +19,18 @@ public sealed class AddReactionCommandHandler : IRequestHandler<AddReactionComma
     private readonly IMessageRepository _messages;
     private readonly IReactionRepository _reactions;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public AddReactionCommandHandler(
         IMessageRepository messages,
         IReactionRepository reactions,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _reactions = reactions;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task Handle(AddReactionCommand request, CancellationToken ct)
@@ -55,7 +58,20 @@ public sealed class AddReactionCommandHandler : IRequestHandler<AddReactionComma
             return;
 
         var reaction = MessageReaction.Create(request.MessageId, request.UserId, request.EmojiCode);
-        await _reactions.AddAsync(reaction, message.ChannelId, ct);
+
+        _outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.ReactionChanged,
+            reaction.MessageId,
+            new ReactionChangedPayload(
+                reaction.MessageId,
+                message.ChannelId,
+                reaction.UserId,
+                reaction.EmojiCode,
+                "added",
+                DateTime.UtcNow));
+
+        await _reactions.AddAsync(reaction, ct);
     }
 }
 

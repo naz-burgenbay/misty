@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
@@ -16,37 +15,16 @@ public sealed class ReactionRepository : IReactionRepository
         => _db.MessageReactions.FirstOrDefaultAsync(
             r => r.MessageId == messageId && r.UserId == userId && r.EmojiCode == emojiCode, ct);
 
-    public async Task AddAsync(MessageReaction reaction, Guid? channelId, CancellationToken ct = default)
+    // The handler is expected to queue the matching ReactionChanged outbox row onto the same DbContext before calling AddAsync/RemoveAsync.
+    public async Task AddAsync(MessageReaction reaction, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(new ReactionChangedPayload(
-            reaction.MessageId,
-            channelId,
-            reaction.UserId,
-            reaction.EmojiCode,
-            "added",
-            DateTime.UtcNow));
-
-        var outbox = OutboxMessage.Create(reaction.MessageId, "message-events", "ReactionChanged", payload);
-
         await _db.MessageReactions.AddAsync(reaction, ct);
-        await _db.OutboxMessages.AddAsync(outbox, ct);
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task RemoveAsync(MessageReaction reaction, Guid? channelId, CancellationToken ct = default)
+    public async Task RemoveAsync(MessageReaction reaction, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(new ReactionChangedPayload(
-            reaction.MessageId,
-            channelId,
-            reaction.UserId,
-            reaction.EmojiCode,
-            "removed",
-            DateTime.UtcNow));
-
-        var outbox = OutboxMessage.Create(reaction.MessageId, "message-events", "ReactionChanged", payload);
-
         _db.MessageReactions.Remove(reaction);
-        await _db.OutboxMessages.AddAsync(outbox, ct);
         await _db.SaveChangesAsync(ct);
     }
 
@@ -76,16 +54,4 @@ public sealed class ReactionRepository : IReactionRepository
                         eg.Any(r => r.UserId == currentUserId)))
                     .ToList());
     }
-}
-
-// Payload written to msg.OutboxMessage and published to the message-events Service Bus topic with Subject="ReactionChanged". Action is "added" or "removed".
-public sealed record ReactionChangedPayload(
-    Guid MessageId,
-    Guid? ChannelId,
-    Guid UserId,
-    string EmojiCode,
-    string Action,
-    DateTime OccurredAt)
-{
-    public string EventType { get; init; } = "ReactionChanged";
 }
