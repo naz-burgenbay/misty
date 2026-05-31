@@ -12,6 +12,7 @@ public interface IUserProfileService
     Task UpdateProfileAsync(string displayName, string? bio, CancellationToken ct = default);
     Task UploadAvatarAsync(IBrowserFile file, CancellationToken ct = default);
     Task RemoveAvatarAsync(CancellationToken ct = default);
+    Task DeleteAccountAsync(CancellationToken ct = default);
 }
 
 public sealed class HttpUserProfileService : IUserProfileService
@@ -86,6 +87,12 @@ public sealed class HttpUserProfileService : IUserProfileService
             AvatarUrl = null,
             Version = body.Version,
         });
+    }
+
+    public async Task DeleteAccountAsync(CancellationToken ct = default)
+    {
+        using var resp = await _http.DeleteAsync("api/v1/users/me", ct);
+        await EnsureSuccessAsync(resp, ct);
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage resp, CancellationToken ct)

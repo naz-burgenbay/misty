@@ -18,25 +18,23 @@ public sealed class ModerationRepository : IModerationRepository
         Guid channelId, Guid targetUserId, ModerationActionType type, CancellationToken ct = default)
     {
         var utcNow = DateTime.UtcNow;
-        return _db.ModerationActions.AnyAsync(
-            a => a.ChannelId == channelId
-              && a.TargetUserId == targetUserId
-              && a.Type == type
-              && a.RevokedAt == null
-              && (a.ExpiresAt == null || a.ExpiresAt > utcNow),
-            ct);
+        return _db.ModerationActions
+            .Where(a => a.ChannelId == channelId && a.TargetUserId == targetUserId && a.Type == type)
+            .AnyAsync(ModerationAction.IsActiveExpr(utcNow), ct);
     }
 
     public async Task<List<ModerationAction>> GetActiveForUserAsync(
         Guid channelId, Guid targetUserId, CancellationToken ct = default)
     {
         var utcNow = DateTime.UtcNow;
+        // Kick is a historical event (no expiry, no revocation), not an active  sanction, so we exclude it here
+        // so accumulated kicks don't pollute the active-actions list. Use a dedicated history query for kicks.
         return await _db.ModerationActions
             .AsNoTracking()
             .Where(a => a.ChannelId == channelId
                      && a.TargetUserId == targetUserId
-                     && a.RevokedAt == null
-                     && (a.ExpiresAt == null || a.ExpiresAt > utcNow))
+                     && a.Type != ModerationActionType.Kick)
+            .Where(ModerationAction.IsActiveExpr(utcNow))
             .ToListAsync(ct);
     }
 

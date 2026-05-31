@@ -3,6 +3,7 @@
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<MockMessage> Messages { get; set; } = Array.Empty<MockMessage>();
+    [Parameter] public Guid? ChannelId { get; set; }
     [Parameter] public bool HasMoreOlder { get; set; }
     [Parameter] public bool LoadingOlder { get; set; }
     [Parameter] public EventCallback OnLoadOlder { get; set; }
@@ -69,6 +70,7 @@
         @foreach (var msg in Messages)
         {
             <MessageRow Message="msg"
+                        ChannelId="ChannelId"
                         OnReply="OnReply"
                         ReactionsEnabled="ReactionsEnabled"
                         OnAddReaction="OnAddReaction"

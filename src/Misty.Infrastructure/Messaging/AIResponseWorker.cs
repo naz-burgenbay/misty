@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Misty.Application.Communication.Contracts;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -110,6 +111,7 @@ public sealed class AIResponseWorker : BackgroundService
         await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var messageRepo = scope.ServiceProvider.GetRequiredService<IMessageRepository>();
+        var outbox = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
 
         var channel = await db.Channels
             .AsNoTracking()
@@ -137,6 +139,19 @@ public sealed class AIResponseWorker : BackgroundService
             AiUserId,
             $"[AI] {payload.Content}",
             idempotencyKey);
+
+        outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.MessageCreated,
+            aiMessage.Id,
+            new MessageCreatedPayload(
+                aiMessage.Id,
+                aiMessage.ChannelId,
+                aiMessage.ConversationId,
+                aiMessage.AuthorId,
+                aiMessage.Content,
+                aiMessage.ParentMessageId,
+                aiMessage.CreatedAt));
 
         await messageRepo.AddAsync(aiMessage, args.CancellationToken);
 

@@ -306,4 +306,174 @@ public sealed class ModerationTests : IAsyncLifetime
         var canView = await CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
         canView.Should().BeTrue("a warned user's permissions must not be affected");
     }
+
+    [Fact]
+    public async Task Apply_Self_Returns403()
+    {
+        var (ownerToken, ownerId) = await RegisterAndLoginAsync("mod_self_owner");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-self-ch");
+
+        var (resp, _) = await ApplyModerationAsync(ownerToken, channelId, ownerId, ModerationActionType.Mute);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Apply_TargetIsOwner_Returns403()
+    {
+        var (ownerToken, ownerId) = await RegisterAndLoginAsync("mod_owner_target");
+        var (modToken, modId) = await RegisterAndLoginAsync("mod_actor1");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-owner-tgt");
+        await JoinChannelAsync(modToken, channelId);
+
+        var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.BanMembers);
+        await AssignRoleAsync(ownerToken, channelId, modId, roleId);
+
+        var (resp, _) = await ApplyModerationAsync(modToken, channelId, ownerId, ModerationActionType.Ban);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Apply_ActorWithoutPermission_Returns403()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_perm_owner");
+        var (actorToken, _) = await RegisterAndLoginAsync("mod_perm_actor");
+        var (targetToken, targetId) = await RegisterAndLoginAsync("mod_perm_target");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-perm-ch");
+        await JoinChannelAsync(actorToken, channelId);
+        await JoinChannelAsync(targetToken, channelId);
+
+        var (resp, _) = await ApplyModerationAsync(actorToken, channelId, targetId, ModerationActionType.Mute);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden,
+            "an actor with no MuteMembers role must not be able to mute");
+    }
+
+    [Fact]
+    public async Task Apply_ActorWithMuteOnly_CanMuteButCannotBan()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_mute_owner");
+        var (actorToken, actorId) = await RegisterAndLoginAsync("mod_mute_actor");
+        var (targetToken, targetId) = await RegisterAndLoginAsync("mod_mute_target");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-mute-ch");
+        await JoinChannelAsync(actorToken, channelId);
+        await JoinChannelAsync(targetToken, channelId);
+
+        var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.MuteMembers);
+        await AssignRoleAsync(ownerToken, channelId, actorId, roleId);
+
+        var (muteResp, _) = await ApplyModerationAsync(actorToken, channelId, targetId, ModerationActionType.Mute);
+        muteResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var (banResp, _) = await ApplyModerationAsync(actorToken, channelId, targetId, ModerationActionType.Ban);
+        banResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Apply_TypeKick_IsRejected()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_kick_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_kick_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-kick-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var (resp, _) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Kick);
+        resp.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity);
+    }
+
+    [Fact]
+    public async Task Revoke_ActorWithoutPermission_Returns403()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_revoke_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_revoke_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-revoke-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var (_, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Mute);
+
+        // The muted member tries to revoke their own action -- they have no MuteMembers perm.
+        var resp = await RevokeModerationAsync(memberToken, channelId, memberId, actionId);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Revoke_KickAction_Returns409()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_revoke_kick_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_revoke_kick_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-revoke-kick-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        // Kick via the dedicated endpoint
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var kickReq = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/members/{memberId}")
+        {
+            Content = JsonContent.Create(new { Reason = "test kick" }),
+        };
+        var kickResp = await _client.SendAsync(kickReq);
+        kickResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var kickBody = await kickResp.Content.ReadFromJsonAsync<JsonElement>();
+        var actionId = kickBody.GetProperty("actionId").GetGuid();
+
+        var revokeResp = await RevokeModerationAsync(ownerToken, channelId, memberId, actionId);
+        revokeResp.StatusCode.Should().Be(HttpStatusCode.Conflict,
+            "kick actions are historical and must not be revocable");
+    }
+
+    [Fact]
+    public async Task GetActiveActions_ExcludesKickActions()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_kick_active_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_kick_active_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-kick-active-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var kickReq = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/members/{memberId}")
+        {
+            Content = JsonContent.Create(new { Reason = "test kick" }),
+        };
+        (await _client.SendAsync(kickReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResp = await _client.GetAsync(
+            $"/api/v1/channels/{channelId}/members/{memberId}/moderation");
+        getResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var actions = await getResp.Content.ReadFromJsonAsync<JsonElement[]>();
+        actions.Should().BeEmpty("kick actions are historical and must not appear in active actions");
+    }
+
+    [Fact]
+    public async Task ExpiredBan_IsNotDuplicateForApply_AndIsNotEnforcedByPermissions()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_exp_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_exp_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-exp-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
+        await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
+
+        // Seed an already-expired ban directly (the validator would reject a past ExpiresAt over the wire).
+        await using (var db = _factory.CreateDbContext())
+        {
+            var expired = ModerationAction.Create(
+                Guid.NewGuid(),
+                channelId,
+                memberId,
+                issuedByUserId: memberId, // value irrelevant for this test
+                ModerationActionType.Ban,
+                reason: "expired ban",
+                expiresAt: DateTime.UtcNow.AddMinutes(-5));
+            db.ModerationActions.Add(expired);
+            await db.SaveChangesAsync();
+        }
+
+        // PermissionService must NOT enforce the expired ban.
+        var allowed = await CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
+        allowed.Should().BeTrue("an expired ban is no longer active and must not deny permissions");
+
+        // Apply handler must NOT treat the expired ban as a duplicate active sanction.
+        var (resp, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Ban);
+        resp.StatusCode.Should().Be(HttpStatusCode.Created,
+            "an expired ban must not count as an active duplicate when applying a new ban");
+        actionId.Should().NotBe(Guid.Empty);
+    }
 }

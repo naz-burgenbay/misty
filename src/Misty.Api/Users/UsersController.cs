@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Misty.Application.Communication;
+using Misty.Application.Communication.Contracts;
 using Misty.Application.Users;
 
 namespace Misty.Api.Users;
@@ -52,6 +54,15 @@ public sealed class UsersController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         await _mediator.Send(new DeleteUserCommand(userId), ct);
         return NoContent();
+    }
+
+    [HttpGet("me/blocks")]
+    [ProducesResponseType(typeof(IReadOnlyList<BlockedUserDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyBlocks(CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new GetBlocksQuery(userId), ct);
+        return Ok(result);
     }
 
     [HttpPost("me/avatar")]

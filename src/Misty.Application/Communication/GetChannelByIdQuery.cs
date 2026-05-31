@@ -13,7 +13,9 @@ public record GetChannelByIdResponse(
     long DefaultPermissions,
     int MemberCount,
     DateTime? LastMessageAt,
-    string Version);
+    string Version,
+    string? IconUrl,
+    string? Description);
 
 public sealed class GetChannelByIdQueryHandler : IRequestHandler<GetChannelByIdQuery, GetChannelByIdResponse?>
 {
@@ -35,6 +37,8 @@ public sealed class GetChannelByIdQueryHandler : IRequestHandler<GetChannelByIdQ
             (long)channel.DefaultPermissions,
             channel.MemberCount,
             channel.LastMessageAt,
-            Convert.ToBase64String(channel.Version));
+            Convert.ToBase64String(channel.Version),
+            channel.IconUrl,
+            channel.Description);
     }
 }

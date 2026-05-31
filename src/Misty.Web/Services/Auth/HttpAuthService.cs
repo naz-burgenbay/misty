@@ -114,6 +114,21 @@ public sealed class HttpAuthService : IAuthService, IDisposable
 
     public async Task SignOutAsync(CancellationToken ct = default)
     {
+        var tokenToRevoke = _refreshToken;
+        if (!string.IsNullOrEmpty(tokenToRevoke))
+        {
+            try
+            {
+                using var resp = await _http.PostAsJsonAsync(
+                    "api/v1/auth/logout", new LogoutRequestDto(tokenToRevoke), ct);
+                // Best-effort revoke; do not fail the local sign-out if the server is unreachable.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Server-side logout failed; clearing local session anyway.");
+            }
+        }
+
         await ClearAsync();
         AuthStateChanged?.Invoke();
     }

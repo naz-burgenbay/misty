@@ -1,62 +1,85 @@
-@inject IUserDirectory Users
+@using Misty.Web.Components.Primitives
+@using Misty.Web.Services.Communication
+@inject IChannelMembersService MembersService
+@inject IChannelRolesService RolesService
 
 @code {
-    [Parameter, EditorRequired] public MockChannel Channel { get; set; } = default!;
+    [Parameter, EditorRequired] public Guid ChannelId { get; set; }
 
-    private IEnumerable<IGrouping<MemberRoleKind, MockMembership>> Groups =>
-        Channel.Members
-            .OrderBy(m => m.Role)
-            .ThenBy(m => Users.Get(m.UserId).DisplayName)
-            .GroupBy(m => m.Role);
+    private IReadOnlyList<ChannelMemberDto> _members = Array.Empty<ChannelMemberDto>();
+    private Dictionary<Guid, string> _roleNames = new();
+    private bool _loading = true;
+    private Guid _loadedFor;
 
-    private static string GroupLabel(MemberRoleKind role) => role switch
+    protected override async Task OnParametersSetAsync()
     {
-        MemberRoleKind.Owner  => "Owner",
-        MemberRoleKind.Admin  => "Admins",
-        MemberRoleKind.Member => "Members",
-        _ => role.ToString(),
-    };
+        if (_loadedFor == ChannelId && !_loading)
+            return;
+        _loadedFor = ChannelId;
+        _loading = true;
+
+        var rolesTask = RolesService.GetRolesAsync(ChannelId);
+        var membersTask = MembersService.GetMembersAsync(ChannelId);
+        await Task.WhenAll(rolesTask, membersTask);
+
+        _roleNames = (await rolesTask).ToDictionary(r => r.Id, r => r.Name);
+        _members = await membersTask;
+        _loading = false;
+    }
 }
 
 <div class="panel">
-    @foreach (var group in Groups)
+    @if (_loading)
+    {
+        <p class="empty">Loading members…</p>
+    }
+    else if (_members.Count == 0)
+    {
+        <p class="empty">No members yet.</p>
+    }
+    else
     {
         <section class="group">
-            <h3 class="group-title">@GroupLabel(group.Key) · @group.Count()</h3>
-            @foreach (var membership in group)
+            <h3 class="group-title">Members · @_members.Count</h3>
+            @foreach (var m in _members)
             {
-                var user = Users.Get(membership.UserId);
-                <div class="member">
-                    <Avatar Name="@user.DisplayName"
-                            IsAi="@user.IsAi"
-                            Size="Avatar.AvatarSize.Medium" />
-                    <div class="info">
-                        <div class="line">
-                            <span class="name">@user.DisplayName</span>
-                            @if (membership.Role == MemberRoleKind.Owner)
-                            {
-                                <Badge Variant="Badge.BadgeVariant.Owner" Label="Owner" />
-                            }
-                            else if (membership.Role == MemberRoleKind.Admin)
-                            {
-                                <Badge Variant="Badge.BadgeVariant.Admin" Label="Admin" />
-                            }
-                            @if (membership.Moderation == ModerationKind.Muted)
-                            {
-                                <Badge Variant="Badge.BadgeVariant.Muted" Label="Muted" />
-                            }
-                            else if (membership.Moderation == ModerationKind.Banned)
-                            {
-                                <Badge Variant="Badge.BadgeVariant.Banned" Label="Banned" />
-                            }
-                            else if (membership.Moderation == ModerationKind.Warned)
-                            {
-                                <Badge Variant="Badge.BadgeVariant.Warned" Label="Warned" />
-                            }
+                <UserContextMenu UserId="@m.UserId"
+                                 UserName="@m.DisplayName"
+                                 UserUsername="@m.Username"
+                                 ChannelId="@ChannelId"
+                                 Class="member-anchor">
+                    <div class="member">
+                        <Avatar Name="@m.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        <div class="info">
+                            <div class="line">
+                                <span class="name">@m.DisplayName</span>
+                                @foreach (var roleId in m.RoleIds)
+                                {
+                                    if (_roleNames.TryGetValue(roleId, out var roleName))
+                                    {
+                                        <Badge Variant="Badge.BadgeVariant.Admin" Label="@roleName" />
+                                    }
+                                }
+                                @foreach (var mod in m.ActiveModerationTypes)
+                                {
+                                    @switch (mod)
+                                    {
+                                        case ChannelMemberModerationKind.Mute:
+                                            <Badge Variant="Badge.BadgeVariant.Muted" Label="Muted" />
+                                            break;
+                                        case ChannelMemberModerationKind.Ban:
+                                            <Badge Variant="Badge.BadgeVariant.Banned" Label="Banned" />
+                                            break;
+                                        case ChannelMemberModerationKind.Warn:
+                                            <Badge Variant="Badge.BadgeVariant.Warned" Label="Warned" />
+                                            break;
+                                    }
+                                }
+                            </div>
+                            <div class="handle">@m.Username</div>
                         </div>
-                        <div class="handle">@user.Username</div>
                     </div>
-                </div>
+                </UserContextMenu>
             }
         </section>
     }

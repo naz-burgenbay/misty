@@ -1,44 +1,29 @@
-using System.Text.Json;
-using Azure.Messaging.ServiceBus;
+using Misty.Application.Communication.Contracts;
 
 namespace Misty.Infrastructure.Communication;
-public sealed class ServiceBusEventPublisher : Application.Communication.Contracts.IEventPublisher, IAsyncDisposable
-{
-    private readonly ServiceBusSender _membershipSender;
-    private readonly ServiceBusSender _roleSender;
-    private readonly ServiceBusSender _moderationSender;
 
-    public ServiceBusEventPublisher(ServiceBusClient client)
-    {
-        _membershipSender = client.CreateSender("membership-events");
-        _roleSender = client.CreateSender("role-events");
-        _moderationSender = client.CreateSender("moderation-events");
-    }
+// Routes permission-related events through the transactional outbox. The OutboxRelayWorker is the only component that calls Service Bus directly, so an outage of Service Bus can no longer abort an HTTP request mid-mutation (the audit's silent-data-loss concern).
+public sealed class ServiceBusEventPublisher : IEventPublisher
+{
+    private const string MembershipTopic = "membership-events";
+    private const string RoleTopic = "role-events";
+    private const string ModerationTopic = "moderation-events";
+
+    private readonly IOutboxWriter _outbox;
+
+    public ServiceBusEventPublisher(IOutboxWriter outbox) => _outbox = outbox;
 
     public Task PublishMembershipChangedAsync(Guid userId, Guid channelId, CancellationToken ct = default)
-        => SendAsync(_membershipSender, new CacheInvalidationPayload(userId, channelId), ct);
+        => _outbox.WriteAsync(MembershipTopic, "MembershipChanged", channelId, new CacheInvalidationPayload(userId, channelId), ct);
 
     public Task PublishRoleChangedAsync(Guid? userId, Guid channelId, CancellationToken ct = default)
-        => SendAsync(_roleSender, new CacheInvalidationPayload(userId, channelId), ct);
+        => _outbox.WriteAsync(RoleTopic, "RoleChanged", channelId, new CacheInvalidationPayload(userId, channelId), ct);
 
     public Task PublishModerationActionAppliedAsync(Guid userId, Guid channelId, CancellationToken ct = default)
-        => SendAsync(_moderationSender, new CacheInvalidationPayload(userId, channelId), ct);
-
-    public async ValueTask DisposeAsync()
-    {
-        await Task.WhenAll(
-            _membershipSender.DisposeAsync().AsTask(),
-            _roleSender.DisposeAsync().AsTask(),
-            _moderationSender.DisposeAsync().AsTask());
-    }
-
-    private static Task SendAsync(ServiceBusSender sender, CacheInvalidationPayload payload, CancellationToken ct)
-    {
-        var body = JsonSerializer.SerializeToUtf8Bytes(payload);
-        return sender.SendMessageAsync(new ServiceBusMessage(body), ct);
-    }
+        => _outbox.WriteAsync(ModerationTopic, "ModerationActionApplied", channelId, new CacheInvalidationPayload(userId, channelId), ct);
 }
 
-// Message body shared by all three permission-related topics (membership-events, role-events, moderation-events). 
+// Message body shared by all three permission-related topics (membership-events, role-events, moderation-events).
 // Public so consumers outside this assembly (e.g. the SignalR broadcast worker in Misty.Api) can deserialize it directly.
 public sealed record CacheInvalidationPayload(Guid? UserId, Guid ChannelId);
+

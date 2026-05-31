@@ -1,0 +1,120 @@
+@inject IChannelRolesService Roles
+@inject IToastService Toasts
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public Guid ChannelId { get; set; }
+    [Parameter] public Guid TargetUserId { get; set; }
+    [Parameter] public string TargetName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private IReadOnlyList<ChannelRoleDto>? _roles;
+    private bool _loading;
+    private Guid _busyRole;
+    private bool _wasOpen;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && !_wasOpen)
+        {
+            _wasOpen = true;
+            await LoadAsync();
+        }
+        else if (!Open)
+        {
+            _wasOpen = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (ChannelId == Guid.Empty) return;
+        _loading = true;
+        try
+        {
+            _roles = await Roles.GetRolesAsync(ChannelId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't load roles: {ex.Message}", ToastKind.Error);
+            _roles = Array.Empty<ChannelRoleDto>();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AssignAsync(Guid roleId, string roleName)
+    {
+        _busyRole = roleId;
+        try
+        {
+            await Roles.AssignAsync(ChannelId, TargetUserId, roleId);
+            Toasts.Show($"Assigned {roleName} to {TargetName}.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Assign failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _busyRole = Guid.Empty;
+        }
+    }
+
+    private async Task RevokeAsync(Guid roleId, string roleName)
+    {
+        _busyRole = roleId;
+        try
+        {
+            await Roles.RevokeAsync(ChannelId, TargetUserId, roleId);
+            Toasts.Show($"Revoked {roleName} from {TargetName}.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Revoke failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _busyRole = Guid.Empty;
+        }
+    }
+}
+
+<Modal Open="Open" Title="@($"Manage roles · {TargetName}")" OnClose="OnClose">
+    <ChildContent>
+        <div class="manage-roles">
+            @if (_loading)
+            {
+                <div class="hint">Loading roles…</div>
+            }
+            else if (_roles is null || _roles.Count == 0)
+            {
+                <div class="hint">No roles defined for this channel.</div>
+            }
+            else
+            {
+                @foreach (var role in _roles)
+                {
+                    var roleId = role.Id;
+                    var roleName = role.Name;
+                    <div class="role-row">
+                        <span class="role-name">@roleName</span>
+                        <div class="role-actions">
+                            <Button Variant="Button.ButtonVariant.Ghost"
+                                    Disabled="@(_busyRole == roleId)"
+                                    OnClick="@(() => AssignAsync(roleId, roleName))">Assign</Button>
+                            <Button Variant="Button.ButtonVariant.Ghost"
+                                    Disabled="@(_busyRole == roleId)"
+                                    OnClick="@(() => RevokeAsync(roleId, roleName))">Revoke</Button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Footer>
+        <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnClose">Close</Button>
+    </Footer>
+</Modal>

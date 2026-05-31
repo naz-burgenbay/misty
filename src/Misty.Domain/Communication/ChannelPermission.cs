@@ -15,18 +15,19 @@ public enum ChannelPermission : long
     AddReactions     = 1L << 4,
     MentionEveryone  = 1L << 5,
 
-    // Moderation
-    ManageMessages   = 1L << 6,
-    MuteMembers      = 1L << 7,
+    // Moderation (ascending severity)
+    MuteMembers      = 1L << 6,
+    KickMembers      = 1L << 7,
     BanMembers       = 1L << 8,
-    KickMembers      = 1L << 9,
+    ManageMessages   = 1L << 9,
 
-    // Administration
-    ManageChannel    = 1L << 10,
-    ManageRoles      = 1L << 11,
-    ManageMembers    = 1L << 12,
+    // Administration (ascending scope)
+    InviteMembers    = 1L << 10,
+    ManageMembers    = 1L << 11,
+    ManageRoles      = 1L << 12,
+    ManageChannel    = 1L << 13,
 
     All = ViewChannel | ReadHistory | SendMessages | AttachFiles | AddReactions | MentionEveryone
         | ManageMessages | MuteMembers | BanMembers | KickMembers
-        | ManageChannel | ManageRoles | ManageMembers,
+        | ManageChannel | ManageRoles | ManageMembers | InviteMembers,
 }

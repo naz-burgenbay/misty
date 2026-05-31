@@ -1,9 +1,47 @@
 @page "/profile/blocked"
+@using Misty.Web.Components.Primitives
+@using Misty.Web.Services.Communication
+@inject IUserBlockService Blocks
 
 <PageTitle>Blocked users | Misty</PageTitle>
 
 @code {
-    private IReadOnlyList<MockUser> BlockedUsers { get; } = Array.Empty<MockUser>();
+    private IReadOnlyList<BlockedUserDto> _blocked = Array.Empty<BlockedUserDto>();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _blocked = await Blocks.GetBlocksAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task UnblockAsync(Guid userId)
+    {
+        try
+        {
+            await Blocks.UnblockAsync(userId);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
 }
 
 <div class="page">
@@ -14,22 +52,32 @@
         </header>
 
         <section class="card">
-            @if (BlockedUsers.Count == 0)
+            @if (_loading)
+            {
+                <div class="empty">Loading…</div>
+            }
+            else if (_error is not null)
+            {
+                <div class="empty">@_error</div>
+            }
+            else if (_blocked.Count == 0)
             {
                 <div class="empty">You haven't blocked anyone.</div>
             }
             else
             {
-                @foreach (var user in BlockedUsers)
+                @foreach (var user in _blocked)
                 {
                     <div class="row">
-                        <Avatar Name="@user.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        <UserContextMenu UserId="@user.UserId" UserName="@user.DisplayName" UserUsername="@user.Username">
+                            <Avatar Name="@user.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                        </UserContextMenu>
                         <div class="info">
                             <div class="name">@user.DisplayName</div>
                             <div class="handle">@user.Username</div>
                         </div>
                         <Badge Variant="Badge.BadgeVariant.Blocked" Label="Blocked" />
-                        <Button Variant="Button.ButtonVariant.Ghost">Unblock</Button>
+                        <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => UnblockAsync(user.UserId)">Unblock</Button>
                     </div>
                 }
             }

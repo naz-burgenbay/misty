@@ -18,15 +18,18 @@ public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactio
     private readonly IMessageRepository _messages;
     private readonly IReactionRepository _reactions;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public RemoveReactionCommandHandler(
         IMessageRepository messages,
         IReactionRepository reactions,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _reactions = reactions;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task Handle(RemoveReactionCommand request, CancellationToken ct)
@@ -53,6 +56,18 @@ public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactio
         if (existing is null)
             return;
 
-        await _reactions.RemoveAsync(existing, message.ChannelId, ct);
+        _outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.ReactionChanged,
+            existing.MessageId,
+            new ReactionChangedPayload(
+                existing.MessageId,
+                message.ChannelId,
+                existing.UserId,
+                existing.EmojiCode,
+                "removed",
+                DateTime.UtcNow));
+
+        await _reactions.RemoveAsync(existing, ct);
     }
 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
@@ -86,104 +85,28 @@ public sealed class MessageRepository : IMessageRepository
     public Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default)
         => _db.Messages.AnyAsync(m => m.ParentMessageId == messageId, ct);
 
+    public Task<bool> AnyForConversationAsync(Guid conversationId, CancellationToken ct = default)
+        => _db.Messages.AnyAsync(m => m.ConversationId == conversationId, ct);
+
+    // The handler is expected to queue the matching MessageCreated outbox row onto the same scoped DbContext before calling AddAsync; SaveChanges commits both in one SQL transaction.
     public async Task AddAsync(Message message, CancellationToken ct = default)
     {
-        // Serialize the MessageCreated event payload for the outbox.
-        var payload = JsonSerializer.Serialize(new MessageCreatedPayload(
-            message.Id,
-            message.ChannelId,
-            message.ConversationId,
-            message.AuthorId,
-            message.Content,
-            message.ParentMessageId,
-            message.CreatedAt));
-
-        var outbox = OutboxMessage.Create(message.Id, "message-events", "MessageCreated", payload);
-
-        // Both rows are written in one SaveChangesAsync call for a single SQL transaction.
         await _db.Messages.AddAsync(message, ct);
-        await _db.OutboxMessages.AddAsync(outbox, ct);
         await _db.SaveChangesAsync(ct);
     }
 
+    // The handler is expected to queue a MessageEdited or MessageDeleted (tombstone) outbox row onto the same DbContext before calling UpdateAsync.
     public async Task UpdateAsync(Message message, CancellationToken ct = default)
     {
         _db.Messages.Update(message);
-
-        // Emit an outbox event so connected clients see edits/tombstones in real time.
-        // A tombstone (soft-delete with replies) flows through UpdateAsync too. Distinguished by IsDeleted.
-        if (message.IsDeleted)
-        {
-            var payload = JsonSerializer.Serialize(new MessageDeletedPayload(
-                message.Id,
-                message.ChannelId,
-                message.ConversationId,
-                IsTombstone: true));
-            await _db.OutboxMessages.AddAsync(
-                OutboxMessage.Create(message.Id, "message-events", "MessageDeleted", payload), ct);
-        }
-        else
-        {
-            var payload = JsonSerializer.Serialize(new MessageEditedPayload(
-                message.Id,
-                message.ChannelId,
-                message.ConversationId,
-                message.Content,
-                message.EditedAt ?? DateTime.UtcNow));
-            await _db.OutboxMessages.AddAsync(
-                OutboxMessage.Create(message.Id, "message-events", "MessageEdited", payload), ct);
-        }
-
         await _db.SaveChangesAsync(ct);
     }
 
+    // The handler is expected to queue a MessageDeleted outbox row onto the same DbContext before calling DeleteAsync.
     public async Task DeleteAsync(Message message, CancellationToken ct = default)
     {
         _db.Messages.Remove(message);
-
-        var payload = JsonSerializer.Serialize(new MessageDeletedPayload(
-            message.Id,
-            message.ChannelId,
-            message.ConversationId,
-            IsTombstone: false));
-        await _db.OutboxMessages.AddAsync(
-            OutboxMessage.Create(message.Id, "message-events", "MessageDeleted", payload), ct);
-
         await _db.SaveChangesAsync(ct);
     }
-}
-
-// Payload written to msg.OutboxMessage and later published to the message-events Service Bus topic.
-// Public so that consumers in Misty.Api (e.g. RealtimeDeliveryWorker) can deserialize it directly.
-public sealed record MessageCreatedPayload(
-    Guid MessageId,
-    Guid? ChannelId,
-    Guid? ConversationId,
-    Guid AuthorId,
-    string Content,
-    Guid? ParentMessageId,
-    DateTime CreatedAt)
-{
-    // Discriminator included in the JSON envelope for forward-compatible polymorphic deserialization.
-    public string EventType { get; init; } = "MessageCreated";
-}
-
-public sealed record MessageEditedPayload(
-    Guid MessageId,
-    Guid? ChannelId,
-    Guid? ConversationId,
-    string Content,
-    DateTime EditedAt)
-{
-    public string EventType { get; init; } = "MessageEdited";
-}
-
-public sealed record MessageDeletedPayload(
-    Guid MessageId,
-    Guid? ChannelId,
-    Guid? ConversationId,
-    bool IsTombstone)
-{
-    public string EventType { get; init; } = "MessageDeleted";
 }
 

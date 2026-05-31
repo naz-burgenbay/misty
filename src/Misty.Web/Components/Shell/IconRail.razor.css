@@ -1,5 +1,5 @@
 .rail {
-    width: 56px;
+    width: calc(var(--sp-8) + var(--sp-6));
     flex-shrink: 0;
     background: var(--color-surface-raised);
     border-right: 1px solid var(--color-border);
@@ -10,19 +10,14 @@
     gap: var(--sp-3);
 }
 
-.brand {
-    width: 32px;
-    height: 32px;
+.logo {
+    width: var(--sp-8);
+    height: var(--sp-8);
     border-radius: var(--radius-md);
     background: var(--color-accent);
-    color: #FFFFFF;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 16px;
+    object-fit: contain;
     user-select: none;
+    margin-bottom: var(--sp-4);
 }
 
 .items {
@@ -37,8 +32,8 @@
 }
 
 .item {
-    width: 36px;
-    height: 36px;
+    width: calc(var(--sp-8) + var(--sp-1));
+    height: calc(var(--sp-8) + var(--sp-1));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -64,16 +59,112 @@
 .item.active::before {
     content: "";
     position: absolute;
-    left: -10px;
-    top: 8px;
-    bottom: 8px;
-    width: 3px;
-    border-radius: 0 2px 2px 0;
+    left: calc(-1 * var(--sp-3));
+    top: var(--sp-2);
+    bottom: var(--sp-2);
+    width: var(--sp-1);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     background: var(--color-accent);
 }
 
 .item ::deep svg {
-    width: 18px;
-    height: 18px;
+    width: var(--sp-4);
+    height: var(--sp-4);
     stroke-width: 1.5;
+}
+
+.avatar-anchor {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-anchor.open {
+    z-index: 200;
+}
+
+.avatar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.avatar-button:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-focus);
+}
+
+.user-card-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 140;
+    background: transparent;
+}
+
+.avatar-anchor ::deep .popover.top-right {
+    top: auto;
+    bottom: 0;
+    right: auto;
+    left: calc(100% + var(--sp-2));
+}
+
+.user-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    width: calc(var(--sp-8) * 8);
+    max-width: calc(100vw - var(--sp-8));
+}
+
+.user-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.user-card-identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    min-width: 0;
+}
+
+.user-card-divider {
+    height: 1px;
+    background: var(--color-border);
+}
+
+.user-card-display-name {
+    font-family: var(--font-display);
+    font-size: var(--fs-section-head);
+    font-weight: var(--fw-medium);
+    color: var(--color-text-primary);
+    line-height: var(--lh-ui);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-card-username {
+    font-size: var(--fs-label);
+    color: var(--color-text-secondary);
+    line-height: var(--lh-ui);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-card-bio {
+    font-size: var(--fs-body);
+    color: var(--color-text-primary);
+    line-height: var(--lh-message);
+    white-space: pre-wrap;
 }

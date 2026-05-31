@@ -122,4 +122,16 @@ public sealed class RefreshTokenTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { RefreshToken = refreshToken });
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Logout_RevokesRefreshToken_SubsequentRefreshReturns401()
+    {
+        var (_, refreshToken, _) = await RegisterAndLoginAsync("logoutuser");
+
+        var logoutResp = await _client.PostAsJsonAsync("/api/v1/auth/logout", new { RefreshToken = refreshToken });
+        logoutResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var refreshResp = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { RefreshToken = refreshToken });
+        refreshResp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

@@ -17,13 +17,16 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
 {
     private readonly IMessageRepository _messages;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public EditMessageCommandHandler(
         IMessageRepository messages,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _messages = messages;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task Handle(EditMessageCommand request, CancellationToken ct)
@@ -49,6 +52,18 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
             throw new ValidationException("Cannot edit a deleted message.");
 
         message.Edit(request.NewContent);
+
+        _outbox.Queue(
+            MessageEventTopics.Message,
+            MessageEventTypes.MessageEdited,
+            message.Id,
+            new MessageEditedPayload(
+                message.Id,
+                message.ChannelId,
+                message.ConversationId,
+                message.Content,
+                message.EditedAt ?? DateTime.UtcNow));
+
         await _messages.UpdateAsync(message, ct);
     }
 }

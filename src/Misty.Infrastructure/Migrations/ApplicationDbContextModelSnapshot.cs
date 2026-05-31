@@ -37,6 +37,14 @@ namespace Misty.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("IconUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<string>("InviteCode")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
@@ -75,6 +83,45 @@ namespace Misty.Infrastructure.Migrations
                         .HasFilter("[InviteCode] IS NOT NULL");
 
                     b.ToTable("Channel", "comm");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Communication.ChannelInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InvitedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InvitedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelId", "InvitedUserId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ChannelInvite_Channel_Invited_Pending")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.HasIndex("InvitedUserId", "Status")
+                        .HasDatabaseName("IX_ChannelInvite_Invited_Status");
+
+                    b.ToTable("ChannelInvite", "comm");
                 });
 
             modelBuilder.Entity("Misty.Domain.Communication.ChannelRole", b =>
@@ -128,6 +175,111 @@ namespace Misty.Infrastructure.Migrations
                     b.ToTable("Conversation", "comm");
                 });
 
+            modelBuilder.Entity("Misty.Domain.Communication.FriendRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId", "Status")
+                        .HasDatabaseName("IX_FriendRequest_Receiver_Status");
+
+                    b.HasIndex("SenderId", "ReceiverId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FriendRequest_Sender_Receiver");
+
+                    b.ToTable("FriendRequest", "comm", t =>
+                        {
+                            t.HasCheckConstraint("CK_FriendRequest_SenderNeReceiver", "[SenderId] <> [ReceiverId]");
+                        });
+                });
+
+            modelBuilder.Entity("Misty.Domain.Communication.Friendship", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserAId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserBId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserAId", "UserBId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Friendship_UserA_UserB");
+
+                    b.ToTable("Friendship", "comm", t =>
+                        {
+                            t.HasCheckConstraint("CK_Friendship_UserAltUserB", "[UserAId] < [UserBId]");
+                        });
+                });
+
+            modelBuilder.Entity("Misty.Domain.Communication.InboxItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActedOn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid?>("ReferenceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_InboxItem_User_CreatedAt");
+
+                    b.HasIndex("UserId", "IsActedOn")
+                        .HasDatabaseName("IX_InboxItem_User_IsActedOn");
+
+                    b.ToTable("InboxItem", "comm");
+                });
+
             modelBuilder.Entity("Misty.Domain.Communication.MemberRole", b =>
                 {
                     b.Property<Guid>("MembershipId")
@@ -152,6 +304,12 @@ namespace Misty.Infrastructure.Migrations
                     b.Property<Guid>("ChannelId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("datetime2");
 
@@ -162,7 +320,8 @@ namespace Misty.Infrastructure.Migrations
 
                     b.HasIndex("ChannelId", "UserId")
                         .IsUnique()
-                        .HasDatabaseName("UX_Membership_Channel_User");
+                        .HasDatabaseName("UX_Membership_Channel_User")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Membership", "comm");
                 });
@@ -492,6 +651,15 @@ namespace Misty.Infrastructure.Migrations
                         .HasDatabaseName("UX_User_Username");
 
                     b.ToTable("User", "users");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Communication.ChannelInvite", b =>
+                {
+                    b.HasOne("Misty.Domain.Communication.Channel", null)
+                        .WithMany()
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Misty.Domain.Communication.ChannelRole", b =>

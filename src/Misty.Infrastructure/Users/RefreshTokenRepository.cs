@@ -29,4 +29,13 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
         // Both the revocation update and the new token insert happen in one transaction
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task RevokeByHashAsync(string tokenHash, CancellationToken ct = default)
+    {
+        var existing = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash, ct);
+        if (existing is null || existing.RevokedAt is not null)
+            return;
+        existing.Revoke();
+        await _db.SaveChangesAsync(ct);
+    }
 }

@@ -18,6 +18,7 @@ public interface IMessageRepository
         string? cursor,
         CancellationToken ct = default);
     Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default);
+    Task<bool> AnyForConversationAsync(Guid conversationId, CancellationToken ct = default);
     Task AddAsync(Message message, CancellationToken ct = default);
     Task UpdateAsync(Message message, CancellationToken ct = default);
     Task DeleteAsync(Message message, CancellationToken ct = default);

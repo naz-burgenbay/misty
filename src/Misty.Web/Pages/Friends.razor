@@ -1,0 +1,151 @@
+@page "/friends"
+@using Misty.Web.Components.Primitives
+@using Misty.Web.Services.Communication
+@inject IFriendService FriendsSvc
+
+<PageTitle>Friends | Misty</PageTitle>
+
+@code {
+    private IReadOnlyList<FriendDto> _friends = Array.Empty<FriendDto>();
+    private IReadOnlyList<FriendRequestDto> _received = Array.Empty<FriendRequestDto>();
+    private IReadOnlyList<SentFriendRequestDto> _sent = Array.Empty<SentFriendRequestDto>();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            await FriendsSvc.RefreshAsync();
+            _friends = FriendsSvc.MyFriends.Value;
+            _received = await FriendsSvc.GetReceivedRequestsAsync();
+            _sent = await FriendsSvc.GetSentRequestsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AcceptAsync(Guid requestId)
+    {
+        await FriendsSvc.AcceptRequestAsync(requestId);
+        await LoadAsync();
+    }
+
+    private async Task DeclineAsync(Guid requestId)
+    {
+        await FriendsSvc.DeclineRequestAsync(requestId);
+        await LoadAsync();
+    }
+
+    private async Task CancelAsync(Guid requestId)
+    {
+        await FriendsSvc.CancelRequestAsync(requestId);
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(Guid userId)
+    {
+        await FriendsSvc.RemoveAsync(userId);
+        await LoadAsync();
+    }
+}
+
+<div class="page">
+    <div class="content">
+        <header class="head">
+            <h1>Friends</h1>
+            <p>Manage your friends and pending requests.</p>
+        </header>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else if (_error is not null)
+        {
+            <p class="error">@_error</p>
+        }
+        else
+        {
+            <section class="card">
+                <h2>Friends · @_friends.Count</h2>
+                @if (_friends.Count == 0)
+                {
+                    <div class="empty">You haven't added any friends yet.</div>
+                }
+                else
+                {
+                    @foreach (var f in _friends)
+                    {
+                        <div class="row">
+                            <Avatar Name="@f.DisplayName" Size="Avatar.AvatarSize.Medium" />
+                            <div class="info">
+                                <div class="name">@f.DisplayName</div>
+                                <div class="handle">@f.Username</div>
+                            </div>
+                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => RemoveAsync(f.UserId)">Remove</Button>
+                        </div>
+                    }
+                }
+            </section>
+
+            <section class="card">
+                <h2>Received requests · @_received.Count</h2>
+                @if (_received.Count == 0)
+                {
+                    <div class="empty">No pending requests.</div>
+                }
+                else
+                {
+                    @foreach (var r in _received)
+                    {
+                        <div class="row">
+                            <Avatar Name="@r.SenderDisplayName" Size="Avatar.AvatarSize.Medium" />
+                            <div class="info">
+                                <div class="name">@r.SenderDisplayName</div>
+                                <div class="handle">@r.SenderUsername</div>
+                            </div>
+                            <Button Variant="Button.ButtonVariant.Primary" OnClick="() => AcceptAsync(r.Id)">Accept</Button>
+                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => DeclineAsync(r.Id)">Decline</Button>
+                        </div>
+                    }
+                }
+            </section>
+
+            <section class="card">
+                <h2>Sent requests · @_sent.Count</h2>
+                @if (_sent.Count == 0)
+                {
+                    <div class="empty">No outgoing requests.</div>
+                }
+                else
+                {
+                    @foreach (var s in _sent)
+                    {
+                        <div class="row">
+                            <Avatar Name="@s.ReceiverDisplayName" Size="Avatar.AvatarSize.Medium" />
+                            <div class="info">
+                                <div class="name">@s.ReceiverDisplayName</div>
+                                <div class="handle">@s.ReceiverUsername</div>
+                            </div>
+                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => CancelAsync(s.Id)">Cancel</Button>
+                        </div>
+                    }
+                }
+            </section>
+        }
+    </div>
+</div>

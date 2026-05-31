@@ -159,6 +159,7 @@ else
             </ConversationHeader>
 
             <MessageStream Messages="_messages"
+                           ChannelId="ChannelId"
                            HasMoreOlder="@MessageStore.HasMoreOlder(ChannelId)"
                            LoadingOlder="_loadingOlder"
                            OnLoadOlder="LoadOlderAsync"

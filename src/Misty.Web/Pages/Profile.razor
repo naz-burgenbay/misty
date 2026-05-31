@@ -3,6 +3,7 @@
 @inject IUserProfileService ProfileSvc
 @inject IToastService Toasts
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 @implements IDisposable
 
 <PageTitle>Profile | Misty</PageTitle>
@@ -18,6 +19,8 @@
     private bool _saving;
     private bool _uploading;
     private bool _removing;
+    private bool _deleteConfirmOpen;
+    private bool _deleting;
 
     protected override void OnInitialized()
     {
@@ -120,6 +123,33 @@
     }
 
     public void Dispose() => Auth.AuthStateChanged -= OnAuthChanged;
+
+    private void RequestDeleteAccount()
+    {
+        if (_deleting) return;
+        _deleteConfirmOpen = true;
+    }
+
+    private void CancelDeleteAccount() => _deleteConfirmOpen = false;
+
+    private async Task ConfirmDeleteAccountAsync()
+    {
+        if (_deleting) return;
+        _deleting = true;
+        _deleteConfirmOpen = false;
+        try
+        {
+            await ProfileSvc.DeleteAccountAsync();
+            Toasts.Show("Account deleted.", ToastKind.Success);
+            await Auth.SignOutAsync();
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
+            _deleting = false;
+        }
+    }
 }
 
 <div class="page">
@@ -171,5 +201,26 @@
             </header>
             <p class="hint">Manage who you've blocked from messaging you.</p>
         </section>
+
+        <section class="card">
+            <header class="card-head">
+                <h2>Delete account</h2>
+            </header>
+            <p class="hint">This permanently deactivates your account and signs you out of every device. This cannot be undone.</p>
+            <div class="actions">
+                <Button Variant="Button.ButtonVariant.Ghost" OnClick="RequestDeleteAccount" Disabled="@(_deleting || Me is null)">
+                    @(_deleting ? "Deleting…" : "Delete my account")
+                </Button>
+            </div>
+        </section>
     </div>
 </div>
+
+<ConfirmDialog Open="@_deleteConfirmOpen"
+               Title="Delete account?"
+               Message="This permanently deactivates your account and signs you out of every device. This cannot be undone."
+               ConfirmLabel="Delete account"
+               CancelLabel="Keep my account"
+               Tone="ConfirmDialog.ConfirmTone.Danger"
+               OnConfirm="ConfirmDeleteAccountAsync"
+               OnCancel="CancelDeleteAccount" />

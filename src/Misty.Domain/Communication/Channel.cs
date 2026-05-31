@@ -6,6 +6,8 @@ public class Channel
 
     public Guid Id { get; private set; }
     public string Name { get; private set; } = null!;
+    public string? Description { get; private set; }
+    public string? IconUrl { get; private set; }
     public bool IsPrivate { get; private set; }
     public string? InviteCode { get; private set; }
     public bool IsAiAssistantEnabled { get; private set; }
@@ -36,12 +38,16 @@ public class Channel
             CreatedByUserId = createdByUserId,
         };
 
-    public void Update(string name, bool isAiAssistantEnabled, ChannelPermission defaultPermissions)
+    public void Update(string name, bool isAiAssistantEnabled, ChannelPermission defaultPermissions, string? description)
     {
         Name = name;
         IsAiAssistantEnabled = isAiAssistantEnabled;
         DefaultPermissions = defaultPermissions;
+        Description = description;
     }
+
+    public void SetIconUrl(string iconUrl) => IconUrl = iconUrl;
+    public void ClearIconUrl() => IconUrl = null;
 
     public void SoftDelete()
     {

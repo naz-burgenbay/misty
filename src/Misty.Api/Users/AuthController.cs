@@ -62,8 +62,17 @@ public sealed class AuthController : ControllerBase
         var response = await _mediator.Send(new RefreshCommand(request.RefreshToken), ct);
         return Ok(new { accessToken = response.AccessToken, refreshToken = response.RefreshToken });
     }
+
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(LogoutRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(new RevokeRefreshTokenCommand(request.RefreshToken), ct);
+        return NoContent();
+    }
 }
 
 public record RegisterUserRequest(string Username, string Email, string DisplayName, string Password);
 public record LoginRequest(string Username, string Password);
 public record RefreshRequest(string RefreshToken);
+public record LogoutRequest(string RefreshToken);

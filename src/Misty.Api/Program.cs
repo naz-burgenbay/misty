@@ -160,12 +160,13 @@ var serviceBusConnectionString = builder.Configuration.GetConnectionString("Serv
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
 
 builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
-builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+builder.Services.AddScoped<IEventPublisher, ServiceBusEventPublisher>();
 builder.Services.AddHostedService<CacheInvalidationWorker>();
 builder.Services.AddHostedService<OutboxRelayWorker>();
 builder.Services.AddHostedService<RealtimeDeliveryWorker>();
 builder.Services.AddHostedService<PermissionEventsBroadcastWorker>();
 builder.Services.AddHostedService<AIResponseWorker>();
+builder.Services.AddHostedService<InboxWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
@@ -188,6 +189,8 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
 var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
+builder.Services.AddScoped<IChannelIconService, AzureBlobChannelIconService>();
+builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
 
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<IPermissionService, CachedPermissionService>();
@@ -203,6 +206,10 @@ builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
 builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+builder.Services.AddScoped<IFriendRequestRepository, FriendRequestRepository>();
+builder.Services.AddScoped<IFriendshipRepository, FriendshipRepository>();
+builder.Services.AddScoped<IChannelInviteRepository, ChannelInviteRepository>();
+builder.Services.AddScoped<IInboxItemRepository, InboxItemRepository>();
 builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
 builder.Services.AddSingleton<Misty.Application.Presence.IPresenceTracker, Misty.Infrastructure.Presence.RedisPresenceTracker>();
 
