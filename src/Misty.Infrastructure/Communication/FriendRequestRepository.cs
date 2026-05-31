@@ -28,6 +28,13 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
             .OrderByDescending(f => f.CreatedAt)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<FriendRequest>> GetPendingSentAsync(Guid senderId, CancellationToken ct = default)
+        => await _db.FriendRequests
+            .AsNoTracking()
+            .Where(f => f.SenderId == senderId && f.Status == FriendRequestStatus.Pending)
+            .OrderByDescending(f => f.CreatedAt)
+            .ToListAsync(ct);
+
     public async Task AddAsync(FriendRequest request, CancellationToken ct = default)
     {
         await _db.FriendRequests.AddAsync(request, ct);

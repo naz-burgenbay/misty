@@ -49,4 +49,56 @@ public sealed class MembershipRepository : IMembershipRepository
         _db.MemberRoles.Remove(memberRole);
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task<IReadOnlyList<ChannelMemberDto>> ListMembersAsync(Guid channelId, CancellationToken ct = default)
+    {
+        var utcNow = DateTime.UtcNow;
+
+        var members = await (
+            from m in _db.Memberships.AsNoTracking()
+            where m.ChannelId == channelId && !m.IsDeleted
+            join u in _db.Users.AsNoTracking() on m.UserId equals u.Id
+            where !u.IsDeleted
+            select new { m.Id, m.UserId, m.JoinedAt, u.Username, u.DisplayName, u.AvatarUrl })
+            .ToListAsync(ct);
+
+        if (members.Count == 0)
+            return Array.Empty<ChannelMemberDto>();
+
+        var membershipIds = members.Select(x => x.Id).ToList();
+        var userIds = members.Select(x => x.UserId).ToList();
+
+        var roleAssignments = await _db.MemberRoles.AsNoTracking()
+            .Where(mr => membershipIds.Contains(mr.MembershipId))
+            .Select(mr => new { mr.MembershipId, mr.RoleId })
+            .ToListAsync(ct);
+
+        var activeModeration = await _db.ModerationActions.AsNoTracking()
+            .Where(a => a.ChannelId == channelId
+                     && userIds.Contains(a.TargetUserId)
+                     && a.Type != ModerationActionType.Kick)
+            .Where(ModerationAction.IsActiveExpr(utcNow))
+            .Select(a => new { a.TargetUserId, a.Type })
+            .ToListAsync(ct);
+
+        var rolesByMembership = roleAssignments
+            .GroupBy(x => x.MembershipId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(x => x.RoleId).ToList());
+
+        var modByUser = activeModeration
+            .GroupBy(x => x.TargetUserId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ModerationActionType>)g.Select(x => x.Type).Distinct().ToList());
+
+        return members
+            .OrderBy(x => x.DisplayName)
+            .Select(x => new ChannelMemberDto(
+                x.UserId,
+                x.Username,
+                x.DisplayName,
+                x.AvatarUrl,
+                x.JoinedAt,
+                rolesByMembership.TryGetValue(x.Id, out var roles) ? roles : Array.Empty<Guid>(),
+                modByUser.TryGetValue(x.UserId, out var mods) ? mods : Array.Empty<ModerationActionType>()))
+            .ToList();
+    }
 }

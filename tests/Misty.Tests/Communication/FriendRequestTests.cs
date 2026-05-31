@@ -255,4 +255,67 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var timestamps = list.Select(i => i.GetProperty("createdAt").GetDateTime()).ToList();
         timestamps.Should().BeInDescendingOrder();
     }
+
+    [Fact]
+    public async Task GetSent_ReturnsOnlyPendingRequestsFromCaller()
+    {
+        var (tokenA, userA, _) = await RegisterAndLoginAsync("fr_sent_a");
+        var (_, userB, usernameB) = await RegisterAndLoginAsync("fr_sent_b");
+        var (tokenC, _, _) = await RegisterAndLoginAsync("fr_sent_c");
+        var (_, userD, usernameD) = await RegisterAndLoginAsync("fr_sent_d");
+
+        // A sends to B; C sends to D. A's sent list should only contain B.
+        (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
+        (await SendRequestAsync(tokenC, usernameD)).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
+        var resp = await _client.GetAsync("/api/v1/friends/requests/sent");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var items = (await resp.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+        items.Should().HaveCount(1);
+        items[0].GetProperty("receiverId").GetGuid().Should().Be(userB);
+        items[0].GetProperty("status").GetString().Should().Be("Pending");
+    }
+
+    [Fact]
+    public async Task Cancel_BySender_Returns204_RequestNoLongerPending()
+    {
+        var (tokenA, userA, _) = await RegisterAndLoginAsync("fr_cancel_a");
+        var (_, userB, usernameB) = await RegisterAndLoginAsync("fr_cancel_b");
+
+        (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        Guid requestId;
+        await using (var db = _factory.CreateDbContext())
+        {
+            requestId = (await db.FriendRequests.SingleAsync(r => r.SenderId == userA && r.ReceiverId == userB)).Id;
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
+        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        await using var db2 = _factory.CreateDbContext();
+        var row = await db2.FriendRequests.SingleAsync(r => r.Id == requestId);
+        row.Status.Should().NotBe(FriendRequestStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Cancel_ByNonSender_Returns403()
+    {
+        var (tokenA, _, _) = await RegisterAndLoginAsync("fr_cancel2_a");
+        var (tokenB, userB, usernameB) = await RegisterAndLoginAsync("fr_cancel2_b");
+
+        (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        Guid requestId;
+        await using (var db = _factory.CreateDbContext())
+        {
+            requestId = (await db.FriendRequests.SingleAsync(r => r.ReceiverId == userB)).Id;
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
+        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

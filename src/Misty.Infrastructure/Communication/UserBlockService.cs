@@ -44,4 +44,15 @@ public sealed class UserBlockService : IUserBlockService
             b => (b.BlockerId == userId1 && b.BlockedId == userId2)
               || (b.BlockerId == userId2 && b.BlockedId == userId1),
             ct);
+
+    public async Task<IReadOnlyList<BlockedUserDto>> GetBlocksAsync(Guid blockerId, CancellationToken ct = default)
+    {
+        return await (
+            from b in _db.UserBlocks.AsNoTracking()
+            where b.BlockerId == blockerId
+            join u in _db.Users.AsNoTracking() on b.BlockedId equals u.Id
+            orderby b.CreatedAt descending
+            select new BlockedUserDto(u.Id, u.Username, u.DisplayName, u.AvatarUrl, b.CreatedAt))
+            .ToListAsync(ct);
+    }
 }

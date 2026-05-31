@@ -15,6 +15,16 @@ public sealed class ChannelMembersController : ControllerBase
 
     public ChannelMembersController(IMediator mediator) => _mediator = mediator;
 
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<ChannelMemberDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> List(Guid channelId, CancellationToken ct)
+    {
+        var actorId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var members = await _mediator.Send(new GetChannelMembersQuery(channelId, actorId), ct);
+        return Ok(members);
+    }
+
     [HttpPost("{userId:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]

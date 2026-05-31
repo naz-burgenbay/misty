@@ -16,6 +16,16 @@ public sealed record FriendRequestDto(
     DateTime CreatedAt,
     DateTime? RespondedAt);
 
+public sealed record SentFriendRequestDto(
+    Guid Id,
+    Guid ReceiverId,
+    string ReceiverUsername,
+    string ReceiverDisplayName,
+    string? ReceiverAvatarUrl,
+    string Status,
+    DateTime CreatedAt,
+    DateTime? RespondedAt);
+
 public sealed record ChannelInviteDto(
     Guid Id,
     Guid ChannelId,

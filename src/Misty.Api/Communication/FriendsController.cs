@@ -78,6 +78,27 @@ public sealed class FriendsController : ControllerBase
         var result = await _mediator.Send(new GetReceivedFriendRequestsQuery(userId), ct);
         return Ok(result);
     }
+
+    [HttpGet("requests/sent")]
+    [ProducesResponseType(typeof(IReadOnlyList<SentFriendRequestDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSentRequests(CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new GetSentFriendRequestsQuery(userId), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("requests/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelRequest(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        await _mediator.Send(new CancelFriendRequestCommand(userId, id), ct);
+        return NoContent();
+    }
 }
 
 public record SendFriendRequestRequest(string Username);

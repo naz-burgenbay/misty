@@ -197,4 +197,37 @@ public sealed class MembershipTests : IAsyncLifetime
         var leaveBody = await afterLeave.Content.ReadFromJsonAsync<JsonElement>();
         leaveBody.GetProperty("memberCount").GetInt32().Should().Be(1);
     }
+
+    [Fact]
+    public async Task ListMembers_AsMember_ReturnsAllMembers()
+    {
+        var (ownerToken, ownerId) = await RegisterAndLoginAsync("mem_list_owner");
+        var (joinerToken, joinerId) = await RegisterAndLoginAsync("mem_list_joiner");
+        var (channelId, _) = await CreateChannelAsync(ownerToken, isPrivate: false);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", joinerToken);
+        await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/join", new { });
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var resp = await _client.GetAsync($"/api/v1/channels/{channelId}/members");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        var userIds = body.EnumerateArray().Select(e => e.GetProperty("userId").GetGuid()).ToList();
+        userIds.Should().Contain(new[] { ownerId, joinerId });
+        userIds.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ListMembers_AsNonMemberOfPrivateChannel_Returns403()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mem_list_owner2");
+        var (outsiderToken, _) = await RegisterAndLoginAsync("mem_list_outsider");
+        var (channelId, _) = await CreateChannelAsync(ownerToken, isPrivate: true);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderToken);
+        var resp = await _client.GetAsync($"/api/v1/channels/{channelId}/members");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

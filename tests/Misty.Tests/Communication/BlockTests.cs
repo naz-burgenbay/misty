@@ -160,4 +160,27 @@ public sealed class BlockTests : IAsyncLifetime
         var isBlocked = await GetBlockService().IsBlockedAsync(userA, userB);
         isBlocked.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task GetMyBlocks_ReturnsOnlyBlocksCreatedByCaller()
+    {
+        var (tokenA, _) = await RegisterAndLoginAsync("getblocks_a");
+        var (tokenB, userB) = await RegisterAndLoginAsync("getblocks_b");
+        var (_, userC) = await RegisterAndLoginAsync("getblocks_c");
+        var (_, userD) = await RegisterAndLoginAsync("getblocks_d");
+
+        // A blocks B and C; B blocks D. A's list should be {B, C}.
+        (await BlockAsync(tokenA, userB)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await BlockAsync(tokenA, userC)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await BlockAsync(tokenB, userD)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
+        var resp = await _client.GetAsync("/api/v1/users/me/blocks");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var items = (await resp.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+        items.Should().HaveCount(2);
+        var ids = items.Select(i => i.GetProperty("userId").GetGuid()).ToList();
+        ids.Should().Contain(new[] { userB, userC });
+        ids.Should().NotContain(userD);
+    }
 }

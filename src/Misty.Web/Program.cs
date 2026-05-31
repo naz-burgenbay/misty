@@ -51,6 +51,7 @@ builder.Services.AddScoped<IModerationService, HttpModerationService>();
 builder.Services.AddScoped<IFriendService, HttpFriendService>();
 builder.Services.AddScoped<IUserBlockService, HttpUserBlockService>();
 builder.Services.AddScoped<IChannelRolesService, HttpChannelRolesService>();
+builder.Services.AddScoped<IChannelMembersService, HttpChannelMembersService>();
 builder.Services.AddScoped<IToastService, StubToastService>();
 builder.Services.AddScoped<IModalService, StubModalService>();
 

@@ -11,4 +11,5 @@ public interface IMembershipRepository
     Task<MemberRole?> GetRoleAssignmentAsync(Guid membershipId, Guid roleId, CancellationToken ct = default);
     Task AssignRoleAsync(MemberRole memberRole, CancellationToken ct = default);
     Task RevokeRoleAsync(MemberRole memberRole, CancellationToken ct = default);
+    Task<IReadOnlyList<ChannelMemberDto>> ListMembersAsync(Guid channelId, CancellationToken ct = default);
 }

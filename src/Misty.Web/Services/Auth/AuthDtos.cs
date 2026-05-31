@@ -9,5 +9,7 @@ internal sealed record RegisterResponseDto(Guid UserId);
 internal sealed record RefreshRequestDto(string RefreshToken);
 internal sealed record RefreshResponseDto(string AccessToken, string RefreshToken);
 
+internal sealed record LogoutRequestDto(string RefreshToken);
+
 internal sealed record MeResponseDto(Guid UserId, string Username, string Email);
 internal sealed record UserByIdResponseDto(Guid UserId, string Username, string DisplayName, string? Bio, string? AvatarUrl, string Version);
