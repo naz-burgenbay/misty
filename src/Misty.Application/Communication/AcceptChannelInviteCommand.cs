@@ -1,5 +1,6 @@
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
@@ -10,15 +11,18 @@ public sealed class AcceptChannelInviteCommandHandler : IRequestHandler<AcceptCh
 {
     private readonly IChannelInviteRepository _invites;
     private readonly IChannelRepository _channels;
+    private readonly IOutboxWriter _outbox;
     private readonly IMediator _mediator;
 
     public AcceptChannelInviteCommandHandler(
         IChannelInviteRepository invites,
         IChannelRepository channels,
+        IOutboxWriter outbox,
         IMediator mediator)
     {
         _invites = invites;
         _channels = channels;
+        _outbox = outbox;
         _mediator = mediator;
     }
 
@@ -37,6 +41,13 @@ public sealed class AcceptChannelInviteCommandHandler : IRequestHandler<AcceptCh
             ?? throw new NotFoundException("Channel no longer exists.");
 
         entity.Accept();
+
+        _outbox.Queue(
+            SocialEventTopics.ChannelInvite,
+            SocialEventTypes.ChannelInviteAccepted,
+            entity.Id,
+            new ChannelInviteAcceptedPayload(entity.Id, entity.ChannelId, cmd.UserId, entity.InvitedByUserId, DateTime.UtcNow));
+
         await _invites.UpdateAsync(entity, ct);
 
         // Delegate the actual join (membership row, default role assignment, MembershipChanged event) to the existing join handler.

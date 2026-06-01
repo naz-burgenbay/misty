@@ -19,6 +19,13 @@ public sealed record ChannelInviteSentPayload(
     Guid InvitedUserId,
     DateTime OccurredAt);
 
+public sealed record ChannelInviteAcceptedPayload(
+    Guid InviteId,
+    Guid ChannelId,
+    Guid AccepterId,
+    Guid OriginalInviterId,
+    DateTime OccurredAt);
+
 public sealed record ConversationStartedPayload(
     Guid ConversationId,
     Guid SenderId,
@@ -37,5 +44,6 @@ public static class SocialEventTypes
     public const string FriendRequestSent = "FriendRequestSent";
     public const string FriendRequestAccepted = "FriendRequestAccepted";
     public const string ChannelInviteSent = "ChannelInviteSent";
+    public const string ChannelInviteAccepted = "ChannelInviteAccepted";
     public const string ConversationStarted = "ConversationStarted";
 }
