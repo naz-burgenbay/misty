@@ -75,6 +75,7 @@ public sealed class InboxWorker : BackgroundService
                 SocialEventTypes.FriendRequestSent => MapFriendRequestSent(body),
                 SocialEventTypes.FriendRequestAccepted => MapFriendRequestAccepted(body),
                 SocialEventTypes.ChannelInviteSent => MapChannelInviteSent(body),
+                SocialEventTypes.ChannelInviteAccepted => MapChannelInviteAccepted(body),
                 SocialEventTypes.ConversationStarted => MapConversationStarted(body),
                 _ => null,
             };
@@ -124,6 +125,13 @@ public sealed class InboxWorker : BackgroundService
         var p = JsonSerializer.Deserialize<ChannelInviteSentPayload>(body);
         if (p is null) return null;
         return InboxItem.Create(Guid.NewGuid(), p.InvitedUserId, InboxItemType.ChannelInviteReceived, p.InvitedByUserId, p.InviteId);
+    }
+
+    private static InboxItem? MapChannelInviteAccepted(string body)
+    {
+        var p = JsonSerializer.Deserialize<ChannelInviteAcceptedPayload>(body);
+        if (p is null) return null;
+        return InboxItem.Create(Guid.NewGuid(), p.OriginalInviterId, InboxItemType.ChannelInviteAccepted, p.AccepterId, p.InviteId);
     }
 
     private static InboxItem? MapConversationStarted(string body)
