@@ -71,7 +71,7 @@ public sealed class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, InboxP
                 var channel = await _channels.GetByIdAsync(channelId, ct);
                 return channel is null ? null : new { channelName = channel.Name };
             }
-            case InboxItemType.FirstDirectMessage:
+            case InboxItemType.ConversationStarted:
             {
                 var peer = await _users.GetByIdAsync(item.ActorUserId, ct);
                 return peer is null ? null : new { peerUsername = peer.Username, peerDisplayName = peer.DisplayName };

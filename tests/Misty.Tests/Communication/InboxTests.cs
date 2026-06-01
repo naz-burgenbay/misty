@@ -150,7 +150,7 @@ public sealed class InboxTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task FirstDirectMessage_TriggersInboxItem_OnlyForNonFriends_AndOnlyOnce()
+    public async Task ConversationStarted_TriggersInboxItem_OnlyForNonFriends_AndOnlyOnce()
     {
         var (tokenA, _, _) = await RegisterAndLoginAsync("ib_dm_a");
         var (_, userB, _) = await RegisterAndLoginAsync("ib_dm_b");
@@ -168,9 +168,9 @@ public sealed class InboxTests : IAsyncLifetime
             IdempotencyKey = Guid.NewGuid().ToString(),
         })).StatusCode.Should().Be(HttpStatusCode.Created);
 
-        await WaitForInboxItemAsync(userB, InboxItemType.FirstDirectMessage);
+        await WaitForInboxItemAsync(userB, InboxItemType.ConversationStarted);
 
-        // Send a second DM in the same conversation; should not produce a second FirstDirectMessage event.
+        // Sending a second DM in the same conversation should not produce a second ConversationStarted event.
         (await _client.PostAsJsonAsync($"/api/v1/conversations/{conversationId}/messages", new
         {
             Content = "again",
@@ -180,12 +180,12 @@ public sealed class InboxTests : IAsyncLifetime
         // Give the worker time to (not) act, then verify the count is still 1.
         await Task.Delay(TimeSpan.FromSeconds(3));
         await using var db = _factory.CreateDbContext();
-        (await db.InboxItems.CountAsync(i => i.UserId == userB && i.Type == InboxItemType.FirstDirectMessage))
+        (await db.InboxItems.CountAsync(i => i.UserId == userB && i.Type == InboxItemType.ConversationStarted))
             .Should().Be(1);
-        (await db.OutboxMessages.CountAsync(o => o.EventType == "FirstDirectMessageSent"))
-            .Should().Be(1, "second message in the same conversation must not emit FirstDirectMessageSent again");
+        (await db.OutboxMessages.CountAsync(o => o.EventType == "ConversationStarted"))
+            .Should().Be(1, "second message in the same conversation must not emit ConversationStarted again");
 
-        // Friends scenario: C and D become friends first, then DM; no FirstDirectMessage should be emitted.
+        // Friends scenario: C and D become friends first, then DM; no ConversationStarted should be emitted.
         var (tokenC, _, _) = await RegisterAndLoginAsync("ib_dm_c");
         var (tokenD, userD, usernameD) = await RegisterAndLoginAsync("ib_dm_d");
         await BefriendAsync(tokenC, tokenD, usernameD);
@@ -204,8 +204,8 @@ public sealed class InboxTests : IAsyncLifetime
 
         await Task.Delay(TimeSpan.FromSeconds(3));
         await using var db2 = _factory.CreateDbContext();
-        (await db2.InboxItems.CountAsync(i => i.UserId == userD && i.Type == InboxItemType.FirstDirectMessage))
-            .Should().Be(0, "friends never trigger FirstDirectMessage inbox items");
+        (await db2.InboxItems.CountAsync(i => i.UserId == userD && i.Type == InboxItemType.ConversationStarted))
+            .Should().Be(0, "friends never trigger ConversationStarted inbox items");
     }
 
     [Fact]

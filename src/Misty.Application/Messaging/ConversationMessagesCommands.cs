@@ -71,9 +71,9 @@ public sealed class SendConversationMessageCommandHandler
         {
             _outbox.Queue(
                 SocialEventTopics.Message,
-                SocialEventTypes.FirstDirectMessageSent,
+                SocialEventTypes.ConversationStarted,
                 request.ConversationId,
-                new FirstDirectMessageSentPayload(
+                new ConversationStartedPayload(
                     request.ConversationId, request.AuthorId, otherUserId, DateTime.UtcNow));
         }
 

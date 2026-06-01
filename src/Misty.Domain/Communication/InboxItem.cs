@@ -5,7 +5,8 @@ public enum InboxItemType
     FriendRequestReceived,
     FriendRequestAccepted,
     ChannelInviteReceived,
-    FirstDirectMessage,
+    ChannelInviteAccepted,
+    ConversationStarted,
 }
 
 public class InboxItem

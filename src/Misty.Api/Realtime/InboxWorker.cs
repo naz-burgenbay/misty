@@ -75,7 +75,7 @@ public sealed class InboxWorker : BackgroundService
                 SocialEventTypes.FriendRequestSent => MapFriendRequestSent(body),
                 SocialEventTypes.FriendRequestAccepted => MapFriendRequestAccepted(body),
                 SocialEventTypes.ChannelInviteSent => MapChannelInviteSent(body),
-                SocialEventTypes.FirstDirectMessageSent => MapFirstDirectMessageSent(body),
+                SocialEventTypes.ConversationStarted => MapConversationStarted(body),
                 _ => null,
             };
 
@@ -126,11 +126,11 @@ public sealed class InboxWorker : BackgroundService
         return InboxItem.Create(Guid.NewGuid(), p.InvitedUserId, InboxItemType.ChannelInviteReceived, p.InvitedByUserId, p.InviteId);
     }
 
-    private static InboxItem? MapFirstDirectMessageSent(string body)
+    private static InboxItem? MapConversationStarted(string body)
     {
-        var p = JsonSerializer.Deserialize<FirstDirectMessageSentPayload>(body);
+        var p = JsonSerializer.Deserialize<ConversationStartedPayload>(body);
         if (p is null) return null;
-        return InboxItem.Create(Guid.NewGuid(), p.RecipientId, InboxItemType.FirstDirectMessage, p.SenderId, p.ConversationId);
+        return InboxItem.Create(Guid.NewGuid(), p.RecipientId, InboxItemType.ConversationStarted, p.SenderId, p.ConversationId);
     }
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)
