@@ -24,13 +24,6 @@ public sealed class MembershipRepository : IMembershipRepository
     public async Task RemoveAsync(Membership membership, Channel channel, CancellationToken ct = default)
     {
         channel.DecrementMemberCount();
-        _db.Memberships.Remove(membership);
-        await _db.SaveChangesAsync(ct);
-    }
-
-    public async Task SoftRemoveAsync(Membership membership, Channel channel, CancellationToken ct = default)
-    {
-        channel.DecrementMemberCount();
         membership.SoftDelete();
         await _db.SaveChangesAsync(ct);
     }

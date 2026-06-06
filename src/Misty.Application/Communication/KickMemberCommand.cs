@@ -56,7 +56,7 @@ public sealed class KickMemberCommandHandler : IRequestHandler<KickMemberCommand
         var membership = await _memberships.GetAsync(request.ChannelId, request.TargetUserId, ct)
             ?? throw new NotFoundException("Target user is not a member of this channel.");
 
-        await _memberships.SoftRemoveAsync(membership, channel, ct);
+        await _memberships.RemoveAsync(membership, channel, ct);
 
         var action = ModerationAction.Create(
             Guid.NewGuid(),
