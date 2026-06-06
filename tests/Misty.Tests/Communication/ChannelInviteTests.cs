@@ -230,4 +230,36 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         var updated = await db2.ChannelInvites.SingleAsync(i => i.Id == invite.Id);
         updated.Status.Should().Be(ChannelInviteStatus.Declined);
     }
+
+    [Fact]
+    public async Task DeclineInvite_WithStaleVersion_Returns409()
+    {
+        var (ownerToken, _, _) = await RegisterAndLoginAsync("ci_stale_owner");
+        var (targetToken, _, targetUsername) = await RegisterAndLoginAsync("ci_stale_target");
+
+        var channelId = await CreateChannelAsync(ownerToken, isPrivate: true);
+        (await SendInviteAsync(ownerToken, channelId, targetUsername)).StatusCode
+            .Should().Be(HttpStatusCode.Created);
+
+        Guid inviteId;
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var invite = await db.ChannelInvites.SingleAsync();
+            inviteId = invite.Id;
+            originalVersion = Convert.ToBase64String(invite.Version);
+        }
+
+        // No-op SQL update advances SQL Server's rowversion column without changing logical state.
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.ChannelInvite SET Id = Id WHERE Id = {0}", inviteId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
+        var conflictResp = await _client.PostAsJsonAsync(
+            $"/api/v1/channels/invites/{inviteId}/decline",
+            new { Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

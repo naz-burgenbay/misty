@@ -338,4 +338,34 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var resp = await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
+
+    [Fact]
+    public async Task Decline_WithStaleVersion_Returns409()
+    {
+        var (tokenA, _, _) = await RegisterAndLoginAsync("fr_stale_a");
+        var (tokenB, _, usernameB) = await RegisterAndLoginAsync("fr_stale_b");
+
+        (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        Guid requestId;
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var entity = await db.FriendRequests.SingleAsync();
+            requestId = entity.Id;
+            originalVersion = Convert.ToBase64String(entity.Version);
+        }
+
+        // No-op SQL update advances SQL Server's rowversion column without changing logical state.
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.FriendRequest SET Id = Id WHERE Id = {0}", requestId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
+        var conflictResp = await _client.PostAsJsonAsync(
+            $"/api/v1/friends/requests/{requestId}/decline",
+            new { Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

@@ -190,4 +190,40 @@ public sealed class ChannelRoleTests : IAsyncLifetime
         var resp = await _client.DeleteAsync($"/api/v1/channels/{channelId}/roles/{ownerRoleId}");
         resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
+
+    [Fact]
+    public async Task UpdateRole_WithStaleVersion_Returns409()
+    {
+        var token = await RegisterAndLoginAsync("role_stale");
+        var channelId = await CreateChannelAsync(token);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var createResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/roles", new
+        {
+            Name = "Mod",
+            Permissions = 3L,
+        });
+        var created = await createResp.Content.ReadFromJsonAsync<JsonElement>();
+        var roleId = created.GetProperty("roleId").GetGuid();
+
+        string originalVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            originalVersion = Convert.ToBase64String((await db0.ChannelRoles.IgnoreQueryFilters().FirstAsync(r => r.Id == roleId)).Version);
+
+        var first = await _client.PutAsJsonAsync($"/api/v1/channels/{channelId}/roles/{roleId}", new
+        {
+            Name = "Moderator",
+            Permissions = 7L,
+            Version = originalVersion,
+        });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var conflictResp = await _client.PutAsJsonAsync($"/api/v1/channels/{channelId}/roles/{roleId}", new
+        {
+            Name = "Moderator Plus",
+            Permissions = 15L,
+            Version = originalVersion,
+        });
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

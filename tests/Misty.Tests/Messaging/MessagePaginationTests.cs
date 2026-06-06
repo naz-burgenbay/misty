@@ -365,4 +365,44 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         editResp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity,
             "editing a tombstoned message must be rejected");
     }
+
+    [Fact]
+    public async Task EditMessage_WithStaleVersion_Returns409()
+    {
+        var (token, _) = await RegisterAndLoginAsync("edit_stale_user");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var createResp = await _client.PostAsJsonAsync("/api/v1/channels", new
+        {
+            Name = "edit-stale-ch",
+            IsPrivate = false,
+            IsAiAssistantEnabled = false,
+            DefaultPermissions = 0L,
+        });
+        var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("channelId").GetGuid();
+
+        var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
+        {
+            Content = "Original",
+            IdempotencyKey = Guid.NewGuid().ToString(),
+        });
+        var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("messageId").GetGuid();
+
+        string originalVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            originalVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+
+        var firstEdit = await _client.PutAsJsonAsync(
+            $"/api/v1/channels/{channelId}/messages/{messageId}",
+            new { Content = "First edit", Version = originalVersion });
+        firstEdit.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var conflictResp = await _client.PutAsJsonAsync(
+            $"/api/v1/channels/{channelId}/messages/{messageId}",
+            new { Content = "Second edit", Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

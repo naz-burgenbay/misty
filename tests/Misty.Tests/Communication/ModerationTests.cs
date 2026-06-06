@@ -487,4 +487,35 @@ public sealed class ModerationTests : IAsyncLifetime
             "an expired ban must not count as an active duplicate when applying a new ban");
         actionId.Should().NotBe(Guid.Empty);
     }
+
+    [Fact]
+    public async Task RevokeModeration_WithStaleVersion_Returns409()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_stale_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_stale_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-stale-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var (_, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Warn);
+
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+            originalVersion = Convert.ToBase64String((await db.ModerationActions.FirstAsync(a => a.Id == actionId)).Version);
+
+        // No-op SQL update advances SQL Server's rowversion column without changing logical state.
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.ModerationAction SET Id = Id WHERE Id = {0}", actionId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var req = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/channels/{channelId}/members/{memberId}/moderation/{actionId}")
+        {
+            Content = JsonContent.Create(new { Version = originalVersion }),
+        };
+        var conflictResp = await _client.SendAsync(req);
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }
