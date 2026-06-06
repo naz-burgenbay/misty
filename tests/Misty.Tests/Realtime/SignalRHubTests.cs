@@ -168,4 +168,104 @@ public sealed class SignalRHubTests : IAsyncLifetime
 
         await conn.StopAsync();
     }
+
+    [Fact]
+    public async Task OnConnect_JoinsUserGroup_ReceivesUserTargetedMessages()
+    {
+        var (token, userId) = await RegisterAndLoginAsync("hubuser_usergroup");
+
+        var conn = BuildConnection(token);
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.On<string>("RoleChanged", payload => received.TrySetResult(payload));
+        await conn.StartAsync();
+        await Task.Delay(100);
+
+        var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
+        await hubContext.Clients.Group($"user:{userId}").SendAsync("RoleChanged", "user-targeted");
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().BeSameAs(received.Task, "client should join user:{userId} group on connect");
+        (await received.Task).Should().Be("user-targeted");
+
+        await conn.StopAsync();
+    }
+
+    [Fact]
+    public async Task OnConnect_DoesNotJoinOtherUsersUserGroup()
+    {
+        var (token, _) = await RegisterAndLoginAsync("hubuser_usergroup_iso");
+
+        var conn = BuildConnection(token);
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.On<string>("RoleChanged", payload => received.TrySetResult(payload));
+        await conn.StartAsync();
+
+        // Push to a different user's group; this client must not receive it.
+        var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
+        await hubContext.Clients.Group($"user:{Guid.NewGuid()}").SendAsync("RoleChanged", "should-not-arrive");
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(1)));
+        completed.Should().NotBeSameAs(received.Task, "user:{uid} group must be scoped to the connected user only");
+
+        await conn.StopAsync();
+    }
+
+    [Fact]
+    public async Task OnConnect_JoinsConversationGroup_ReceivesGroupMessages()
+    {
+        var (tokenA, _) = await RegisterAndLoginAsync("hubuser_conv_a");
+        var (tokenB, userBId) = await RegisterAndLoginAsync("hubuser_conv_b");
+
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenA);
+        var convResp = await _client.PostAsJsonAsync("/api/v1/conversations", new { OtherUserId = userBId });
+        convResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var convBody = await convResp.Content.ReadFromJsonAsync<JsonElement>();
+        var conversationId = convBody.GetProperty("conversationId").GetGuid();
+
+        var conn = BuildConnection(tokenB);
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.On<string>("MessageCreated", payload => received.TrySetResult(payload));
+        await conn.StartAsync();
+        await Task.Delay(100);
+
+        var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
+        await hubContext.Clients.Group($"conversation:{conversationId}")
+            .SendAsync("MessageCreated", "conv-group-hello");
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().BeSameAs(received.Task, "participant should join conversation:{id} group on connect");
+        (await received.Task).Should().Be("conv-group-hello");
+
+        await conn.StopAsync();
+    }
+
+    [Fact]
+    public async Task OnConnect_NonParticipant_DoesNotReceiveConversationGroupMessages()
+    {
+        var (tokenA, _) = await RegisterAndLoginAsync("hubuser_conv_iso_a");
+        var (_, userBId) = await RegisterAndLoginAsync("hubuser_conv_iso_b");
+        var (tokenC, _) = await RegisterAndLoginAsync("hubuser_conv_iso_c");
+
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenA);
+        var convResp = await _client.PostAsJsonAsync("/api/v1/conversations", new { OtherUserId = userBId });
+        convResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var conversationId = (await convResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("conversationId").GetGuid();
+
+        var conn = BuildConnection(tokenC);
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.On<string>("MessageCreated", payload => received.TrySetResult(payload));
+        await conn.StartAsync();
+
+        var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
+        await hubContext.Clients.Group($"conversation:{conversationId}")
+            .SendAsync("MessageCreated", "should-not-arrive");
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(1)));
+        completed.Should().NotBeSameAs(received.Task, "non-participant must not be in the conversation group");
+
+        await conn.StopAsync();
+    }
 }
