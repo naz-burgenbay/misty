@@ -59,12 +59,20 @@ public sealed class ChannelRepository : IChannelRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateIconUrlAsync(Channel channel, string? iconUrl, CancellationToken ct = default)
+    public async Task UpdateIconUrlAsync(Channel channel, string? iconUrl, byte[] concurrencyToken, CancellationToken ct = default)
     {
         if (iconUrl is null)
             channel.ClearIconUrl();
         else
             channel.SetIconUrl(iconUrl);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(channel).Property(c => c.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 }

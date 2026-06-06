@@ -78,6 +78,16 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         return form;
     }
 
+    private async Task<string> CurrentUserVersionAsync(Guid userId)
+    {
+        await using var db = _factory.CreateDbContext();
+        var user = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == userId);
+        return Convert.ToBase64String(user.Version);
+    }
+
+    private static void AddVersion(MultipartFormDataContent form, string version)
+        => form.Add(new StringContent(version), "version");
+
     [Fact]
     public async Task UploadAvatar_WithValidPng_Returns200AndSetsAvatarUrl()
     {
@@ -85,6 +95,7 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var form = MakePngContent();
+        AddVersion(form, await CurrentUserVersionAsync(userId));
         var response = await _client.PostAsync("/api/v1/users/me/avatar", form);
 
         var debugBody = await response.Content.ReadAsStringAsync();
@@ -108,10 +119,12 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var form1 = MakePngContent();
+        AddVersion(form1, await CurrentUserVersionAsync(userId));
         var first = await _client.PostAsync("/api/v1/users/me/avatar", form1);
         var url1 = (await first.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("avatarUrl").GetString();
 
         using var form2 = MakePngContent();
+        AddVersion(form2, await CurrentUserVersionAsync(userId));
         var second = await _client.PostAsync("/api/v1/users/me/avatar", form2);
 
         second.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -133,6 +146,7 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         var fileContent = new ByteArrayContent(oversized);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(fileContent, "file", "big.png");
+        AddVersion(form, "AAAAAAAAAAA=");
 
         var response = await _client.PostAsync("/api/v1/users/me/avatar", form);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -148,6 +162,7 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         var fileContent = new ByteArrayContent([0x25, 0x50, 0x44, 0x46]); // %PDF magic bytes
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         form.Add(fileContent, "file", "document.pdf");
+        AddVersion(form, "AAAAAAAAAAA=");
 
         var response = await _client.PostAsync("/api/v1/users/me/avatar", form);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);

@@ -44,6 +44,13 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         return _client.SendAsync(req);
     }
 
+    private async Task<string> CurrentUserVersionAsync(Guid userId)
+    {
+        await using var db = _factory.CreateDbContext();
+        var user = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == userId);
+        return Convert.ToBase64String(user.Version);
+    }
+
     // Friend request lifecycle 
 
     [Fact]
@@ -260,6 +267,7 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         SetToken(token);
 
         using var form = MakePngForm();
+        form.Add(new StringContent(await CurrentUserVersionAsync(userId)), "version");
         (await _client.PostAsync("/api/v1/users/me/avatar", form)).EnsureSuccessStatusCode();
 
         await AssertOutboxAsync("user-events", "UserAvatarChanged", userId);
@@ -272,8 +280,9 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         SetToken(token);
 
         using var form = MakePngForm();
+        form.Add(new StringContent(await CurrentUserVersionAsync(userId)), "version");
         (await _client.PostAsync("/api/v1/users/me/avatar", form)).EnsureSuccessStatusCode();
-        (await _client.DeleteAsync("/api/v1/users/me/avatar")).EnsureSuccessStatusCode();
+        (await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) })).EnsureSuccessStatusCode();
 
         // Two events should now exist for this user (upload + remove). Both share the same EventType.
         await using var db = _factory.CreateDbContext();

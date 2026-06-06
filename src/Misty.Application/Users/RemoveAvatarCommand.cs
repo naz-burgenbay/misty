@@ -4,7 +4,7 @@ using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Users;
 
-public record RemoveAvatarCommand(Guid UserId) : IRequest<RemoveAvatarResponse>;
+public record RemoveAvatarCommand(Guid UserId, string Version) : IRequest<RemoveAvatarResponse>;
 
 public record RemoveAvatarResponse(string Version);
 
@@ -26,8 +26,9 @@ public sealed class RemoveAvatarCommandHandler : IRequestHandler<RemoveAvatarCom
         var user = await _users.GetByIdAsync(request.UserId, ct)
             ?? throw new UnauthorizedException();
 
+        var concurrencyToken = Convert.FromBase64String(request.Version);
         await _avatar.DeleteAsync(request.UserId, ct);
-        await _users.UpdateAvatarUrlAsync(user, null, ct);
+        await _users.UpdateAvatarUrlAsync(user, null, concurrencyToken, ct);
         await _outbox.WriteAsync(
             UserEventTopics.User,
             UserEventTypes.UserAvatarChanged,

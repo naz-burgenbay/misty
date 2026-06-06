@@ -58,10 +58,18 @@ public class UserRepository : IUserRepository
         }
     }
 
-    public async Task UpdateAvatarUrlAsync(User user, string? avatarUrl, CancellationToken ct = default)
+    public async Task UpdateAvatarUrlAsync(User user, string? avatarUrl, byte[] concurrencyToken, CancellationToken ct = default)
     {
         user.UpdateAvatarUrl(avatarUrl);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(user).Property(u => u.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 
     public async Task SoftDeleteAsync(User user, CancellationToken ct = default)

@@ -76,10 +76,24 @@ public sealed class RemoveAvatarTests : IAsyncLifetime
         return form;
     }
 
-    private async Task<string?> UploadAvatarAsync(string token)
+    private async Task<string> CurrentUserVersionAsync(Guid userId)
+    {
+        await using var db = _factory.CreateDbContext();
+        var user = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == userId);
+        return Convert.ToBase64String(user.Version);
+    }
+
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
+    private async Task<string?> UploadAvatarAsync(string token, Guid userId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var form = MakePngContent();
+        form.Add(new StringContent(await CurrentUserVersionAsync(userId)), "version");
         var resp = await _client.PostAsync("/api/v1/users/me/avatar", form);
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -90,7 +104,7 @@ public sealed class RemoveAvatarTests : IAsyncLifetime
     public async Task RemoveAvatar_Unauthenticated_Returns401()
     {
         _client.DefaultRequestHeaders.Authorization = null;
-        var resp = await _client.DeleteAsync("/api/v1/users/me/avatar");
+        var resp = await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -98,10 +112,10 @@ public sealed class RemoveAvatarTests : IAsyncLifetime
     public async Task RemoveAvatar_AfterUpload_ClearsAvatarUrl_AndReturnsVersion()
     {
         var (token, userId) = await RegisterAndLoginAsync("rmavatar1");
-        var uploadedUrl = await UploadAvatarAsync(token);
+        var uploadedUrl = await UploadAvatarAsync(token, userId);
         uploadedUrl.Should().NotBeNullOrEmpty();
 
-        var resp = await _client.DeleteAsync("/api/v1/users/me/avatar");
+        var resp = await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) });
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
@@ -117,10 +131,10 @@ public sealed class RemoveAvatarTests : IAsyncLifetime
     [Fact]
     public async Task RemoveAvatar_WhenNoAvatar_IsIdempotent()
     {
-        var (token, _) = await RegisterAndLoginAsync("rmavatar2");
+        var (token, userId) = await RegisterAndLoginAsync("rmavatar2");
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var resp = await _client.DeleteAsync("/api/v1/users/me/avatar");
+        var resp = await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) });
 
         resp.StatusCode.Should().Be(HttpStatusCode.OK, "delete with no existing avatar must succeed");
     }
@@ -128,11 +142,11 @@ public sealed class RemoveAvatarTests : IAsyncLifetime
     [Fact]
     public async Task RemoveAvatar_TwiceInARow_Succeeds()
     {
-        var (token, _) = await RegisterAndLoginAsync("rmavatar3");
-        await UploadAvatarAsync(token);
+        var (token, userId) = await RegisterAndLoginAsync("rmavatar3");
+        await UploadAvatarAsync(token, userId);
 
-        var first = await _client.DeleteAsync("/api/v1/users/me/avatar");
-        var second = await _client.DeleteAsync("/api/v1/users/me/avatar");
+        var first = await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) });
+        var second = await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) });
 
         first.StatusCode.Should().Be(HttpStatusCode.OK);
         second.StatusCode.Should().Be(HttpStatusCode.OK);

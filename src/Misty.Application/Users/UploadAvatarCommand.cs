@@ -4,7 +4,7 @@ using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Users;
 
-public record UploadAvatarCommand(Guid UserId, Stream Content, string ContentType)
+public record UploadAvatarCommand(Guid UserId, Stream Content, string ContentType, string Version)
     : IRequest<UploadAvatarResponse>;
 
 public record UploadAvatarResponse(string AvatarUrl, string Version);
@@ -27,8 +27,9 @@ public sealed class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCom
         var user = await _users.GetByIdAsync(request.UserId, ct)
             ?? throw new UnauthorizedException();
 
+        var concurrencyToken = Convert.FromBase64String(request.Version);
         var url = await _avatar.UploadAsync(request.UserId, request.Content, request.ContentType, ct);
-        await _users.UpdateAvatarUrlAsync(user, url, ct);
+        await _users.UpdateAvatarUrlAsync(user, url, concurrencyToken, ct);
         await _outbox.WriteAsync(
             UserEventTopics.User,
             UserEventTypes.UserAvatarChanged,
