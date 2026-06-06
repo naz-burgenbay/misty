@@ -53,6 +53,15 @@ public sealed record MemberRoleRevokedPayload(
     public string EventType { get; init; } = PermissionEventTypes.MemberRoleRevoked;
 }
 
+public sealed record ChannelRoleCreatedPayload(
+    Guid ChannelId,
+    Guid RoleId,
+    Guid CreatedByUserId,
+    DateTime OccurredAt)
+{
+    public string EventType { get; init; } = PermissionEventTypes.ChannelRoleCreated;
+}
+
 public sealed record ChannelRoleUpdatedPayload(
     Guid ChannelId,
     Guid RoleId,
@@ -109,6 +118,7 @@ public static class PermissionEventTypes
     public const string MembershipKicked = "MembershipKicked";
     public const string MemberRoleAssigned = "MemberRoleAssigned";
     public const string MemberRoleRevoked = "MemberRoleRevoked";
+    public const string ChannelRoleCreated = "ChannelRoleCreated";
     public const string ChannelRoleUpdated = "ChannelRoleUpdated";
     public const string ChannelRoleDeleted = "ChannelRoleDeleted";
     public const string ModerationActionApplied = "ModerationActionApplied";

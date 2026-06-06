@@ -11,11 +11,16 @@ public sealed class DeleteChannelCommandHandler : IRequestHandler<DeleteChannelC
 {
     private readonly IChannelRepository _channels;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
-    public DeleteChannelCommandHandler(IChannelRepository channels, IPermissionService permissions)
+    public DeleteChannelCommandHandler(
+        IChannelRepository channels,
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task Handle(DeleteChannelCommand request, CancellationToken ct)
@@ -30,6 +35,12 @@ public sealed class DeleteChannelCommandHandler : IRequestHandler<DeleteChannelC
             request.ActorUserId, request.ChannelId, ChannelPermission.ManageChannel, ct);
         if (!hasPermission)
             throw new ForbiddenException("Missing ManageChannel permission.");
+
+        _outbox.Queue(
+            ChannelEventTopics.Channel,
+            ChannelEventTypes.ChannelDeleted,
+            channel.Id,
+            new ChannelDeletedPayload(channel.Id, request.ActorUserId, DateTime.UtcNow));
 
         await _channels.SoftDeleteAsync(channel, ct);
     }

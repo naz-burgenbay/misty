@@ -51,6 +51,27 @@
             "Subscriptions": [
               { "Name": "inbox-worker", "Properties": {} }
             ]
+          },
+          {
+            "Name": "channel-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "audit", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "block-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "audit", "Properties": {} }
+            ]
+          },
+          {
+            "Name": "user-events",
+            "Properties": {},
+            "Subscriptions": [
+              { "Name": "audit", "Properties": {} }
+            ]
           }
         ]
       }

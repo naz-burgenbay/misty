@@ -16,15 +16,18 @@ public sealed class CreateChannelRoleCommandHandler : IRequestHandler<CreateChan
     private readonly IChannelRepository _channels;
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public CreateChannelRoleCommandHandler(
         IChannelRepository channels,
         IChannelRoleRepository roles,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _roles = roles;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task<ChannelRoleResponse> Handle(CreateChannelRoleCommand request, CancellationToken ct)
@@ -39,6 +42,10 @@ public sealed class CreateChannelRoleCommandHandler : IRequestHandler<CreateChan
 
         var role = ChannelRole.Create(Guid.NewGuid(), channel.Id, request.Name, request.Permissions);
         await _roles.AddAsync(role, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleCreated, request.ChannelId,
+            new ChannelRoleCreatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
 
         return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
     }

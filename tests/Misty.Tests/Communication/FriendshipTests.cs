@@ -106,7 +106,7 @@ public sealed class FriendshipTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Block_CascadesFriendshipHardDelete_OnlyBlockEvent()
+    public async Task Block_CascadesFriendship_EmitsBothBlockAndFriendshipRemovedEvents()
     {
         var (tokenA, _, _) = await RegisterAndLoginAsync("fs_blk_a");
         var (tokenB, userB, usernameB) = await RegisterAndLoginAsync("fs_blk_b");
@@ -137,8 +137,10 @@ public sealed class FriendshipTests : IAsyncLifetime
             .OrderBy(o => o.CreatedAt)
             .Skip(outboxBefore)
             .ToListAsync();
-        newOutbox.Should().NotContain(o => o.EventType.Contains("Friendship", StringComparison.OrdinalIgnoreCase),
-            "no friendship-deleted event should be emitted alongside the cascade");
+        newOutbox.Should().Contain(o => o.EventType == "UserBlocked",
+            "block must publish UserBlocked");
+        newOutbox.Should().Contain(o => o.EventType == "FriendshipRemoved",
+            "the cascaded friendship deletion must publish FriendshipRemoved for lifecycle completeness");
     }
 
     [Fact]

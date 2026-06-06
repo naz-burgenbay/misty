@@ -48,6 +48,17 @@ public sealed class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFr
             entity.Id,
             new FriendRequestAcceptedPayload(entity.Id, cmd.AccepterId, entity.SenderId, DateTime.UtcNow));
 
+        _outbox.Queue(
+            SocialEventTopics.Friend,
+            SocialEventTypes.FriendshipCreated,
+            friendship.Id,
+            new FriendshipCreatedPayload(
+                friendship.Id,
+                friendship.UserAId,
+                friendship.UserBId,
+                cmd.AccepterId,
+                DateTime.UtcNow));
+
         // AddAsync flushes the new friendship, the mutated request, and the queued outbox row in one SaveChanges.
         await _friendships.AddAsync(friendship, ct);
 

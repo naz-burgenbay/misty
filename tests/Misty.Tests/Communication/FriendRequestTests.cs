@@ -139,7 +139,7 @@ public sealed class FriendRequestTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Decline_MarksDeclined_NoOutbox()
+    public async Task Decline_MarksDeclined_EmitsFriendRequestDeclined()
     {
         var (tokenA, _, _) = await RegisterAndLoginAsync("fr_dec_a");
         var (tokenB, _, usernameB) = await RegisterAndLoginAsync("fr_dec_b");
@@ -156,9 +156,14 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var updated = await db2.FriendRequests.SingleAsync(r => r.Id == request.Id);
         updated.Status.Should().Be(FriendRequestStatus.Declined);
 
-        var declineOutbox = await db2.OutboxMessages.CountAsync(o =>
-            o.EventType == "FriendRequestAccepted" || o.EventType == "FriendRequestDeclined");
-        declineOutbox.Should().Be(0);
+        var declinedOutbox = await db2.OutboxMessages
+            .Where(o => o.EventType == "FriendRequestDeclined")
+            .ToListAsync();
+        declinedOutbox.Should().HaveCount(1);
+        declinedOutbox[0].Topic.Should().Be("friend-events");
+
+        var acceptedOutbox = await db2.OutboxMessages.CountAsync(o => o.EventType == "FriendRequestAccepted");
+        acceptedOutbox.Should().Be(0);
     }
 
     // Planned self-target returns 400, but the handler throws ValidationException which the global handler maps to 422 (same as the established BlockSelf_Returns422 convention).
