@@ -43,7 +43,8 @@ public sealed class GetSentFriendRequestsQueryHandler
                     u.AvatarUrl,
                     r.Status.ToString(),
                     r.CreatedAt,
-                    r.RespondedAt);
+                    r.RespondedAt,
+                    Convert.ToBase64String(r.Version));
             })
             .ToList();
     }

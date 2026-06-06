@@ -5,7 +5,8 @@ public sealed record BlockedUserDto(
     string Username,
     string DisplayName,
     string? AvatarUrl,
-    DateTime BlockedAt);
+    DateTime BlockedAt,
+    string Version);
 
 // Manages block relationships between users and exposes block lookups to permission checks across Communication and Messaging modules.
 public interface IUserBlockService

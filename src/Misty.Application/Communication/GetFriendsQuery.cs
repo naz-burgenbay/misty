@@ -14,7 +14,7 @@ public sealed class GetFriendsQueryHandler : IRequestHandler<GetFriendsQuery, IR
     {
         var friends = await _friendships.GetFriendsOfAsync(request.UserId, ct);
         return friends
-            .Select(f => new FriendDto(f.UserId, f.Username, f.DisplayName, f.AvatarUrl))
+            .Select(f => new FriendDto(f.UserId, f.Username, f.DisplayName, f.AvatarUrl, f.Version))
             .ToList();
     }
 }

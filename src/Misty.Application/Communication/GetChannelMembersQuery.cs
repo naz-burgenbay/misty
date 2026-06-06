@@ -15,7 +15,8 @@ public record ChannelMemberDto(
     string? AvatarUrl,
     DateTime JoinedAt,
     IReadOnlyList<Guid> RoleIds,
-    IReadOnlyList<ModerationActionType> ActiveModerationTypes);
+    IReadOnlyList<ModerationActionType> ActiveModerationTypes,
+    string Version);
 
 public sealed class GetChannelMembersQueryHandler
     : IRequestHandler<GetChannelMembersQuery, IReadOnlyList<ChannelMemberDto>>

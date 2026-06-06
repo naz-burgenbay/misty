@@ -65,6 +65,6 @@ public sealed class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFr
         var senderUser = await _users.GetByIdAsync(entity.SenderId, ct)
             ?? throw new NotFoundException("Sender not found.");
 
-        return new FriendDto(senderUser.Id, senderUser.Username, senderUser.DisplayName, senderUser.AvatarUrl);
+        return new FriendDto(senderUser.Id, senderUser.Username, senderUser.DisplayName, senderUser.AvatarUrl, Convert.ToBase64String(friendship.Version));
     }
 }

@@ -4,7 +4,8 @@ public sealed record FriendDto(
     Guid UserId,
     string Username,
     string DisplayName,
-    string? AvatarUrl);
+    string? AvatarUrl,
+    string Version);
 
 public sealed record FriendRequestDto(
     Guid Id,
@@ -14,7 +15,8 @@ public sealed record FriendRequestDto(
     string? SenderAvatarUrl,
     string Status,
     DateTime CreatedAt,
-    DateTime? RespondedAt);
+    DateTime? RespondedAt,
+    string Version);
 
 public sealed record SentFriendRequestDto(
     Guid Id,
@@ -24,7 +26,8 @@ public sealed record SentFriendRequestDto(
     string? ReceiverAvatarUrl,
     string Status,
     DateTime CreatedAt,
-    DateTime? RespondedAt);
+    DateTime? RespondedAt,
+    string Version);
 
 public sealed record ChannelInviteDto(
     Guid Id,
@@ -33,7 +36,8 @@ public sealed record ChannelInviteDto(
     Guid InvitedByUserId,
     string InvitedByDisplayName,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Version);
 
 public sealed record InboxItemDto(
     Guid Id,

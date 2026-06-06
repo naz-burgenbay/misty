@@ -54,7 +54,7 @@ public sealed class UserBlockService : IUserBlockService
             where b.BlockerId == blockerId
             join u in _db.Users.AsNoTracking() on b.BlockedId equals u.Id
             orderby b.CreatedAt descending
-            select new BlockedUserDto(u.Id, u.Username, u.DisplayName, u.AvatarUrl, b.CreatedAt))
+            select new BlockedUserDto(u.Id, u.Username, u.DisplayName, u.AvatarUrl, b.CreatedAt, Convert.ToBase64String(b.Version)))
             .ToListAsync(ct);
     }
 }

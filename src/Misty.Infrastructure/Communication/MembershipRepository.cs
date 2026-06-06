@@ -52,7 +52,7 @@ public sealed class MembershipRepository : IMembershipRepository
             where m.ChannelId == channelId && !m.IsDeleted
             join u in _db.Users.AsNoTracking() on m.UserId equals u.Id
             where !u.IsDeleted
-            select new { m.Id, m.UserId, m.JoinedAt, u.Username, u.DisplayName, u.AvatarUrl })
+            select new { m.Id, m.UserId, m.JoinedAt, m.Version, u.Username, u.DisplayName, u.AvatarUrl })
             .ToListAsync(ct);
 
         if (members.Count == 0)
@@ -91,7 +91,8 @@ public sealed class MembershipRepository : IMembershipRepository
                 x.AvatarUrl,
                 x.JoinedAt,
                 rolesByMembership.TryGetValue(x.Id, out var roles) ? roles : Array.Empty<Guid>(),
-                modByUser.TryGetValue(x.UserId, out var mods) ? mods : Array.Empty<ModerationActionType>()))
+                modByUser.TryGetValue(x.UserId, out var mods) ? mods : Array.Empty<ModerationActionType>(),
+                Convert.ToBase64String(x.Version)))
             .ToList();
     }
 }

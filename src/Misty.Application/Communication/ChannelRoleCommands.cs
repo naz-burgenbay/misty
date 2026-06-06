@@ -6,7 +6,7 @@ using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record ChannelRoleResponse(Guid RoleId, Guid ChannelId, string Name, long Permissions, bool IsOwnerRole);
+public record ChannelRoleResponse(Guid RoleId, Guid ChannelId, string Name, long Permissions, bool IsOwnerRole, string Version);
 
 public record CreateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, string Name, ChannelPermission Permissions)
     : IRequest<ChannelRoleResponse>;
@@ -47,7 +47,7 @@ public sealed class CreateChannelRoleCommandHandler : IRequestHandler<CreateChan
             new ChannelRoleCreatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
             ct);
 
-        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
+        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole, Convert.ToBase64String(role.Version));
     }
 }
 
@@ -107,7 +107,7 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
             new ChannelRoleUpdatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
             ct);
 
-        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
+        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole, Convert.ToBase64String(role.Version));
     }
 }
 
@@ -179,7 +179,7 @@ public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRole
             ?? throw new NotFoundException($"Channel '{request.ChannelId}' was not found.");
 
         var roles = await _roles.GetByChannelIdAsync(channel.Id, ct);
-        return roles.Select(r => new ChannelRoleResponse(r.Id, r.ChannelId, r.Name, (long)r.Permissions, r.IsOwnerRole))
+        return roles.Select(r => new ChannelRoleResponse(r.Id, r.ChannelId, r.Name, (long)r.Permissions, r.IsOwnerRole, Convert.ToBase64String(r.Version)))
                     .ToList();
     }
 }

@@ -26,7 +26,8 @@ public record MessageDto(
     DateTime? EditedAt,
     bool IsDeleted,
     IReadOnlyList<ReactionSummaryDto> Reactions,
-    IReadOnlyList<AttachmentDto> Attachments);
+    IReadOnlyList<AttachmentDto> Attachments,
+    string Version);
 
 public record AttachmentDto(
     Guid Id,
@@ -126,7 +127,8 @@ public sealed class GetChannelMessagesQueryHandler
                 m.EditedAt,
                 m.IsDeleted,
                 reactions,
-                attachments);
+                attachments,
+                Convert.ToBase64String(m.Version));
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);

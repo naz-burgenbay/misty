@@ -11,7 +11,8 @@ public record ModerationActionDto(
     ModerationActionType Type,
     Guid IssuedByUserId,
     string Reason,
-    DateTime? ExpiresAt);
+    DateTime? ExpiresAt,
+    string Version);
 
 public sealed class GetModerationActionsQueryHandler
     : IRequestHandler<GetModerationActionsQuery, List<ModerationActionDto>>
@@ -28,7 +29,7 @@ public sealed class GetModerationActionsQueryHandler
             request.ChannelId, request.TargetUserId, ct);
 
         return actions
-            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.Reason, a.ExpiresAt))
+            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.Reason, a.ExpiresAt, Convert.ToBase64String(a.Version)))
             .ToList();
     }
 }

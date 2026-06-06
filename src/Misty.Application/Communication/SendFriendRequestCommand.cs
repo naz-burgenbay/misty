@@ -78,6 +78,7 @@ public sealed class SendFriendRequestCommandHandler : IRequestHandler<SendFriend
             sender.AvatarUrl,
             entity.Status.ToString(),
             entity.CreatedAt,
-            entity.RespondedAt);
+            entity.RespondedAt,
+            Convert.ToBase64String(entity.Version));
     }
 }

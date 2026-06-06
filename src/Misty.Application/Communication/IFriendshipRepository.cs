@@ -11,4 +11,4 @@ public interface IFriendshipRepository
     Task DeleteForPairAsync(Guid userId1, Guid userId2, CancellationToken ct = default);
 }
 
-public sealed record Friend(Guid UserId, string Username, string DisplayName, string? AvatarUrl);
+public sealed record Friend(Guid UserId, string Username, string DisplayName, string? AvatarUrl, string Version);

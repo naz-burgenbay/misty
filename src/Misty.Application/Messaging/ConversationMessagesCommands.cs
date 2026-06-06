@@ -103,7 +103,7 @@ public sealed class SendConversationMessageCommandHandler
     }
 
     private static SendMessageResponse ToResponse(Message m, bool wasIdempotent)
-        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt);
+        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt, Convert.ToBase64String(m.Version));
 }
 
 public sealed class SendConversationMessageValidator : AbstractValidator<SendConversationMessageCommand>
@@ -194,7 +194,8 @@ public sealed class GetConversationMessagesQueryHandler
                 m.EditedAt,
                 m.IsDeleted,
                 reactions,
-                attachments);
+                attachments,
+                Convert.ToBase64String(m.Version));
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);
