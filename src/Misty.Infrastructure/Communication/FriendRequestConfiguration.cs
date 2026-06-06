@@ -24,6 +24,9 @@ public class FriendRequestConfiguration : IEntityTypeConfiguration<FriendRequest
 
         builder.Property(r => r.CreatedAt).IsRequired();
 
+        builder.Property(r => r.Version)
+            .IsRowVersion();
+
         builder.HasIndex(r => new { r.SenderId, r.ReceiverId })
             .IsUnique()
             .HasDatabaseName("UX_FriendRequest_Sender_Receiver");

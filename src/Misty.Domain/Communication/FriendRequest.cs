@@ -19,6 +19,7 @@ public class FriendRequest
     public DateTime? RespondedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static FriendRequest Create(Guid id, Guid senderId, Guid receiverId)
         => new()

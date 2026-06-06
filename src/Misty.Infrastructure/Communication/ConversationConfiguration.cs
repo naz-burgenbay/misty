@@ -17,6 +17,9 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.Property(c => c.UserBId).IsRequired();
         builder.Property(c => c.CreatedAt).IsRequired();
 
+        builder.Property(c => c.Version)
+            .IsRowVersion();
+
         builder.HasIndex(c => new { c.UserAId, c.UserBId })
             .IsUnique()
             .HasDatabaseName("UX_Conversation_UserA_UserB");

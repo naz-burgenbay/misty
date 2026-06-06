@@ -15,6 +15,7 @@ public class Message
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Message CreateForChannel(
         Guid id,

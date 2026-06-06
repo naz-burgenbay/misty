@@ -13,6 +13,9 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
 
         builder.HasKey(m => m.Id);
 
+        builder.Property(m => m.Version)
+            .IsRowVersion();
+
         builder.HasOne<Channel>()
             .WithMany()
             .HasForeignKey(m => m.ChannelId)

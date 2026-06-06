@@ -10,6 +10,7 @@ public class Conversation
     public DateTime CreatedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Conversation Create(Guid id, Guid userId1, Guid userId2)
     {

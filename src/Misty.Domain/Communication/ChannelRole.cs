@@ -11,6 +11,7 @@ public class ChannelRole
     public bool IsOwnerRole { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static ChannelRole Create(Guid id, Guid channelId, string name, ChannelPermission permissions)
         => new()

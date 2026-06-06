@@ -28,6 +28,9 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .IsUnique()
             .HasDatabaseName("UX_Message_Author_IdempotencyKey");
 
+        builder.Property(m => m.Version)
+            .IsRowVersion();
+
         // Self-reference for thread replies
         builder.HasOne<Message>()
             .WithMany()

@@ -10,6 +10,7 @@ public class Friendship
     public Guid UserAId { get; private set; }
     public Guid UserBId { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Friendship Create(Guid id, Guid userId1, Guid userId2)
     {

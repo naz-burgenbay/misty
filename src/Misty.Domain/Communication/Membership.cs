@@ -10,6 +10,7 @@ public class Membership
     public DateTime JoinedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Membership Create(Guid id, Guid channelId, Guid userId)
         => new()

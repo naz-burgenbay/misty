@@ -14,5 +14,8 @@ public class UserBlockConfiguration : IEntityTypeConfiguration<UserBlock>
         builder.HasKey(b => new { b.BlockerId, b.BlockedId });
 
         builder.Property(b => b.CreatedAt).IsRequired();
+
+        builder.Property(b => b.Version)
+            .IsRowVersion();
     }
 }

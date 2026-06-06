@@ -20,6 +20,7 @@ public class ChannelInvite
     public DateTime? RespondedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static ChannelInvite Create(Guid id, Guid channelId, Guid invitedByUserId, Guid invitedUserId)
         => new()

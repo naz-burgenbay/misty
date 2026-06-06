@@ -20,6 +20,9 @@ public class ChannelRoleConfiguration : IEntityTypeConfiguration<ChannelRole>
         builder.Property(r => r.Permissions)
             .HasConversion<long>();
 
+        builder.Property(r => r.Version)
+            .IsRowVersion();
+
         builder.HasOne<Channel>()
             .WithMany()
             .HasForeignKey(r => r.ChannelId)

@@ -16,6 +16,7 @@ public class ModerationAction
     public DateTime? RevokedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static ModerationAction Create(
         Guid id,
