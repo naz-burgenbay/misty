@@ -23,18 +23,18 @@ public sealed class ApplyModerationActionCommandHandler
     private readonly IModerationRepository _moderation;
     private readonly IChannelRepository _channels;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public ApplyModerationActionCommandHandler(
         IModerationRepository moderation,
         IChannelRepository channels,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _moderation = moderation;
         _channels = channels;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<ApplyModerationActionResponse> Handle(
@@ -72,7 +72,9 @@ public sealed class ApplyModerationActionCommandHandler
             request.ExpiresAt);
 
         await _moderation.AddAsync(action, ct);
-        await _events.PublishModerationActionAppliedAsync(request.TargetUserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            "moderation-events", "ModerationActionApplied", request.ChannelId,
+            new CacheInvalidationPayload(request.TargetUserId, request.ChannelId), ct);
 
         return new ApplyModerationActionResponse(action.Id);
     }
@@ -115,16 +117,16 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
 {
     private readonly IModerationRepository _moderation;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public RevokeModerationActionCommandHandler(
         IModerationRepository moderation,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _moderation = moderation;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(RevokeModerationActionCommand request, CancellationToken ct)
@@ -148,6 +150,8 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
 
         action.Revoke(DateTime.UtcNow);
         await _moderation.UpdateAsync(action, ct);
-        await _events.PublishModerationActionAppliedAsync(action.TargetUserId, action.ChannelId, ct);
+        await _outbox.WriteAsync(
+            "moderation-events", "ModerationActionApplied", action.ChannelId,
+            new CacheInvalidationPayload(action.TargetUserId, action.ChannelId), ct);
     }
 }

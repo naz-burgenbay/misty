@@ -59,16 +59,16 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public UpdateChannelRoleCommandHandler(
         IChannelRoleRepository roles,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _roles = roles;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<ChannelRoleResponse> Handle(UpdateChannelRoleCommand request, CancellationToken ct)
@@ -87,7 +87,9 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
 
         role.Update(request.Name, request.Permissions);
         await _roles.UpdateAsync(role, ct);
-        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            "role-events", "RoleChanged", request.ChannelId,
+            new CacheInvalidationPayload(UserId: null, request.ChannelId), ct);
 
         return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
     }
@@ -107,16 +109,16 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public DeleteChannelRoleCommandHandler(
         IChannelRoleRepository roles,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _roles = roles;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(DeleteChannelRoleCommand request, CancellationToken ct)
@@ -134,7 +136,9 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
             throw new ConflictException("The Owner role cannot be deleted.");
 
         await _roles.DeleteAsync(role, ct);
-        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            "role-events", "RoleChanged", request.ChannelId,
+            new CacheInvalidationPayload(UserId: null, request.ChannelId), ct);
     }
 }
 

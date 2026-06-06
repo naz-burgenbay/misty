@@ -2,6 +2,7 @@ using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Misty.Application.Communication;
 using StackExchange.Redis;
 
 namespace Misty.Infrastructure.Communication;

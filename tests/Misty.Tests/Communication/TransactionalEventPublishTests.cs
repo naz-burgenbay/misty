@@ -7,16 +7,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
-using Misty.Infrastructure.Communication;
 using Misty.Tests.Integration;
-using NSubstitute;
 using Respawn;
 
 namespace Misty.Tests.Communication;
 
-// Tests for plan-execution.md Step 5.6.2.a — event publishing is transactional.
-// (1) An integration test proving a kick is reflected in CachedPermissionService within one outbox-relay cycle.
-// (2) A unit test on the publisher proving its only side-effect is an outbox write; it does not touch Service Bus directly, so a Service Bus outage cannot abort an HTTP mutation.
 [Collection("Integration")]
 public sealed class TransactionalEventPublishTests : IAsyncLifetime
 {
@@ -105,43 +100,6 @@ public sealed class TransactionalEventPublishTests : IAsyncLifetime
 
         stillHas.Should().BeFalse(
             "the cached permission must be invalidated after the outbox row is relayed and CacheInvalidationWorker processes the message");
-    }
-
-    [Fact]
-    public async Task ServiceBusEventPublisher_Publish_OnlyEnqueuesAnOutboxRow()
-    {
-        // Unit test: the publisher must not touch Service Bus directly. Its only collaborator
-        // is IOutboxWriter, so an outage of Service Bus cannot abort a permission mutation.
-        var outbox = Substitute.For<IOutboxWriter>();
-        var publisher = new ServiceBusEventPublisher(outbox);
-
-        var userId = Guid.NewGuid();
-        var channelId = Guid.NewGuid();
-
-        await publisher.PublishMembershipChangedAsync(userId, channelId);
-        await publisher.PublishRoleChangedAsync(userId, channelId);
-        await publisher.PublishRoleChangedAsync(userId: null, channelId);
-        await publisher.PublishModerationActionAppliedAsync(userId, channelId);
-
-        outbox.Received(1).WriteAsync(
-            "membership-events", "MembershipChanged", channelId,
-            Arg.Is<CacheInvalidationPayload>(p => p.UserId == userId && p.ChannelId == channelId),
-            Arg.Any<CancellationToken>());
-
-        outbox.Received(1).WriteAsync(
-            "role-events", "RoleChanged", channelId,
-            Arg.Is<CacheInvalidationPayload>(p => p.UserId == userId && p.ChannelId == channelId),
-            Arg.Any<CancellationToken>());
-
-        outbox.Received(1).WriteAsync(
-            "role-events", "RoleChanged", channelId,
-            Arg.Is<CacheInvalidationPayload>(p => p.UserId == null && p.ChannelId == channelId),
-            Arg.Any<CancellationToken>());
-
-        outbox.Received(1).WriteAsync(
-            "moderation-events", "ModerationActionApplied", channelId,
-            Arg.Is<CacheInvalidationPayload>(p => p.UserId == userId && p.ChannelId == channelId),
-            Arg.Any<CancellationToken>());
     }
 
     private void SetToken(string token)

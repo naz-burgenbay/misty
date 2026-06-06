@@ -13,16 +13,16 @@ public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelComma
 {
     private readonly IChannelRepository _channels;
     private readonly IMembershipRepository _memberships;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public JoinChannelCommandHandler(
         IChannelRepository channels,
         IMembershipRepository memberships,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _memberships = memberships;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<JoinChannelResponse> Handle(JoinChannelCommand request, CancellationToken ct)
@@ -43,7 +43,9 @@ public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelComma
 
         var membership = Membership.Create(Guid.NewGuid(), request.ChannelId, request.UserId);
         await _memberships.AddAsync(membership, channel, ct);
-        await _events.PublishMembershipChangedAsync(request.UserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            "membership-events", "MembershipChanged", request.ChannelId,
+            new CacheInvalidationPayload(request.UserId, request.ChannelId), ct);
 
         return new JoinChannelResponse(membership.Id, membership.ChannelId, membership.JoinedAt);
     }
