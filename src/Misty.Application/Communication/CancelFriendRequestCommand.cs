@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -5,7 +6,7 @@ using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record CancelFriendRequestCommand(Guid UserId, Guid RequestId) : IRequest;
+public record CancelFriendRequestCommand(Guid UserId, Guid RequestId, string Version) : IRequest;
 
 public sealed class CancelFriendRequestCommandHandler : IRequestHandler<CancelFriendRequestCommand>
 {
@@ -31,12 +32,20 @@ public sealed class CancelFriendRequestCommandHandler : IRequestHandler<CancelFr
 
         entity.Decline();
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(cmd.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         _outbox.Queue(
             SocialEventTopics.Friend,
             SocialEventTypes.FriendRequestCancelled,
             entity.Id,
             new FriendRequestCancelledPayload(entity.Id, cmd.UserId, entity.ReceiverId, DateTime.UtcNow));
 
-        await _requests.UpdateAsync(entity, ct);
+        await _requests.UpdateAsync(entity, concurrencyToken, ct);
     }
 }

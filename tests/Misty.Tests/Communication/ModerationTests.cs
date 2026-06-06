@@ -107,8 +107,19 @@ public sealed class ModerationTests : IAsyncLifetime
         string issuerToken, Guid channelId, Guid targetUserId, Guid actionId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issuerToken);
-        return await _client.DeleteAsync(
-            $"/api/v1/channels/{channelId}/members/{targetUserId}/moderation/{actionId}");
+        string version;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var action = await db.ModerationActions.FirstOrDefaultAsync(a => a.Id == actionId);
+            version = action is null ? "AAAAAAAAAAA=" : Convert.ToBase64String(action.Version);
+        }
+        var req = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/channels/{channelId}/members/{targetUserId}/moderation/{actionId}")
+        {
+            Content = JsonContent.Create(new { Version = version }),
+        };
+        return await _client.SendAsync(req);
     }
 
     private async Task<Guid> CreateRoleAsync(string ownerToken, Guid channelId, ChannelPermission permissions)

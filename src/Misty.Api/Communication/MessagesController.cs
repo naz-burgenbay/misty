@@ -62,7 +62,7 @@ public sealed class MessagesController : ControllerBase
         CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new EditMessageCommand(messageId, channelId, userId, request.Content), ct);
+        await _mediator.Send(new EditMessageCommand(messageId, channelId, userId, request.Content, request.Version), ct);
         return NoContent();
     }
 
@@ -73,10 +73,11 @@ public sealed class MessagesController : ControllerBase
     public async Task<IActionResult> DeleteMessage(
         Guid channelId,
         Guid messageId,
+        [FromBody] DeleteMessageRequest request,
         CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new DeleteMessageCommand(messageId, channelId, userId), ct);
+        await _mediator.Send(new DeleteMessageCommand(messageId, channelId, userId, request.Version), ct);
         return NoContent();
     }
 }
@@ -86,4 +87,6 @@ public record SendChannelMessageRequest(
     string IdempotencyKey,
     Guid? ParentMessageId);
 
-public record EditMessageRequest(string Content);
+public record EditMessageRequest(string Content, string Version);
+
+public record DeleteMessageRequest(string Version);

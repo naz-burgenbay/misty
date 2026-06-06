@@ -20,6 +20,6 @@ public interface IMessageRepository
     Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default);
     Task<bool> AnyForConversationAsync(Guid conversationId, CancellationToken ct = default);
     Task AddAsync(Message message, CancellationToken ct = default);
-    Task UpdateAsync(Message message, CancellationToken ct = default);
+    Task UpdateAsync(Message message, byte[] concurrencyToken, CancellationToken ct = default);
     Task DeleteAsync(Message message, CancellationToken ct = default);
 }

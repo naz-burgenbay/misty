@@ -38,6 +38,12 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
     // Friend request lifecycle 
 
     [Fact]
@@ -48,7 +54,10 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
         var requestId = await SendFriendRequestAsync(tokenA, usernameB);
         SetToken(tokenB);
-        (await _client.PostAsync($"/api/v1/friends/requests/{requestId}/decline", null)).EnsureSuccessStatusCode();
+        string frVer;
+        await using (var db0 = _factory.CreateDbContext())
+            frVer = Convert.ToBase64String((await db0.FriendRequests.FirstAsync(f => f.Id == requestId)).Version);
+        (await _client.PostAsJsonAsync($"/api/v1/friends/requests/{requestId}/decline", new { Version = frVer })).EnsureSuccessStatusCode();
 
         await AssertOutboxAsync("friend-events", "FriendRequestDeclined", requestId);
     }
@@ -61,7 +70,10 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
         var requestId = await SendFriendRequestAsync(tokenA, usernameB);
         SetToken(tokenA);
-        (await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}")).EnsureSuccessStatusCode();
+        string frcVer;
+        await using (var db0 = _factory.CreateDbContext())
+            frcVer = Convert.ToBase64String((await db0.FriendRequests.FirstAsync(f => f.Id == requestId)).Version);
+        (await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = frcVer })).EnsureSuccessStatusCode();
 
         await AssertOutboxAsync("friend-events", "FriendRequestCancelled", requestId);
     }
@@ -114,7 +126,10 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         var inviteId = (await inviteResp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
 
         SetToken(targetToken);
-        (await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", null)).EnsureSuccessStatusCode();
+        string ciVer;
+        await using (var db0 = _factory.CreateDbContext())
+            ciVer = Convert.ToBase64String((await db0.ChannelInvites.FirstAsync(i => i.Id == inviteId)).Version);
+        (await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = ciVer })).EnsureSuccessStatusCode();
 
         await AssertOutboxAsync("channel-invite-events", "ChannelInviteDeclined", inviteId);
     }

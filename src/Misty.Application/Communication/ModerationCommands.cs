@@ -120,7 +120,7 @@ public sealed class ApplyModerationActionValidator : AbstractValidator<ApplyMode
     }
 }
 
-public record RevokeModerationActionCommand(Guid ChannelId, Guid RevokedByUserId, Guid ActionId) : IRequest;
+public record RevokeModerationActionCommand(Guid ChannelId, Guid RevokedByUserId, Guid ActionId, string Version) : IRequest;
 
 public sealed class RevokeModerationActionCommandHandler : IRequestHandler<RevokeModerationActionCommand>
 {
@@ -157,8 +157,16 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
         if (!allowed)
             throw new ForbiddenException($"Missing {required} permission.");
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         action.Revoke(DateTime.UtcNow);
-        await _moderation.UpdateAsync(action, ct);
+        await _moderation.UpdateAsync(action, concurrencyToken, ct);
         await _outbox.WriteAsync(
             PermissionEventTopics.Moderation, PermissionEventTypes.ModerationActionRevoked, action.ChannelId,
             new ModerationActionRevokedPayload(

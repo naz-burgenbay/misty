@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -96,10 +97,17 @@ public sealed class MessageRepository : IMessageRepository
     }
 
     // The handler is expected to queue a MessageEdited or MessageDeleted (tombstone) outbox row onto the same DbContext before calling UpdateAsync.
-    public async Task UpdateAsync(Message message, CancellationToken ct = default)
+    public async Task UpdateAsync(Message message, byte[] concurrencyToken, CancellationToken ct = default)
     {
-        _db.Messages.Update(message);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(message).Property(m => m.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 
     // The handler is expected to queue a MessageDeleted outbox row onto the same DbContext before calling DeleteAsync.

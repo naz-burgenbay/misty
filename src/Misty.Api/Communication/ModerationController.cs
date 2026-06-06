@@ -36,10 +36,11 @@ public sealed class ModerationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Revoke(Guid channelId, Guid userId, Guid actionId, CancellationToken ct)
+    public async Task<IActionResult> Revoke(
+        Guid channelId, Guid userId, Guid actionId, [FromBody] RevokeModerationActionRequest body, CancellationToken ct)
     {
         var revokedBy = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new RevokeModerationActionCommand(channelId, revokedBy, actionId), ct);
+        await _mediator.Send(new RevokeModerationActionCommand(channelId, revokedBy, actionId, body.Version), ct);
         return NoContent();
     }
 
@@ -53,3 +54,4 @@ public sealed class ModerationController : ControllerBase
 }
 
 public record ApplyModerationActionRequest(ModerationActionType Type, string Reason, DateTime? ExpiresAt);
+public record RevokeModerationActionRequest(string Version);

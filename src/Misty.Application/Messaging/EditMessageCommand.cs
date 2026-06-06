@@ -10,7 +10,8 @@ public record EditMessageCommand(
     Guid MessageId,
     Guid ChannelId,
     Guid UserId,
-    string NewContent)
+    string NewContent,
+    string Version)
     : IRequest;
 
 public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageCommand>
@@ -51,6 +52,14 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
         if (message.IsDeleted)
             throw new ValidationException("Cannot edit a deleted message.");
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         message.Edit(request.NewContent);
 
         _outbox.Queue(
@@ -64,7 +73,7 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
                 message.Content,
                 message.EditedAt ?? DateTime.UtcNow));
 
-        await _messages.UpdateAsync(message, ct);
+        await _messages.UpdateAsync(message, concurrencyToken, ct);
     }
 }
 
@@ -73,5 +82,6 @@ public sealed class EditMessageCommandValidator : AbstractValidator<EditMessageC
     public EditMessageCommandValidator()
     {
         RuleFor(x => x.NewContent).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.Version).NotEmpty();
     }
 }

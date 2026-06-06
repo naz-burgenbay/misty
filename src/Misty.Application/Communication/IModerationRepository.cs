@@ -8,5 +8,5 @@ public interface IModerationRepository
     Task<bool> HasActiveAsync(Guid channelId, Guid targetUserId, ModerationActionType type, CancellationToken ct = default);
     Task<List<ModerationAction>> GetActiveForUserAsync(Guid channelId, Guid targetUserId, CancellationToken ct = default);
     Task AddAsync(ModerationAction action, CancellationToken ct = default);
-    Task UpdateAsync(ModerationAction action, CancellationToken ct = default);
+    Task UpdateAsync(ModerationAction action, byte[] concurrencyToken, CancellationToken ct = default);
 }

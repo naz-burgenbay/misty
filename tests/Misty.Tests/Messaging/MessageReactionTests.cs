@@ -188,7 +188,14 @@ public sealed class MessageReactionTests : IAsyncLifetime
             IdempotencyKey = Guid.NewGuid().ToString(),
             ParentMessageId = parentId,
         });
-        var del = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string delVer;
+        await using (var db0 = _factory.CreateDbContext())
+            delVer = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        var delReq = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/messages/{parentId}")
+        {
+            Content = JsonContent.Create(new { Version = delVer }),
+        };
+        var del = await _client.SendAsync(delReq);
         del.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var add = await AddReactionAsync(channelId, parentId, "👀");

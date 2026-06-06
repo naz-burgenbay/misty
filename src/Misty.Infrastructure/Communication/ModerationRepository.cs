@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -44,9 +45,16 @@ public sealed class ModerationRepository : IModerationRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateAsync(ModerationAction action, CancellationToken ct = default)
+    public async Task UpdateAsync(ModerationAction action, byte[] concurrencyToken, CancellationToken ct = default)
     {
-        _db.ModerationActions.Update(action);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(action).Property(a => a.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 }

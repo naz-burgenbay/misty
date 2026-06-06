@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -8,7 +9,8 @@ namespace Misty.Application.Messaging;
 public record DeleteMessageCommand(
     Guid MessageId,
     Guid ChannelId,
-    Guid UserId)
+    Guid UserId,
+    string Version)
     : IRequest;
 
 public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageCommand>
@@ -49,6 +51,14 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
         if (message.IsDeleted)
             return; // Already deleted, idempotent
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         var hasReplies = await _messages.HasRepliesAsync(request.MessageId, ct);
 
         if (hasReplies)
@@ -64,7 +74,7 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
                     message.ChannelId,
                     message.ConversationId,
                     IsTombstone: true));
-            await _messages.UpdateAsync(message, ct);
+            await _messages.UpdateAsync(message, concurrencyToken, ct);
         }
         else
         {

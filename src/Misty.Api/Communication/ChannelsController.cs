@@ -161,10 +161,10 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> AcceptInvite(Guid id, CancellationToken ct)
+    public async Task<IActionResult> AcceptInvite(Guid id, [FromBody] AcceptChannelInviteRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new AcceptChannelInviteCommand(userId, id), ct);
+        await _mediator.Send(new AcceptChannelInviteCommand(userId, id, body.Version), ct);
         return Ok();
     }
 
@@ -173,15 +173,17 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DeclineInvite(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeclineInvite(Guid id, [FromBody] DeclineChannelInviteRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new DeclineChannelInviteCommand(userId, id), ct);
+        await _mediator.Send(new DeclineChannelInviteCommand(userId, id, body.Version), ct);
         return NoContent();
     }
 }
 
 public record SendChannelInviteRequest(string Username);
+public record AcceptChannelInviteRequest(string Version);
+public record DeclineChannelInviteRequest(string Version);
 
 public record CreateChannelRequest(
     string Name,

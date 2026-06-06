@@ -9,5 +9,5 @@ public interface IFriendRequestRepository
     Task<IReadOnlyList<FriendRequest>> GetPendingReceivedAsync(Guid receiverId, CancellationToken ct = default);
     Task<IReadOnlyList<FriendRequest>> GetPendingSentAsync(Guid senderId, CancellationToken ct = default);
     Task AddAsync(FriendRequest request, CancellationToken ct = default);
-    Task UpdateAsync(FriendRequest request, CancellationToken ct = default);
+    Task UpdateAsync(FriendRequest request, byte[] concurrencyToken, CancellationToken ct = default);
 }

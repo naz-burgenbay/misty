@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -27,6 +28,16 @@ public sealed class ChannelInviteRepository : IChannelInviteRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public Task UpdateAsync(ChannelInvite invite, CancellationToken ct = default)
-        => _db.SaveChangesAsync(ct);
+    public async Task UpdateAsync(ChannelInvite invite, byte[] concurrencyToken, CancellationToken ct = default)
+    {
+        _db.Entry(invite).Property(i => i.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -23,9 +24,17 @@ public sealed class ChannelRoleRepository : IChannelRoleRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateAsync(ChannelRole role, CancellationToken ct = default)
+    public async Task UpdateAsync(ChannelRole role, byte[] concurrencyToken, CancellationToken ct = default)
     {
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(role).Property(r => r.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 
     public async Task DeleteAsync(ChannelRole role, CancellationToken ct = default)

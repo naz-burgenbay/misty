@@ -120,10 +120,15 @@ public sealed class ChannelRoleTests : IAsyncLifetime
         var created = await createResp.Content.ReadFromJsonAsync<JsonElement>();
         var roleId = created.GetProperty("roleId").GetGuid();
 
+        string version;
+        await using (var db0 = _factory.CreateDbContext())
+            version = Convert.ToBase64String((await db0.ChannelRoles.IgnoreQueryFilters().FirstAsync(r => r.Id == roleId)).Version);
+
         var updateResp = await _client.PutAsJsonAsync($"/api/v1/channels/{channelId}/roles/{roleId}", new
         {
             Name = "Moderator Updated",
             Permissions = 7L,
+            Version = version,
         });
 
         updateResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -146,6 +151,7 @@ public sealed class ChannelRoleTests : IAsyncLifetime
         {
             Name = "Renamed Owner",
             Permissions = 0L,
+            Version = "AAAAAAAAAAA=",
         });
 
         resp.StatusCode.Should().Be(HttpStatusCode.Conflict);

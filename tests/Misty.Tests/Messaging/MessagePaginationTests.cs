@@ -37,6 +37,12 @@ public sealed class MessagePaginationTests : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
     private async Task<(string Token, Guid UserId)> RegisterAndLoginAsync(string username)
     {
         var reg = await _client.PostAsJsonAsync("/api/v1/auth/register", new
@@ -158,12 +164,16 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Act
-        var editResp = await _client.PutAsJsonAsync(
-            $"/api/v1/channels/{channelId}/messages/{messageId}",
-            new { Content = "Edited content" });
+        await using (var db0 = _factory.CreateDbContext())
+        {
+            var version = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+            // Act
+            var editResp = await _client.PutAsJsonAsync(
+                $"/api/v1/channels/{channelId}/messages/{messageId}",
+                new { Content = "Edited content", Version = version });
 
-        editResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            editResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        }
 
         // Assert
         await using var db = _factory.CreateDbContext();
@@ -198,7 +208,10 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             .GetProperty("messageId").GetGuid();
 
         // Act
-        var deleteResp = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{messageId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+        var deleteResp = await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{messageId}", new { Version = deleteVersion });
         deleteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Assert: message is completely removed
@@ -242,7 +255,10 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         });
 
         // Act: delete the parent message
-        var deleteResp = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        var deleteResp = await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
         deleteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Assert: message is tombstoned (content cleared, IsDeleted=true, but row still exists)
@@ -286,7 +302,10 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             ParentMessageId = parentId,
         });
 
-        await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
 
         // Act: retrieve messages
         var getResp = await _client.GetAsync($"/api/v1/channels/{channelId}/messages");
@@ -332,12 +351,15 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             ParentMessageId = parentId,
         });
 
-        await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
 
         // Act: attempt to edit the tombstoned message
         var editResp = await _client.PutAsJsonAsync(
             $"/api/v1/channels/{channelId}/messages/{parentId}",
-            new { Content = "Should fail" });
+            new { Content = "Should fail", Version = "AAAAAAAAAAA=" });
 
         // Assert
         editResp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity,

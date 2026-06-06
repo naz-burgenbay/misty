@@ -59,7 +59,7 @@ public sealed class CreateChannelRoleValidator : AbstractValidator<CreateChannel
     }
 }
 
-public record UpdateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, Guid RoleId, string Name, ChannelPermission Permissions)
+public record UpdateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, Guid RoleId, string Name, ChannelPermission Permissions, string Version)
     : IRequest<ChannelRoleResponse>;
 
 public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChannelRoleCommand, ChannelRoleResponse>
@@ -92,8 +92,16 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
         if (role.IsOwnerRole)
             throw new ConflictException("The Owner role cannot be modified.");
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         role.Update(request.Name, request.Permissions);
-        await _roles.UpdateAsync(role, ct);
+        await _roles.UpdateAsync(role, concurrencyToken, ct);
         await _outbox.WriteAsync(
             PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleUpdated, request.ChannelId,
             new ChannelRoleUpdatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
@@ -108,6 +116,7 @@ public sealed class UpdateChannelRoleValidator : AbstractValidator<UpdateChannel
     public UpdateChannelRoleValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Version).NotEmpty();
     }
 }
 

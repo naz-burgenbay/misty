@@ -107,7 +107,7 @@ public sealed class DeclineChannelInviteTests : IAsyncLifetime
         var (token, _, _) = await RegisterAndLoginAsync("ci_dec_404");
         SetToken(token);
 
-        var resp = await _client.PostAsync($"/api/v1/channels/invites/{Guid.NewGuid()}/decline", content: null);
+        var resp = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{Guid.NewGuid()}/decline", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
@@ -121,7 +121,10 @@ public sealed class DeclineChannelInviteTests : IAsyncLifetime
         var inviteId = await SendInviteAsync(ownerToken, channelId, targetUsername);
 
         SetToken(targetToken);
-        var resp = await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", content: null);
+        string version;
+        await using (var db0 = _factory.CreateDbContext())
+            version = Convert.ToBase64String((await db0.ChannelInvites.FirstAsync(i => i.Id == inviteId)).Version);
+        var resp = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = version });
         resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var db = _factory.CreateDbContext();
@@ -144,7 +147,7 @@ public sealed class DeclineChannelInviteTests : IAsyncLifetime
         var inviteId = await SendInviteAsync(ownerToken, channelId, targetUsername);
 
         SetToken(attackerToken);
-        var resp = await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", content: null);
+        var resp = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         await using var db = _factory.CreateDbContext();
@@ -162,10 +165,13 @@ public sealed class DeclineChannelInviteTests : IAsyncLifetime
         var inviteId = await SendInviteAsync(ownerToken, channelId, targetUsername);
 
         SetToken(targetToken);
-        (await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/accept", content: null)).StatusCode
+        string acceptVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            acceptVersion = Convert.ToBase64String((await db0.ChannelInvites.FirstAsync(i => i.Id == inviteId)).Version);
+        (await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/accept", new { Version = acceptVersion })).StatusCode
             .Should().Be(HttpStatusCode.OK);
 
-        var decline = await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", content: null);
+        var decline = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = "AAAAAAAAAAA=" });
         decline.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
@@ -179,9 +185,12 @@ public sealed class DeclineChannelInviteTests : IAsyncLifetime
         var inviteId = await SendInviteAsync(ownerToken, channelId, targetUsername);
 
         SetToken(targetToken);
-        (await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", content: null)).StatusCode
+        string declineVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            declineVersion = Convert.ToBase64String((await db0.ChannelInvites.FirstAsync(i => i.Id == inviteId)).Version);
+        (await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = declineVersion })).StatusCode
             .Should().Be(HttpStatusCode.NoContent);
-        (await _client.PostAsync($"/api/v1/channels/invites/{inviteId}/decline", content: null)).StatusCode
+        (await _client.PostAsJsonAsync($"/api/v1/channels/invites/{inviteId}/decline", new { Version = "AAAAAAAAAAA=" })).StatusCode
             .Should().Be(HttpStatusCode.Conflict);
     }
 }

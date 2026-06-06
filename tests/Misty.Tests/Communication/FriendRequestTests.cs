@@ -67,6 +67,12 @@ public sealed class FriendRequestTests : IAsyncLifetime
         return await _client.PostAsJsonAsync("/api/v1/friends/requests", new { Username = targetUsername });
     }
 
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
     private async Task<HttpResponseMessage> AcceptRequestAsync(string token, Guid requestId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -76,7 +82,13 @@ public sealed class FriendRequestTests : IAsyncLifetime
     private async Task<HttpResponseMessage> DeclineRequestAsync(string token, Guid requestId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return await _client.PostAsync($"/api/v1/friends/requests/{requestId}/decline", content: null);
+        string version;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var entity = await db.FriendRequests.FirstOrDefaultAsync(f => f.Id == requestId);
+            version = entity is null ? "AAAAAAAAAAA=" : Convert.ToBase64String(entity.Version);
+        }
+        return await _client.PostAsJsonAsync($"/api/v1/friends/requests/{requestId}/decline", new { Version = version });
     }
 
     private async Task<HttpResponseMessage> BlockAsync(string token, Guid targetId)
@@ -297,7 +309,10 @@ public sealed class FriendRequestTests : IAsyncLifetime
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
-        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        string canVer;
+        await using (var db0 = _factory.CreateDbContext())
+            canVer = Convert.ToBase64String((await db0.FriendRequests.FirstAsync(f => f.Id == requestId)).Version);
+        var resp = await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = canVer });
         resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var db2 = _factory.CreateDbContext();
@@ -320,7 +335,7 @@ public sealed class FriendRequestTests : IAsyncLifetime
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
-        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        var resp = await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

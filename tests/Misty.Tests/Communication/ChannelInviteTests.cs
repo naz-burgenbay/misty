@@ -195,7 +195,8 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         var invite = await db.ChannelInvites.SingleAsync();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
-        var accept = await _client.PostAsync($"/api/v1/channels/invites/{invite.Id}/accept", content: null);
+        var inviteVersion = Convert.ToBase64String(invite.Version);
+        var accept = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{invite.Id}/accept", new { Version = inviteVersion });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var db2 = _factory.CreateDbContext();
@@ -221,7 +222,8 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         var invite = await db.ChannelInvites.SingleAsync();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
-        var decline = await _client.PostAsync($"/api/v1/channels/invites/{invite.Id}/decline", content: null);
+        var inviteVersion = Convert.ToBase64String(invite.Version);
+        var decline = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{invite.Id}/decline", new { Version = inviteVersion });
         decline.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var db2 = _factory.CreateDbContext();
