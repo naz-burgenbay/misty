@@ -32,7 +32,7 @@ public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCom
 
         await _memberships.RemoveAsync(membership, channel, ct);
         await _outbox.WriteAsync(
-            "membership-events", "MembershipChanged", request.ChannelId,
-            new CacheInvalidationPayload(request.UserId, request.ChannelId), ct);
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipLeft, request.ChannelId,
+            new MembershipLeftPayload(membership.Id, request.ChannelId, request.UserId, DateTime.UtcNow), ct);
     }
 }

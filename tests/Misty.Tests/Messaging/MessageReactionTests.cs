@@ -256,7 +256,7 @@ public sealed class MessageReactionTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddReaction_WritesOutboxRow_WithReactionChangedEventType()
+    public async Task AddReaction_WritesOutboxRow_WithReactionAddedEventType()
     {
         var (token, _) = await RegisterAndLoginAsync("react_user7");
         SetToken(token);
@@ -267,18 +267,17 @@ public sealed class MessageReactionTests : IAsyncLifetime
 
         await using var db = _factory.CreateDbContext();
         var outboxRow = await db.OutboxMessages
-            .Where(o => o.MessageId == msgId && o.EventType == "ReactionChanged")
+            .Where(o => o.MessageId == msgId && o.EventType == "ReactionAdded")
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync();
 
         outboxRow.Should().NotBeNull();
         outboxRow!.Topic.Should().Be("message-events");
-        outboxRow.Payload.Should().Contain("\"added\"");
-        outboxRow.Payload.Should().Contain("\"EventType\":\"ReactionChanged\"");
+        outboxRow.Payload.Should().Contain("\"EventType\":\"ReactionAdded\"");
     }
 
     [Fact]
-    public async Task RemoveReaction_WritesOutboxRow_WithRemovedAction()
+    public async Task RemoveReaction_WritesOutboxRow_WithReactionRemovedEventType()
     {
         var (token, _) = await RegisterAndLoginAsync("react_user8");
         SetToken(token);
@@ -290,9 +289,11 @@ public sealed class MessageReactionTests : IAsyncLifetime
 
         await using var db = _factory.CreateDbContext();
         var removedRow = await db.OutboxMessages
-            .Where(o => o.MessageId == msgId && o.EventType == "ReactionChanged" && o.Payload.Contains("\"removed\""))
+            .Where(o => o.MessageId == msgId && o.EventType == "ReactionRemoved")
             .FirstOrDefaultAsync();
 
         removedRow.Should().NotBeNull();
+        removedRow!.Topic.Should().Be("message-events");
+        removedRow.Payload.Should().Contain("\"EventType\":\"ReactionRemoved\"");
     }
 }

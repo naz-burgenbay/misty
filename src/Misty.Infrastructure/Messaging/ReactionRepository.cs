@@ -15,7 +15,7 @@ public sealed class ReactionRepository : IReactionRepository
         => _db.MessageReactions.FirstOrDefaultAsync(
             r => r.MessageId == messageId && r.UserId == userId && r.EmojiCode == emojiCode, ct);
 
-    // The handler is expected to queue the matching ReactionChanged outbox row onto the same DbContext before calling AddAsync/RemoveAsync.
+    // The handler is expected to queue the matching ReactionAdded/ReactionRemoved outbox row onto the same DbContext before calling AddAsync/RemoveAsync.
     public async Task AddAsync(MessageReaction reaction, CancellationToken ct = default)
     {
         await _db.MessageReactions.AddAsync(reaction, ct);

@@ -44,8 +44,8 @@ public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelComma
         var membership = Membership.Create(Guid.NewGuid(), request.ChannelId, request.UserId);
         await _memberships.AddAsync(membership, channel, ct);
         await _outbox.WriteAsync(
-            "membership-events", "MembershipChanged", request.ChannelId,
-            new CacheInvalidationPayload(request.UserId, request.ChannelId), ct);
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipJoined, request.ChannelId,
+            new MembershipJoinedPayload(membership.Id, request.ChannelId, request.UserId, DateTime.UtcNow), ct);
 
         return new JoinChannelResponse(membership.Id, membership.ChannelId, membership.JoinedAt);
     }

@@ -61,14 +61,13 @@ public sealed class AddReactionCommandHandler : IRequestHandler<AddReactionComma
 
         _outbox.Queue(
             MessageEventTopics.Message,
-            MessageEventTypes.ReactionChanged,
+            MessageEventTypes.ReactionAdded,
             reaction.MessageId,
-            new ReactionChangedPayload(
+            new ReactionAddedPayload(
                 reaction.MessageId,
                 message.ChannelId,
                 reaction.UserId,
                 reaction.EmojiCode,
-                "added",
                 DateTime.UtcNow));
 
         await _reactions.AddAsync(reaction, ct);

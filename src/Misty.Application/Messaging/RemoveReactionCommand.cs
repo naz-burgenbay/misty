@@ -58,14 +58,13 @@ public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactio
 
         _outbox.Queue(
             MessageEventTopics.Message,
-            MessageEventTypes.ReactionChanged,
+            MessageEventTypes.ReactionRemoved,
             existing.MessageId,
-            new ReactionChangedPayload(
+            new ReactionRemovedPayload(
                 existing.MessageId,
                 message.ChannelId,
                 existing.UserId,
                 existing.EmojiCode,
-                "removed",
                 DateTime.UtcNow));
 
         await _reactions.RemoveAsync(existing, ct);

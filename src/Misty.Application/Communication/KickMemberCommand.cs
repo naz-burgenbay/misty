@@ -69,8 +69,16 @@ public sealed class KickMemberCommandHandler : IRequestHandler<KickMemberCommand
 
         await _moderation.AddAsync(action, ct);
         await _outbox.WriteAsync(
-            "membership-events", "MembershipChanged", request.ChannelId,
-            new CacheInvalidationPayload(request.TargetUserId, request.ChannelId), ct);
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipKicked, request.ChannelId,
+            new MembershipKickedPayload(
+                membership.Id,
+                request.ChannelId,
+                request.TargetUserId,
+                request.IssuedByUserId,
+                action.Id,
+                action.Reason,
+                DateTime.UtcNow),
+            ct);
 
         return new KickMemberResponse(action.Id);
     }

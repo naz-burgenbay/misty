@@ -176,7 +176,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     public async Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default)
     {
-        // No optimistic update, the SignalR ReactionChanged echo fans the aggregated count back to us. Latency is acceptable for the demo and keeps state authoritative on the server.
+        // No optimistic update, the SignalR ReactionAdded echo fans the aggregated count back to us. Latency is acceptable for the demo and keeps state authoritative on the server.
         using var resp = await _http.PostAsJsonAsync(
             $"api/v1/channels/{channelId}/messages/{messageId}/reactions",
             new AddReactionRequestDto(emojiCode), ct);
@@ -223,26 +223,31 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         return attachment;
     }
 
-    private void OnReactionChanged(ReactionChangedEvent evt)
+    private void OnReactionAdded(ReactionAddedEvent evt)
+        => ApplyReactionDelta(evt.MessageId, evt.ChannelId, evt.UserId, evt.EmojiCode, isAdd: true);
+
+    private void OnReactionRemoved(ReactionRemovedEvent evt)
+        => ApplyReactionDelta(evt.MessageId, evt.ChannelId, evt.UserId, evt.EmojiCode, isAdd: false);
+
+    private void ApplyReactionDelta(Guid messageId, Guid? channelId, Guid userId, string emojiCode, bool isAdd)
     {
-        if (evt.ChannelId is not { } channelId) return;
-        if (!_byConversation.TryGetValue(channelId, out var obs)) return;
+        if (channelId is not { } convoId) return;
+        if (!_byConversation.TryGetValue(convoId, out var obs)) return;
 
         var meId = _auth.CurrentUser?.Id ?? Guid.Empty;
-        var isAdd = string.Equals(evt.Action, "added", StringComparison.OrdinalIgnoreCase);
-        var byMe = evt.UserId == meId;
+        var byMe = userId == meId;
 
         var next = obs.Value.Select(m =>
         {
-            if (m.Id != evt.MessageId) return m;
+            if (m.Id != messageId) return m;
 
             var current = m.Reactions is null ? new List<MockReaction>() : new List<MockReaction>(m.Reactions);
-            var idx = current.FindIndex(r => r.Emoji == evt.EmojiCode);
+            var idx = current.FindIndex(r => r.Emoji == emojiCode);
 
             if (isAdd)
             {
                 if (idx < 0)
-                    current.Add(new MockReaction(evt.EmojiCode, 1, byMe));
+                    current.Add(new MockReaction(emojiCode, 1, byMe));
                 else
                     current[idx] = current[idx] with
                     {
@@ -279,7 +284,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         _hubSubs.Add(_hub.OnMessageCreated(OnMessageCreated));
         _hubSubs.Add(_hub.OnMessageEdited(OnMessageEdited));
         _hubSubs.Add(_hub.OnMessageDeleted(OnMessageDeleted));
-        _hubSubs.Add(_hub.OnReactionChanged(OnReactionChanged));
+        _hubSubs.Add(_hub.OnReactionAdded(OnReactionAdded));
+        _hubSubs.Add(_hub.OnReactionRemoved(OnReactionRemoved));
     }
 
     private void OnMessageCreated(MessageCreatedEvent evt)

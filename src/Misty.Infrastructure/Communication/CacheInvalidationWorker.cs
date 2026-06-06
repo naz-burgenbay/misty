@@ -64,15 +64,16 @@ public sealed class CacheInvalidationWorker : BackgroundService
 
     private async Task HandleMessageAsync(ProcessMessageEventArgs args)
     {
-        CacheInvalidationPayload? payload = null;
+        var eventType = args.Message.Subject;
+        (Guid? userId, Guid channelId)? target;
 
         try
         {
-            payload = JsonSerializer.Deserialize<CacheInvalidationPayload>(args.Message.Body);
+            target = ExtractInvalidationTarget(eventType, args.Message.Body);
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Malformed cache-invalidation message; dead-lettering.");
+            _logger.LogError(ex, "Malformed cache-invalidation message {EventType}; dead-lettering.", eventType);
             await args.DeadLetterMessageAsync(
                 args.Message,
                 deadLetterReason: "MalformedPayload",
@@ -80,25 +81,78 @@ public sealed class CacheInvalidationWorker : BackgroundService
             return;
         }
 
-        if (payload is null)
+        if (target is null)
         {
-            await args.DeadLetterMessageAsync(
-                args.Message,
-                deadLetterReason: "NullPayload",
-                cancellationToken: args.CancellationToken);
+            // Unknown event type on a permission topic: complete to avoid redelivery loops.
+            _logger.LogWarning("Ignoring unknown cache-invalidation event type '{EventType}'", eventType);
+            await args.CompleteMessageAsync(args.Message, args.CancellationToken);
             return;
         }
 
         try
         {
             // Redis entries are invalidated before the message is acknowledged.
-            await InvalidateCacheAsync(payload.UserId, payload.ChannelId);
+            await InvalidateCacheAsync(target.Value.userId, target.Value.channelId);
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process cache-invalidation message; abandoning.");
+            _logger.LogError(ex, "Failed to process cache-invalidation message {EventType}; abandoning.", eventType);
             await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+        }
+    }
+
+    private static (Guid? userId, Guid channelId)? ExtractInvalidationTarget(string eventType, BinaryData body)
+    {
+        switch (eventType)
+        {
+            case PermissionEventTypes.MembershipJoined:
+            {
+                var p = JsonSerializer.Deserialize<MembershipJoinedPayload>(body);
+                return p is null ? null : (p.UserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MembershipLeft:
+            {
+                var p = JsonSerializer.Deserialize<MembershipLeftPayload>(body);
+                return p is null ? null : (p.UserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MembershipKicked:
+            {
+                var p = JsonSerializer.Deserialize<MembershipKickedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MemberRoleAssigned:
+            {
+                var p = JsonSerializer.Deserialize<MemberRoleAssignedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MemberRoleRevoked:
+            {
+                var p = JsonSerializer.Deserialize<MemberRoleRevokedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.ChannelRoleUpdated:
+            {
+                var p = JsonSerializer.Deserialize<ChannelRoleUpdatedPayload>(body);
+                return p is null ? null : ((Guid?)null, p.ChannelId);
+            }
+            case PermissionEventTypes.ChannelRoleDeleted:
+            {
+                var p = JsonSerializer.Deserialize<ChannelRoleDeletedPayload>(body);
+                return p is null ? null : ((Guid?)null, p.ChannelId);
+            }
+            case PermissionEventTypes.ModerationActionApplied:
+            {
+                var p = JsonSerializer.Deserialize<ModerationActionAppliedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.ModerationActionRevoked:
+            {
+                var p = JsonSerializer.Deserialize<ModerationActionRevokedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            default:
+                return null;
         }
     }
 

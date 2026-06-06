@@ -67,8 +67,11 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
                 case "MessageDeleted":
                     await HandleMessageDeletedAsync(args);
                     break;
-                case "ReactionChanged":
-                    await HandleReactionChangedAsync(args);
+                case "ReactionAdded":
+                    await HandleReactionAddedAsync(args);
+                    break;
+                case "ReactionRemoved":
+                    await HandleReactionRemovedAsync(args);
                     break;
                 default:
                     // Unknown event type: complete to avoid poison-message redelivery loops.
@@ -150,9 +153,9 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
         _logger.LogDebug("Delivered MessageDeleted {MessageId} via SignalR", payload.MessageId);
     }
 
-    private async Task HandleReactionChangedAsync(ProcessMessageEventArgs args)
+    private async Task HandleReactionAddedAsync(ProcessMessageEventArgs args)
     {
-        var payload = JsonSerializer.Deserialize<ReactionChangedPayload>(args.Message.Body.ToString());
+        var payload = JsonSerializer.Deserialize<ReactionAddedPayload>(args.Message.Body.ToString());
         if (payload is null)
         {
             await args.DeadLetterMessageAsync(args.Message, "NullPayload", "Deserialization returned null");
@@ -162,12 +165,32 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
         if (payload.ChannelId.HasValue)
             await _hub.Clients
                 .Group($"channel:{payload.ChannelId}")
-                .SendAsync("ReactionChanged", payload, args.CancellationToken);
+                .SendAsync("ReactionAdded", payload, args.CancellationToken);
 
         await args.CompleteMessageAsync(args.Message);
         _logger.LogDebug(
-            "Delivered ReactionChanged {MessageId} {EmojiCode} {Action} via SignalR",
-            payload.MessageId, payload.EmojiCode, payload.Action);
+            "Delivered ReactionAdded {MessageId} {EmojiCode} via SignalR",
+            payload.MessageId, payload.EmojiCode);
+    }
+
+    private async Task HandleReactionRemovedAsync(ProcessMessageEventArgs args)
+    {
+        var payload = JsonSerializer.Deserialize<ReactionRemovedPayload>(args.Message.Body.ToString());
+        if (payload is null)
+        {
+            await args.DeadLetterMessageAsync(args.Message, "NullPayload", "Deserialization returned null");
+            return;
+        }
+
+        if (payload.ChannelId.HasValue)
+            await _hub.Clients
+                .Group($"channel:{payload.ChannelId}")
+                .SendAsync("ReactionRemoved", payload, args.CancellationToken);
+
+        await args.CompleteMessageAsync(args.Message);
+        _logger.LogDebug(
+            "Delivered ReactionRemoved {MessageId} {EmojiCode} via SignalR",
+            payload.MessageId, payload.EmojiCode);
     }
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)

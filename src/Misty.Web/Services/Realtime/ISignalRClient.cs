@@ -13,8 +13,11 @@ public sealed record MessageEditedEvent(Guid MessageId, Guid? ChannelId, Guid? C
 public sealed record MessageDeletedEvent(Guid MessageId, Guid? ChannelId, Guid? ConversationId,
     bool IsTombstone);
 
-public sealed record ReactionChangedEvent(Guid MessageId, Guid? ChannelId, Guid UserId,
-    string EmojiCode, string Action);
+public sealed record ReactionAddedEvent(Guid MessageId, Guid? ChannelId, Guid UserId,
+    string EmojiCode, DateTime OccurredAt);
+
+public sealed record ReactionRemovedEvent(Guid MessageId, Guid? ChannelId, Guid UserId,
+    string EmojiCode, DateTime OccurredAt);
 
 public sealed record PermissionInvalidationEvent(Guid? UserId, Guid ChannelId);
 
@@ -34,7 +37,8 @@ public interface ISignalRClient
     IDisposable OnMessageCreated(Action<MessageCreatedEvent> handler);
     IDisposable OnMessageEdited(Action<MessageEditedEvent> handler);
     IDisposable OnMessageDeleted(Action<MessageDeletedEvent> handler);
-    IDisposable OnReactionChanged(Action<ReactionChangedEvent> handler);
+    IDisposable OnReactionAdded(Action<ReactionAddedEvent> handler);
+    IDisposable OnReactionRemoved(Action<ReactionRemovedEvent> handler);
     IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> handler);
     IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> handler);
     IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> handler);

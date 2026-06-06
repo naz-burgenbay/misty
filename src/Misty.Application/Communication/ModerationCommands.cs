@@ -73,8 +73,17 @@ public sealed class ApplyModerationActionCommandHandler
 
         await _moderation.AddAsync(action, ct);
         await _outbox.WriteAsync(
-            "moderation-events", "ModerationActionApplied", request.ChannelId,
-            new CacheInvalidationPayload(request.TargetUserId, request.ChannelId), ct);
+            PermissionEventTopics.Moderation, PermissionEventTypes.ModerationActionApplied, request.ChannelId,
+            new ModerationActionAppliedPayload(
+                action.Id,
+                request.ChannelId,
+                request.TargetUserId,
+                request.IssuedByUserId,
+                request.Type.ToString(),
+                action.Reason,
+                request.ExpiresAt,
+                DateTime.UtcNow),
+            ct);
 
         return new ApplyModerationActionResponse(action.Id);
     }
@@ -151,7 +160,14 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
         action.Revoke(DateTime.UtcNow);
         await _moderation.UpdateAsync(action, ct);
         await _outbox.WriteAsync(
-            "moderation-events", "ModerationActionApplied", action.ChannelId,
-            new CacheInvalidationPayload(action.TargetUserId, action.ChannelId), ct);
+            PermissionEventTopics.Moderation, PermissionEventTypes.ModerationActionRevoked, action.ChannelId,
+            new ModerationActionRevokedPayload(
+                action.Id,
+                action.ChannelId,
+                action.TargetUserId,
+                request.RevokedByUserId,
+                action.Type.ToString(),
+                DateTime.UtcNow),
+            ct);
     }
 }

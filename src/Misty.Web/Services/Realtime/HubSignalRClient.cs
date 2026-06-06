@@ -70,7 +70,8 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
     public IDisposable OnMessageCreated(Action<MessageCreatedEvent> h) => On("MessageCreated", h);
     public IDisposable OnMessageEdited(Action<MessageEditedEvent> h) => On("MessageEdited", h);
     public IDisposable OnMessageDeleted(Action<MessageDeletedEvent> h) => On("MessageDeleted", h);
-    public IDisposable OnReactionChanged(Action<ReactionChangedEvent> h) => On("ReactionChanged", h);
+    public IDisposable OnReactionAdded(Action<ReactionAddedEvent> h) => On("ReactionAdded", h);
+    public IDisposable OnReactionRemoved(Action<ReactionRemovedEvent> h) => On("ReactionRemoved", h);
     public IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> h) => On("MembershipChanged", h);
     public IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> h) => On("RoleChanged", h);
     public IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> h) => On("ModerationActionApplied", h);

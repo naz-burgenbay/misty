@@ -76,7 +76,7 @@ public sealed class TransactionalEventPublishTests : IAsyncLifetime
         await using (var db = _factory.CreateDbContext())
         {
             var row = await db.OutboxMessages
-                .Where(o => o.Topic == "membership-events" && o.EventType == "MembershipChanged")
+                .Where(o => o.Topic == "membership-events" && o.EventType == "MembershipKicked")
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 

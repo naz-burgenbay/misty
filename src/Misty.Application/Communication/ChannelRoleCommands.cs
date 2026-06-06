@@ -88,8 +88,9 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
         role.Update(request.Name, request.Permissions);
         await _roles.UpdateAsync(role, ct);
         await _outbox.WriteAsync(
-            "role-events", "RoleChanged", request.ChannelId,
-            new CacheInvalidationPayload(UserId: null, request.ChannelId), ct);
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleUpdated, request.ChannelId,
+            new ChannelRoleUpdatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
 
         return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
     }
@@ -137,8 +138,9 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
 
         await _roles.DeleteAsync(role, ct);
         await _outbox.WriteAsync(
-            "role-events", "RoleChanged", request.ChannelId,
-            new CacheInvalidationPayload(UserId: null, request.ChannelId), ct);
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleDeleted, request.ChannelId,
+            new ChannelRoleDeletedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
     }
 }
 

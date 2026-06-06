@@ -49,8 +49,14 @@ public sealed class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand
 
         await _memberships.AssignRoleAsync(MemberRole.Create(membership.Id, request.RoleId), ct);
         await _outbox.WriteAsync(
-            "role-events", "RoleChanged", request.ChannelId,
-            new CacheInvalidationPayload(request.TargetUserId, request.ChannelId), ct);
+            PermissionEventTopics.Role, PermissionEventTypes.MemberRoleAssigned, request.ChannelId,
+            new MemberRoleAssignedPayload(
+                request.ChannelId,
+                request.TargetUserId,
+                request.RoleId,
+                request.ActorUserId,
+                DateTime.UtcNow),
+            ct);
     }
 }
 
@@ -105,7 +111,13 @@ public sealed class RevokeRoleCommandHandler : IRequestHandler<RevokeRoleCommand
 
         await _memberships.RevokeRoleAsync(assignment, ct);
         await _outbox.WriteAsync(
-            "role-events", "RoleChanged", request.ChannelId,
-            new CacheInvalidationPayload(request.TargetUserId, request.ChannelId), ct);
+            PermissionEventTopics.Role, PermissionEventTypes.MemberRoleRevoked, request.ChannelId,
+            new MemberRoleRevokedPayload(
+                request.ChannelId,
+                request.TargetUserId,
+                request.RoleId,
+                request.ActorUserId,
+                DateTime.UtcNow),
+            ct);
     }
 }
