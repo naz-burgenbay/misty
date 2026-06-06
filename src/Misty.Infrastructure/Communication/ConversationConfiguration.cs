@@ -17,10 +17,10 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.Property(c => c.UserBId).IsRequired();
         builder.Property(c => c.CreatedAt).IsRequired();
 
-        // Unique constraint enforces one conversation per user pair.
-        // Combined with canonical ordering (UserAId < UserBId), (A,B) and (B,A) map to the same row.
         builder.HasIndex(c => new { c.UserAId, c.UserBId })
             .IsUnique()
             .HasDatabaseName("UX_Conversation_UserA_UserB");
+
+        builder.HasQueryFilter(c => !c.IsDeleted);
     }
 }

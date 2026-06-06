@@ -8,6 +8,8 @@ public class Conversation
     public Guid UserAId { get; private set; }
     public Guid UserBId { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static Conversation Create(Guid id, Guid userId1, Guid userId2)
     {
@@ -19,5 +21,11 @@ public class Conversation
             UserBId = b,
             CreatedAt = DateTime.UtcNow,
         };
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

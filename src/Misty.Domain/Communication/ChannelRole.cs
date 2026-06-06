@@ -9,6 +9,8 @@ public class ChannelRole
     public string Name { get; private set; } = null!;
     public ChannelPermission Permissions { get; private set; }
     public bool IsOwnerRole { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static ChannelRole Create(Guid id, Guid channelId, string name, ChannelPermission permissions)
         => new()
@@ -33,5 +35,11 @@ public class ChannelRole
     {
         Name = name;
         Permissions = permissions;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

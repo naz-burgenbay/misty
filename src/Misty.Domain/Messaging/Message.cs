@@ -13,6 +13,7 @@ public class Message
     public Guid? ParentMessageId { get; private set; }
     public DateTime? EditedAt { get; private set; }
     public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     public static Message CreateForChannel(
@@ -65,5 +66,6 @@ public class Message
     {
         Content = string.Empty;
         IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

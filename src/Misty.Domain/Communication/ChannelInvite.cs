@@ -18,6 +18,8 @@ public class ChannelInvite
     public ChannelInviteStatus Status { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? RespondedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static ChannelInvite Create(Guid id, Guid channelId, Guid invitedByUserId, Guid invitedUserId)
         => new()
@@ -40,5 +42,11 @@ public class ChannelInvite
     {
         Status = ChannelInviteStatus.Declined;
         RespondedAt = DateTime.UtcNow;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

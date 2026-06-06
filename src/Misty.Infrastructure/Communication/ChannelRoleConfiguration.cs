@@ -24,5 +24,7 @@ public class ChannelRoleConfiguration : IEntityTypeConfiguration<ChannelRole>
             .WithMany()
             .HasForeignKey(r => r.ChannelId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasQueryFilter(r => !r.IsDeleted);
     }
 }

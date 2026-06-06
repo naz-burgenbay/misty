@@ -17,6 +17,8 @@ public class FriendRequest
     public FriendRequestStatus Status { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? RespondedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static FriendRequest Create(Guid id, Guid senderId, Guid receiverId)
         => new()
@@ -38,5 +40,11 @@ public class FriendRequest
     {
         Status = FriendRequestStatus.Declined;
         RespondedAt = DateTime.UtcNow;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

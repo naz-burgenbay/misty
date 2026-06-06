@@ -15,6 +15,7 @@ public class ModerationAction
     public DateTime? ExpiresAt { get; private set; }
     public DateTime? RevokedAt { get; private set; }
     public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
     public static ModerationAction Create(
         Guid id,
@@ -45,4 +46,10 @@ public class ModerationAction
         => a => a.RevokedAt == null && (a.ExpiresAt == null || a.ExpiresAt > utcNow);
 
     public void Revoke(DateTime revokedAt) => RevokedAt = revokedAt;
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+    }
 }
