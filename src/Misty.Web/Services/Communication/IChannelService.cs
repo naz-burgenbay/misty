@@ -28,12 +28,20 @@ internal sealed record CreateChannelRequestDto(
     bool IsAiAssistantEnabled,
     long DefaultPermissions);
 
+internal sealed record UpdateChannelRequestDto(
+    string Name,
+    bool IsPrivate,
+    bool IsAiAssistantEnabled);
+
 public interface IChannelService
 {
     Observable<IReadOnlyList<ChannelSummaryDto>> MyChannels { get; }
 
     Task RefreshAsync(CancellationToken ct = default);
     Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, CancellationToken ct = default);
+    Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, CancellationToken ct = default);
+    Task DeleteAsync(Guid channelId, CancellationToken ct = default);
+    Task LeaveAsync(Guid channelId, CancellationToken ct = default);
     ChannelSummaryDto? GetCached(Guid id);
 }
 
@@ -89,6 +97,36 @@ public sealed class HttpChannelService : IChannelService
         next.AddRange(MyChannels.Value.Where(c => c.Id != summary.Id));
         MyChannels.Set(next);
         return summary;
+    }
+
+    public async Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, CancellationToken ct = default)
+    {
+        using var resp = await _http.PutAsJsonAsync($"api/v1/channels/{channelId}",
+            new UpdateChannelRequestDto(name, isPrivate, aiAssistantEnabled), ct);
+        resp.EnsureSuccessStatusCode();
+
+        var updated = MyChannels.Value.Select(c => c.Id == channelId
+            ? c with { Name = name, IsPrivate = isPrivate, IsAiAssistantEnabled = aiAssistantEnabled }
+            : c).ToList();
+        MyChannels.Set(updated);
+    }
+
+    public async Task DeleteAsync(Guid channelId, CancellationToken ct = default)
+    {
+        using var resp = await _http.DeleteAsync($"api/v1/channels/{channelId}", ct);
+        resp.EnsureSuccessStatusCode();
+
+        var updated = MyChannels.Value.Where(c => c.Id != channelId).ToList();
+        MyChannels.Set(updated);
+    }
+
+    public async Task LeaveAsync(Guid channelId, CancellationToken ct = default)
+    {
+        using var resp = await _http.DeleteAsync($"api/v1/channels/{channelId}/leave", ct);
+        resp.EnsureSuccessStatusCode();
+
+        var updated = MyChannels.Value.Where(c => c.Id != channelId).ToList();
+        MyChannels.Set(updated);
     }
 
     public ChannelSummaryDto? GetCached(Guid id) => MyChannels.Value.FirstOrDefault(c => c.Id == id);

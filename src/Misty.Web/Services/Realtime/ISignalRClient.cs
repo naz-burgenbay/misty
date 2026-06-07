@@ -8,7 +8,7 @@ public sealed record MessageCreatedEvent(Guid MessageId, Guid? ChannelId, Guid? 
     Guid AuthorId, string Content, Guid? ParentMessageId, DateTime CreatedAt);
 
 public sealed record MessageEditedEvent(Guid MessageId, Guid? ChannelId, Guid? ConversationId,
-    string Content, DateTime EditedAt);
+    string Content, DateTime EditedAt, string Version);
 
 public sealed record MessageDeletedEvent(Guid MessageId, Guid? ChannelId, Guid? ConversationId,
     bool IsTombstone);

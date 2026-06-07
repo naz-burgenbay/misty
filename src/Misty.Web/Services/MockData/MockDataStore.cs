@@ -33,6 +33,7 @@ public sealed record MockMessage(
     Guid AuthorId,
     string Content,
     DateTime CreatedAt,
+    string Version = "",
     bool IsTombstone = false,
     bool IsEdited = false,
     Guid? ParentMessageId = null,

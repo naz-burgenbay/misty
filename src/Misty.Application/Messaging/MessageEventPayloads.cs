@@ -21,7 +21,8 @@ public sealed record MessageEditedPayload(
     Guid? ChannelId,
     Guid? ConversationId,
     string Content,
-    DateTime EditedAt)
+    DateTime EditedAt,
+    string Version)
 {
     public string EventType { get; init; } = "MessageEdited";
 }

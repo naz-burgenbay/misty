@@ -10,7 +10,6 @@ using Misty.Web.Services.Users;
 namespace Misty.Web.Services.Messaging;
 
 // Per-conversation observable message list. Optimistic insert produces a local message with a client-generated idempotency key; when the SignalR MessageCreated event arrives (or the 201 response with the persisted Id), the optimistic entry is replaced atomically using the key (SignalR-vs-201 dedup as described in the design system).
-//
 // Ids must be registered as either a channel (via EnsureChannelLoadedAsync) or a direct conversation (via EnsureConversationLoadedAsync) before the store can talk to the API on their behalf.
 public interface IMessageStore
 {
@@ -21,6 +20,8 @@ public interface IMessageStore
     bool HasMoreOlder(Guid conversationId);
     Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default);
+    Task EditAsync(Guid conversationId, Guid messageId, string newContent, CancellationToken ct = default);
+    Task DeleteAsync(Guid conversationId, Guid messageId, CancellationToken ct = default);
     Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default);
     Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default);
     Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
@@ -89,7 +90,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             state.NextCursor = page.NextCursor;
             state.InitialLoaded = true;
 
-            var mapped = page.Messages.Select(ToMockMessage).ToList();
+            // Backend returns descending (newest first); reverse to ascending (oldest first) for display
+            var mapped = page.Messages.Select(ToMockMessage).Reverse().ToList();
             obs.Set(mapped);
             ScheduleUserPreload(mapped);
         }
@@ -113,7 +115,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
             if (page.Messages.Count == 0) return;
             var obs = GetConversation(topicId);
-            var older = page.Messages.Select(ToMockMessage).ToList();
+            // Backend returns descending (newest first within page); reverse to ascending, then prepend to existing list
+            var older = page.Messages.Select(ToMockMessage).Reverse().ToList();
             // The cursor API returns pages in DESC order (newest first within the page); we keep the visible list in ASC order, so older messages prepend.
             var merged = new List<MockMessage>(older.Count + obs.Value.Count);
             merged.AddRange(older);
@@ -174,9 +177,61 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
     }
 
+    public async Task EditAsync(Guid conversationId, Guid messageId, string newContent, CancellationToken ct = default)
+    {
+        if (!_topics.TryGetValue(conversationId, out var topic))
+            throw new InvalidOperationException($"Conversation {conversationId} must be loaded before editing.");
+
+        var obs = GetConversation(conversationId);
+        var message = obs.Value.FirstOrDefault(m => m.Id == messageId);
+        if (message is null)
+            throw new InvalidOperationException($"Message {messageId} not found in conversation {conversationId}.");
+
+        var url = topic.Kind == TopicKind.Channel
+            ? $"api/v1/channels/{conversationId}/messages/{messageId}"
+            : $"api/v1/conversations/{conversationId}/messages/{messageId}";
+
+        using var resp = await _http.PutAsJsonAsync(url, new EditMessageRequestDto(newContent, message.Version), ct);
+        resp.EnsureSuccessStatusCode();
+
+        var result = await resp.Content.ReadFromJsonAsync<EditMessageResponseDto>(cancellationToken: ct);
+        if (result is null)
+            throw new InvalidOperationException("Edit response was null.");
+
+        var next = obs.Value.Select(m => m.Id == messageId
+            ? m with { Content = newContent, IsEdited = true, Version = result.Version }
+            : m).ToList();
+        obs.Set(next);
+    }
+
+    public async Task DeleteAsync(Guid conversationId, Guid messageId, CancellationToken ct = default)
+    {
+        if (!_topics.TryGetValue(conversationId, out var topic))
+            throw new InvalidOperationException($"Conversation {conversationId} must be loaded before deleting.");
+
+        var obs = GetConversation(conversationId);
+        var message = obs.Value.FirstOrDefault(m => m.Id == messageId);
+        if (message is null)
+            throw new InvalidOperationException($"Message {messageId} not found in conversation {conversationId}.");
+
+        var url = topic.Kind == TopicKind.Channel
+            ? $"api/v1/channels/{conversationId}/messages/{messageId}"
+            : $"api/v1/conversations/{conversationId}/messages/{messageId}";
+
+        using var resp = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Delete, url)
+        {
+            Content = JsonContent.Create(new { Version = message.Version })
+        }, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var next = obs.Value.Select(m => m.Id == messageId
+            ? m with { Content = string.Empty, IsTombstone = true }
+            : m).ToList();
+        obs.Set(next);
+    }
+
     public async Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default)
     {
-        // No optimistic update, the SignalR ReactionAdded echo fans the aggregated count back to us. Latency is acceptable for the demo and keeps state authoritative on the server.
         using var resp = await _http.PostAsJsonAsync(
             $"api/v1/channels/{channelId}/messages/{messageId}/reactions",
             new AddReactionRequestDto(emojiCode), ct);
@@ -422,6 +477,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             m.AuthorId,
             m.IsDeleted ? string.Empty : m.Content,
             m.CreatedAt,
+            Version: m.Version,
             IsTombstone: m.IsDeleted,
             IsEdited: m.EditedAt is not null,
             ParentMessageId: m.ParentMessageId,
@@ -465,7 +521,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         DateTime? EditedAt,
         bool IsDeleted,
         List<ReactionWireDto> Reactions,
-        List<AttachmentWireDto>? Attachments);
+        List<AttachmentWireDto>? Attachments,
+        string Version);
 
     private sealed record ParentPreviewWireDto(Guid Id, Guid AuthorId, string Content, bool IsDeleted);
     private sealed record ReactionWireDto(string EmojiCode, int Count, bool ReactedByMe);
@@ -481,6 +538,10 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         Guid? ParentMessageId,
         bool WasIdempotent,
         DateTime CreatedAt);
+
+    private sealed record EditMessageRequestDto(string Content, string Version);
+
+    private sealed record EditMessageResponseDto(string Version);
 
     private sealed record AddReactionRequestDto(string EmojiCode);
     private sealed record AttachmentResponseDto(Guid AttachmentId, string FileName, string ContentType, long SizeBytes, string CdnUrl);

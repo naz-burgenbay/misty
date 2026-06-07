@@ -12,6 +12,8 @@
     [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
     [Parameter] public bool CanModerate { get; set; }
     [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
+    [Parameter] public EventCallback<MockMessage> OnEditMessage { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteMessage { get; set; }
 
     private UserSummary _author = default!;
     private Guid _watchedAuthor;
@@ -61,6 +63,12 @@
     private Task ModerateClicked()
         => OnModerateUser.HasDelegate ? OnModerateUser.InvokeAsync(Message.AuthorId) : Task.CompletedTask;
 
+    private Task EditClicked()
+        => OnEditMessage.HasDelegate ? OnEditMessage.InvokeAsync(Message) : Task.CompletedTask;
+
+    private Task DeleteClicked()
+        => OnDeleteMessage.HasDelegate ? OnDeleteMessage.InvokeAsync(Message.Id) : Task.CompletedTask;
+
     public void Dispose()
     {
         Users.Updated -= OnUserUpdated;
@@ -96,7 +104,33 @@
             <ReplyPreview Parent="parent" />
         }
 
-        <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
+        <div class="message-with-actions">
+            <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
+
+            @if (!IsTombstone)
+            {
+                <div class="actions">
+                    <IconButton Title="Reply" OnClick="ReplyClicked">
+                        <Blazicon Svg="Lucide.CornerUpLeft" />
+                    </IconButton>
+                    @if (IsMine)
+                    {
+                        <IconButton Title="Edit message" OnClick="EditClicked">
+                            <Blazicon Svg="Lucide.Pencil" />
+                        </IconButton>
+                        <IconButton Title="Delete message" OnClick="DeleteClicked">
+                            <Blazicon Svg="Lucide.Trash2" />
+                        </IconButton>
+                    }
+                    @if (CanModerate && !IsMine)
+                    {
+                        <IconButton Title="Moderate user" OnClick="ModerateClicked">
+                            <Blazicon Svg="Lucide.ShieldAlert" />
+                        </IconButton>
+                    }
+                </div>
+            }
+        </div>
 
         @if (!IsTombstone && ReactionsEnabled)
         {
@@ -109,21 +143,6 @@
             <ReactionsRow Reactions="Message.Reactions" />
         }
     </div>
-
-    @if (!IsTombstone)
-    {
-        <div class="actions">
-            <IconButton Title="Reply" OnClick="ReplyClicked">
-                <Blazicon Svg="Lucide.CornerUpLeft" />
-            </IconButton>
-            @if (CanModerate && !IsMine)
-            {
-                <IconButton Title="Moderate user" OnClick="ModerateClicked">
-                    <Blazicon Svg="Lucide.ShieldAlert" />
-                </IconButton>
-            }
-        </div>
-    }
 </div>
 
 @code {

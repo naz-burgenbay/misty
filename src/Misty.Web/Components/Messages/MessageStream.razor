@@ -13,6 +13,8 @@
     [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
     [Parameter] public bool CanModerate { get; set; }
     [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
+    [Parameter] public EventCallback<MockMessage> OnEditMessage { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteMessage { get; set; }
 
     private ElementReference _scrollEl;
     private DotNetObjectReference<MessageStream>? _selfRef;
@@ -76,7 +78,9 @@
                         OnAddReaction="OnAddReaction"
                         OnRemoveReaction="OnRemoveReaction"
                         CanModerate="CanModerate"
-                        OnModerateUser="OnModerateUser" />
+                        OnModerateUser="OnModerateUser"
+                        OnEditMessage="OnEditMessage"
+                        OnDeleteMessage="OnDeleteMessage" />
         }
     </div>
 </div>
