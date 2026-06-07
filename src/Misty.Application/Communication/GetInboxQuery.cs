@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 using Misty.Application.Users;
@@ -6,6 +7,15 @@ using Misty.Domain.Communication;
 namespace Misty.Application.Communication;
 
 public record GetInboxQuery(Guid UserId, string? Cursor, int Take) : IRequest<InboxPageDto>;
+
+public sealed class GetInboxQueryValidator : AbstractValidator<GetInboxQuery>
+{
+    public GetInboxQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        // Take is clamped by handler, so no validation needed
+    }
+}
 
 public sealed class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, InboxPageDto>
 {

@@ -8,6 +8,16 @@ namespace Misty.Application.Communication;
 
 public record DeclineFriendRequestCommand(Guid UserId, Guid RequestId, string Version) : IRequest;
 
+public sealed class DeclineFriendRequestCommandValidator : AbstractValidator<DeclineFriendRequestCommand>
+{
+    public DeclineFriendRequestCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.RequestId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
+
 public sealed class DeclineFriendRequestCommandHandler : IRequestHandler<DeclineFriendRequestCommand>
 {
     private readonly IFriendRequestRepository _requests;

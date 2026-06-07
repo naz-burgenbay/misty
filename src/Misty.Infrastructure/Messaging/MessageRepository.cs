@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
@@ -13,7 +14,7 @@ public sealed class MessageRepository : IMessageRepository
     public MessageRepository(ApplicationDbContext db) => _db = db;
 
     public Task<Message?> FindByIdempotencyKeyAsync(Guid authorId, string idempotencyKey, CancellationToken ct = default)
-        => _db.Messages.FirstOrDefaultAsync(
+        => _db.Messages.AsNoTracking().FirstOrDefaultAsync(
             m => m.AuthorId == authorId && m.IdempotencyKey == idempotencyKey, ct);
 
     public Task<Message?> GetByIdAsync(Guid messageId, CancellationToken ct = default)
@@ -27,43 +28,39 @@ public sealed class MessageRepository : IMessageRepository
             return new Dictionary<Guid, Message>();
 
         var list = await _db.Messages
+            .AsNoTracking()
             .Where(m => ids.Contains(m.Id))
             .ToListAsync(ct);
 
         return list.ToDictionary(m => m.Id);
     }
 
-    public Task<(List<Message> Messages, string? NextCursor)> GetByChannelAsync(
+    public Task<(IReadOnlyList<Message> Messages, string? NextCursor)> GetByChannelAsync(
         Guid channelId,
         int pageSize,
         string? cursor,
         CancellationToken ct = default)
-        => PageAsync(_db.Messages.Where(m => m.ChannelId == channelId), pageSize, cursor, ct);
+        => PageAsync(_db.Messages.AsNoTracking().Where(m => m.ChannelId == channelId), pageSize, cursor, ct);
 
-    public Task<(List<Message> Messages, string? NextCursor)> GetByConversationAsync(
+    public Task<(IReadOnlyList<Message> Messages, string? NextCursor)> GetByConversationAsync(
         Guid conversationId,
         int pageSize,
         string? cursor,
         CancellationToken ct = default)
-        => PageAsync(_db.Messages.Where(m => m.ConversationId == conversationId), pageSize, cursor, ct);
+        => PageAsync(_db.Messages.AsNoTracking().Where(m => m.ConversationId == conversationId), pageSize, cursor, ct);
 
-    private static async Task<(List<Message> Messages, string? NextCursor)> PageAsync(
+    private static async Task<(IReadOnlyList<Message> Messages, string? NextCursor)> PageAsync(
         IQueryable<Message> query,
         int pageSize,
         string? cursor,
         CancellationToken ct)
     {
-        if (!string.IsNullOrEmpty(cursor))
+        if (CursorCodec.TryDecode(cursor, out var cursorTicks, out var cursorId))
         {
-            var parts = cursor.Split('|');
-            if (parts.Length == 2 &&
-                DateTime.TryParse(parts[0], out var cursorTime) &&
-                Guid.TryParse(parts[1], out var cursorId))
-            {
-                query = query.Where(m =>
-                    m.CreatedAt < cursorTime ||
-                    (m.CreatedAt == cursorTime && m.Id.CompareTo(cursorId) < 0));
-            }
+            var cursorTime = new DateTime(cursorTicks, DateTimeKind.Utc);
+            query = query.Where(m =>
+                m.CreatedAt < cursorTime ||
+                (m.CreatedAt == cursorTime && m.Id.CompareTo(cursorId) < 0));
         }
 
         var messages = await query
@@ -76,7 +73,7 @@ public sealed class MessageRepository : IMessageRepository
         if (messages.Count > pageSize)
         {
             var last = messages[pageSize - 1];
-            nextCursor = $"{last.CreatedAt:O}|{last.Id}";
+            nextCursor = CursorCodec.Encode(last.CreatedAt.Ticks, last.Id);
             messages = messages.Take(pageSize).ToList();
         }
 

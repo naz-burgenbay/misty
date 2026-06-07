@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Users;
@@ -7,6 +8,15 @@ public record SearchUsersQuery(string Query, Guid? ExcludeUserId, int Take) : IR
 public record SearchUsersResponse(IReadOnlyList<UserSearchMatch> Results);
 
 public record UserSearchMatch(Guid UserId, string Username, string DisplayName, string? AvatarUrl);
+
+public sealed class SearchUsersQueryValidator : AbstractValidator<SearchUsersQuery>
+{
+    public SearchUsersQueryValidator()
+    {
+        RuleFor(x => x.Query).NotNull().MaximumLength(100);
+        // Take is clamped by handler, so no validation needed
+    }
+}
 
 public sealed class SearchUsersQueryHandler : IRequestHandler<SearchUsersQuery, SearchUsersResponse>
 {

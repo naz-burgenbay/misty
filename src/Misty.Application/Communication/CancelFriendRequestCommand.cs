@@ -8,6 +8,16 @@ namespace Misty.Application.Communication;
 
 public record CancelFriendRequestCommand(Guid UserId, Guid RequestId, string Version) : IRequest;
 
+public sealed class CancelFriendRequestCommandValidator : AbstractValidator<CancelFriendRequestCommand>
+{
+    public CancelFriendRequestCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.RequestId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
+
 public sealed class CancelFriendRequestCommandHandler : IRequestHandler<CancelFriendRequestCommand>
 {
     private readonly IFriendRequestRepository _requests;

@@ -43,17 +43,25 @@ public sealed class CreateConversationHandler : IRequestHandler<CreateConversati
     }
 }
 
-public record GetConversationsQuery(Guid UserId) : IRequest<List<ConversationDto>>;
+public record GetConversationsQuery(Guid UserId) : IRequest<IReadOnlyList<ConversationDto>>;
 
 public record ConversationDto(Guid ConversationId, Guid OtherUserId, string Version);
 
-public sealed class GetConversationsHandler : IRequestHandler<GetConversationsQuery, List<ConversationDto>>
+public sealed class GetConversationsQueryValidator : AbstractValidator<GetConversationsQuery>
+{
+    public GetConversationsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
+
+public sealed class GetConversationsHandler : IRequestHandler<GetConversationsQuery, IReadOnlyList<ConversationDto>>
 {
     private readonly IConversationRepository _repo;
 
     public GetConversationsHandler(IConversationRepository repo) => _repo = repo;
 
-    public async Task<List<ConversationDto>> Handle(
+    public async Task<IReadOnlyList<ConversationDto>> Handle(
         GetConversationsQuery request, CancellationToken cancellationToken)
     {
         var conversations = await _repo.GetForUserAsync(request.UserId, cancellationToken);

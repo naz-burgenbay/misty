@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -7,6 +8,15 @@ namespace Misty.Application.Communication;
 
 public record GetChannelMembersQuery(Guid ChannelId, Guid ActorId)
     : IRequest<IReadOnlyList<ChannelMemberDto>>;
+
+public sealed class GetChannelMembersQueryValidator : AbstractValidator<GetChannelMembersQuery>
+{
+    public GetChannelMembersQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.ActorId).NotEmpty();
+    }
+}
 
 public record ChannelMemberDto(
     Guid UserId,

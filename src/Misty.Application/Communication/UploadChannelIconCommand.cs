@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -9,6 +10,17 @@ public record UploadChannelIconCommand(Guid ChannelId, Guid UserId, Stream Conte
     : IRequest<UploadChannelIconResponse>;
 
 public record UploadChannelIconResponse(string IconUrl, string Version);
+
+public sealed class UploadChannelIconCommandValidator : AbstractValidator<UploadChannelIconCommand>
+{
+    public UploadChannelIconCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ContentType).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class UploadChannelIconCommandHandler : IRequestHandler<UploadChannelIconCommand, UploadChannelIconResponse>
 {

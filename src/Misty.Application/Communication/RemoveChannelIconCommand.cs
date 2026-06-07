@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -8,6 +9,16 @@ namespace Misty.Application.Communication;
 public record RemoveChannelIconCommand(Guid ChannelId, Guid UserId, string Version) : IRequest<RemoveChannelIconResponse>;
 
 public record RemoveChannelIconResponse(string Version);
+
+public sealed class RemoveChannelIconCommandValidator : AbstractValidator<RemoveChannelIconCommand>
+{
+    public RemoveChannelIconCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class RemoveChannelIconCommandHandler : IRequestHandler<RemoveChannelIconCommand, RemoveChannelIconResponse>
 {

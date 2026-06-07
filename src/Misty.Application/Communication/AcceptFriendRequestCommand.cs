@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -7,6 +8,15 @@ using Misty.Domain.Communication;
 namespace Misty.Application.Communication;
 
 public record AcceptFriendRequestCommand(Guid AccepterId, Guid RequestId) : IRequest<FriendDto>;
+
+public sealed class AcceptFriendRequestCommandValidator : AbstractValidator<AcceptFriendRequestCommand>
+{
+    public AcceptFriendRequestCommandValidator()
+    {
+        RuleFor(x => x.AccepterId).NotEmpty();
+        RuleFor(x => x.RequestId).NotEmpty();
+    }
+}
 
 public sealed class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFriendRequestCommand, FriendDto>
 {

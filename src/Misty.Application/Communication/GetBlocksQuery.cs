@@ -1,9 +1,18 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Communication;
 
 public record GetBlocksQuery(Guid UserId) : IRequest<IReadOnlyList<BlockedUserDto>>;
+
+public sealed class GetBlocksQueryValidator : AbstractValidator<GetBlocksQuery>
+{
+    public GetBlocksQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetBlocksQueryHandler
     : IRequestHandler<GetBlocksQuery, IReadOnlyList<BlockedUserDto>>

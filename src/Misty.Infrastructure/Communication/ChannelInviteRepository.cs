@@ -16,7 +16,7 @@ public sealed class ChannelInviteRepository : IChannelInviteRepository
         => _db.ChannelInvites.FirstOrDefaultAsync(i => i.Id == id, ct);
 
     public Task<ChannelInvite?> GetPendingAsync(Guid channelId, Guid invitedUserId, CancellationToken ct = default)
-        => _db.ChannelInvites.FirstOrDefaultAsync(
+        => _db.ChannelInvites.AsNoTracking().FirstOrDefaultAsync(
             i => i.ChannelId == channelId
                 && i.InvitedUserId == invitedUserId
                 && i.Status == ChannelInviteStatus.Pending,

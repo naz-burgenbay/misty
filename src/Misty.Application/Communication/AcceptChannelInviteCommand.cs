@@ -8,6 +8,16 @@ namespace Misty.Application.Communication;
 
 public record AcceptChannelInviteCommand(Guid UserId, Guid InviteId, string Version) : IRequest;
 
+public sealed class AcceptChannelInviteCommandValidator : AbstractValidator<AcceptChannelInviteCommand>
+{
+    public AcceptChannelInviteCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.InviteId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
+
 public sealed class AcceptChannelInviteCommandHandler : IRequestHandler<AcceptChannelInviteCommand>
 {
     private readonly IChannelInviteRepository _invites;

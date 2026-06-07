@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -8,6 +9,16 @@ namespace Misty.Application.Communication;
 public record JoinChannelCommand(Guid UserId, Guid ChannelId, string? InviteCode) : IRequest<JoinChannelResponse>;
 
 public record JoinChannelResponse(Guid MembershipId, Guid ChannelId, DateTime JoinedAt);
+
+public sealed class JoinChannelCommandValidator : AbstractValidator<JoinChannelCommand>
+{
+    public JoinChannelCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.InviteCode).MaximumLength(50).When(x => x.InviteCode is not null);
+    }
+}
 
 public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelCommand, JoinChannelResponse>
 {

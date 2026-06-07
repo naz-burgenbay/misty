@@ -15,8 +15,11 @@ public sealed class ChannelRoleRepository : IChannelRoleRepository
     public Task<ChannelRole?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.ChannelRoles.FirstOrDefaultAsync(r => r.Id == id, ct);
 
-    public Task<List<ChannelRole>> GetByChannelIdAsync(Guid channelId, CancellationToken ct = default)
-        => _db.ChannelRoles.Where(r => r.ChannelId == channelId).ToListAsync(ct);
+    public async Task<IReadOnlyList<ChannelRole>> GetByChannelIdAsync(Guid channelId, CancellationToken ct = default)
+    {
+        var list = await _db.ChannelRoles.AsNoTracking().Where(r => r.ChannelId == channelId).ToListAsync(ct);
+        return list;
+    }
 
     public async Task AddAsync(ChannelRole role, CancellationToken ct = default)
     {

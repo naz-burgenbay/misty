@@ -5,6 +5,7 @@ namespace Misty.Application.Users;
 public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<User?> GetByIdForReadAsync(Guid id, CancellationToken ct = default);
     Task<User?> GetByUsernameAsync(string username, CancellationToken ct = default);
     Task<IReadOnlyList<User>> SearchByUsernameAsync(string query, Guid? excludeUserId, int take, CancellationToken ct = default);
     Task<bool> UsernameExistsAsync(string username, CancellationToken ct = default);

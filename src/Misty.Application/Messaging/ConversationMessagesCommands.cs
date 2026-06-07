@@ -122,6 +122,16 @@ public record GetConversationMessagesQuery(
     string? Cursor)
     : IRequest<GetChannelMessagesResponse>;
 
+public sealed class GetConversationMessagesQueryValidator : AbstractValidator<GetConversationMessagesQuery>
+{
+    public GetConversationMessagesQueryValidator()
+    {
+        RuleFor(x => x.ConversationId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        // PageSize is clamped by handler, so no validation needed
+    }
+}
+
 public sealed class GetConversationMessagesQueryHandler
     : IRequestHandler<GetConversationMessagesQuery, GetChannelMessagesResponse>
 {

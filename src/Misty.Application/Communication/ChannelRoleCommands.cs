@@ -160,9 +160,17 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
     }
 }
 
-public record GetChannelRolesQuery(Guid ChannelId) : IRequest<List<ChannelRoleResponse>>;
+public record GetChannelRolesQuery(Guid ChannelId) : IRequest<IReadOnlyList<ChannelRoleResponse>>;
 
-public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRolesQuery, List<ChannelRoleResponse>>
+public sealed class GetChannelRolesQueryValidator : AbstractValidator<GetChannelRolesQuery>
+{
+    public GetChannelRolesQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
+
+public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRolesQuery, IReadOnlyList<ChannelRoleResponse>>
 {
     private readonly IChannelRepository _channels;
     private readonly IChannelRoleRepository _roles;
@@ -173,7 +181,7 @@ public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRole
         _roles = roles;
     }
 
-    public async Task<List<ChannelRoleResponse>> Handle(GetChannelRolesQuery request, CancellationToken ct)
+    public async Task<IReadOnlyList<ChannelRoleResponse>> Handle(GetChannelRolesQuery request, CancellationToken ct)
     {
         var channel = await _channels.GetByIdAsync(request.ChannelId, ct)
             ?? throw new NotFoundException($"Channel '{request.ChannelId}' was not found.");

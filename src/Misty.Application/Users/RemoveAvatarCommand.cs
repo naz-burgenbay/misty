@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -7,6 +8,15 @@ namespace Misty.Application.Users;
 public record RemoveAvatarCommand(Guid UserId, string Version) : IRequest<RemoveAvatarResponse>;
 
 public record RemoveAvatarResponse(string Version);
+
+public sealed class RemoveAvatarCommandValidator : AbstractValidator<RemoveAvatarCommand>
+{
+    public RemoveAvatarCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class RemoveAvatarCommandHandler : IRequestHandler<RemoveAvatarCommand, RemoveAvatarResponse>
 {

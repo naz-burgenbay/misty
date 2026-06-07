@@ -13,6 +13,17 @@ public record RemoveReactionCommand(
     string EmojiCode)
     : IRequest;
 
+public sealed class RemoveReactionCommandValidator : AbstractValidator<RemoveReactionCommand>
+{
+    public RemoveReactionCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.MessageId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.EmojiCode).NotEmpty().MaximumLength(100);
+    }
+}
+
 public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactionCommand>
 {
     private readonly IMessageRepository _messages;

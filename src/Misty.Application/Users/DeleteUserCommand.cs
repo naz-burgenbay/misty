@@ -1,9 +1,18 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Users;
 
 public record DeleteUserCommand(Guid UserId) : IRequest;
+
+public sealed class DeleteUserCommandValidator : AbstractValidator<DeleteUserCommand>
+{
+    public DeleteUserCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
 {

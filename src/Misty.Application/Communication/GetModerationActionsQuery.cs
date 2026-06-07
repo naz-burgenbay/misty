@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Domain.Communication;
 
@@ -5,6 +6,15 @@ namespace Misty.Application.Communication;
 
 public record GetModerationActionsQuery(Guid ChannelId, Guid TargetUserId)
     : IRequest<List<ModerationActionDto>>;
+
+public sealed class GetModerationActionsQueryValidator : AbstractValidator<GetModerationActionsQuery>
+{
+    public GetModerationActionsQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.TargetUserId).NotEmpty();
+    }
+}
 
 public record ModerationActionDto(
     Guid ActionId,

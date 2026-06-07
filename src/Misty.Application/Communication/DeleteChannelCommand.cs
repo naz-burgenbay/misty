@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -6,6 +7,15 @@ using Misty.Domain.Communication;
 namespace Misty.Application.Communication;
 
 public record DeleteChannelCommand(Guid ChannelId, Guid ActorUserId) : IRequest;
+
+public sealed class DeleteChannelCommandValidator : AbstractValidator<DeleteChannelCommand>
+{
+    public DeleteChannelCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.ActorUserId).NotEmpty();
+    }
+}
 
 public sealed class DeleteChannelCommandHandler : IRequestHandler<DeleteChannelCommand>
 {

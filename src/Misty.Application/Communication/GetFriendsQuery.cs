@@ -1,8 +1,17 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Communication;
 
 public record GetFriendsQuery(Guid UserId) : IRequest<IReadOnlyList<FriendDto>>;
+
+public sealed class GetFriendsQueryValidator : AbstractValidator<GetFriendsQuery>
+{
+    public GetFriendsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetFriendsQueryHandler : IRequestHandler<GetFriendsQuery, IReadOnlyList<FriendDto>>
 {

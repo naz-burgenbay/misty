@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Communication;
@@ -12,6 +13,14 @@ public record ChannelSummaryDto(
     int MemberCount,
     DateTime? LastMessageAt,
     string Version);
+
+public sealed class GetMyChannelsQueryValidator : AbstractValidator<GetMyChannelsQuery>
+{
+    public GetMyChannelsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetMyChannelsQueryHandler
     : IRequestHandler<GetMyChannelsQuery, IReadOnlyList<ChannelSummaryDto>>

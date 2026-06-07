@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -11,6 +12,16 @@ public record GetChannelMessagesQuery(
     int PageSize,
     string? Cursor)
     : IRequest<GetChannelMessagesResponse>;
+
+public sealed class GetChannelMessagesQueryValidator : AbstractValidator<GetChannelMessagesQuery>
+{
+    public GetChannelMessagesQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        // PageSize is clamped by handler, so no validation needed
+    }
+}
 
 public record GetChannelMessagesResponse(
     List<MessageDto> Messages,

@@ -167,10 +167,16 @@ builder.Services.AddHostedService<PermissionEventsBroadcastWorker>();
 builder.Services.AddHostedService<AIResponseWorker>();
 builder.Services.AddHostedService<InboxWorker>();
 
+var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
+    ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
+// Azurite rejects newer SDK defaults
+var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
+
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
     .AddRedis(redisConnectionString, "redis")
-    .AddCheck("service-bus", new ServiceBusSenderHealthCheck(serviceBusConnectionString, "message-events"));
+    .AddCheck("service-bus", new ServiceBusSenderHealthCheck(serviceBusConnectionString, "message-events"))
+    .AddCheck("blob-storage", new BlobStorageHealthCheck(blobConnectionString, blobOptions, "avatars"));
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Misty.Api"))
@@ -182,10 +188,6 @@ builder.Services.AddOpenTelemetry()
             .AddHttpClientInstrumentation();
     });
 
-var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
-    ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
-// Pin the wire version: Azurite rejects newer SDK defaults with "InvalidHeaderValue: API version ... is not supported".
-var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 builder.Services.AddScoped<IChannelIconService, AzureBlobChannelIconService>();

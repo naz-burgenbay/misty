@@ -68,6 +68,15 @@ public sealed class BlockUserCommandHandler : IRequestHandler<BlockUserCommand>
 
 public record UnblockUserCommand(Guid BlockerId, Guid BlockedId) : IRequest;
 
+public sealed class UnblockUserCommandValidator : AbstractValidator<UnblockUserCommand>
+{
+    public UnblockUserCommandValidator()
+    {
+        RuleFor(x => x.BlockerId).NotEmpty();
+        RuleFor(x => x.BlockedId).NotEmpty();
+    }
+}
+
 public sealed class UnblockUserCommandHandler : IRequestHandler<UnblockUserCommand>
 {
     private readonly IUserBlockService _svc;

@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -8,6 +9,16 @@ public record UploadAvatarCommand(Guid UserId, Stream Content, string ContentTyp
     : IRequest<UploadAvatarResponse>;
 
 public record UploadAvatarResponse(string AvatarUrl, string Version);
+
+public sealed class UploadAvatarCommandValidator : AbstractValidator<UploadAvatarCommand>
+{
+    public UploadAvatarCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ContentType).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, UploadAvatarResponse>
 {

@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -5,6 +6,15 @@ using Misty.Application.Communication.Contracts;
 namespace Misty.Application.Communication;
 
 public record LeaveChannelCommand(Guid UserId, Guid ChannelId) : IRequest;
+
+public sealed class LeaveChannelCommandValidator : AbstractValidator<LeaveChannelCommand>
+{
+    public LeaveChannelCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
 
 public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCommand>
 {

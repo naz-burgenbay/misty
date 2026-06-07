@@ -16,7 +16,7 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
         => _db.FriendRequests.FirstOrDefaultAsync(f => f.Id == id, ct);
 
     public Task<FriendRequest?> GetPendingBetweenAsync(Guid userA, Guid userB, CancellationToken ct = default)
-        => _db.FriendRequests.FirstOrDefaultAsync(
+        => _db.FriendRequests.AsNoTracking().FirstOrDefaultAsync(
             f => f.Status == FriendRequestStatus.Pending
                 && ((f.SenderId == userA && f.ReceiverId == userB)
                     || (f.SenderId == userB && f.ReceiverId == userA)),

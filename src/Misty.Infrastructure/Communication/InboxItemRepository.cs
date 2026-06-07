@@ -1,6 +1,6 @@
-using System.Buffers.Text;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common;
 using Misty.Application.Communication;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -29,7 +29,7 @@ public sealed class InboxItemRepository : IInboxItemRepository
     {
         var query = _db.InboxItems.AsNoTracking().Where(i => i.UserId == userId);
 
-        if (TryDecodeCursor(cursor, out var afterTicks, out var afterId))
+        if (CursorCodec.TryDecode(cursor, out var afterTicks, out var afterId))
         {
             var afterCreatedAt = new DateTime(afterTicks, DateTimeKind.Utc);
             query = query.Where(i =>
@@ -47,7 +47,7 @@ public sealed class InboxItemRepository : IInboxItemRepository
         if (page.Count > take)
         {
             var last = page[take - 1];
-            nextCursor = EncodeCursor(last.CreatedAt.Ticks, last.Id);
+            nextCursor = CursorCodec.Encode(last.CreatedAt.Ticks, last.Id);
             page.RemoveAt(page.Count - 1);
         }
 
@@ -62,30 +62,4 @@ public sealed class InboxItemRepository : IInboxItemRepository
 
     public Task UpdateAsync(InboxItem item, CancellationToken ct = default)
         => _db.SaveChangesAsync(ct);
-
-    private static string EncodeCursor(long ticks, Guid id)
-    {
-        var raw = $"{ticks}:{id:N}";
-        return Convert.ToBase64String(Encoding.ASCII.GetBytes(raw));
-    }
-
-    private static bool TryDecodeCursor(string? cursor, out long ticks, out Guid id)
-    {
-        ticks = 0;
-        id = Guid.Empty;
-        if (string.IsNullOrEmpty(cursor)) return false;
-
-        try
-        {
-            var raw = Encoding.ASCII.GetString(Convert.FromBase64String(cursor));
-            var sep = raw.IndexOf(':');
-            if (sep <= 0) return false;
-            return long.TryParse(raw.AsSpan(0, sep), out ticks)
-                && Guid.TryParseExact(raw.AsSpan(sep + 1), "N", out id);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
 }

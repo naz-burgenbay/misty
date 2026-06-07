@@ -24,7 +24,7 @@ public sealed class ModerationRepository : IModerationRepository
             .AnyAsync(ModerationAction.IsActiveExpr(utcNow), ct);
     }
 
-    public async Task<List<ModerationAction>> GetActiveForUserAsync(
+    public async Task<IReadOnlyList<ModerationAction>> GetActiveForUserAsync(
         Guid channelId, Guid targetUserId, CancellationToken ct = default)
     {
         var utcNow = DateTime.UtcNow;
