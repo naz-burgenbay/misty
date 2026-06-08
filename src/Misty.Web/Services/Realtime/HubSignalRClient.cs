@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Auth;
 using Misty.Web.Services.Common;
@@ -62,7 +62,7 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
         }
         if (conn is null) return;
 
-        try { await conn.StopAsync(ct); } catch { /* best effort */ }
+        try { await conn.StopAsync(ct); } catch {  }
         await conn.DisposeAsync();
         State.Set(HubConnectionState.Disconnected);
     }
@@ -70,15 +70,16 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
     public IDisposable OnMessageCreated(Action<MessageCreatedEvent> h) => On("MessageCreated", h);
     public IDisposable OnMessageEdited(Action<MessageEditedEvent> h) => On("MessageEdited", h);
     public IDisposable OnMessageDeleted(Action<MessageDeletedEvent> h) => On("MessageDeleted", h);
-    public IDisposable OnReactionChanged(Action<ReactionChangedEvent> h) => On("ReactionChanged", h);
+    public IDisposable OnReactionAdded(Action<ReactionAddedEvent> h) => On("ReactionAdded", h);
+    public IDisposable OnReactionRemoved(Action<ReactionRemovedEvent> h) => On("ReactionRemoved", h);
     public IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> h) => On("MembershipChanged", h);
     public IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> h) => On("RoleChanged", h);
     public IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> h) => On("ModerationActionApplied", h);
     public IDisposable OnPresenceChanged(Action<PresenceChangedEvent> h) => On("PresenceChanged", h);
+    public IDisposable OnInboxItemReceived(Action<InboxItemReceivedEvent> h) => On("InboxItemReceived", h);
 
     private IDisposable On<T>(string method, Action<T> handler)
     {
-        // Subscribe lazily on first call; ensure the connection object exists so the handler attaches even before StartAsync runs.
         lock (_gate) { _connection ??= Build(); }
         return _connection!.On(method, handler);
     }
@@ -88,7 +89,6 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
         var conn = new HubConnectionBuilder()
             .WithUrl(_hubUrl, options =>
             {
-                // Refresh-aware token provider: invoked on initial connect and on every reconnect attempt, so a token that has expired during a long offline window is replaced before the websocket handshake.
                 options.AccessTokenProvider = async () => await _auth.GetAccessTokenAsync() ?? string.Empty;
             })
             .WithAutomaticReconnect(new ExponentialBackoffRetryPolicy())
@@ -123,7 +123,6 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
         if (_connection is not null) await _connection.DisposeAsync();
     }
 
-    // Hub's WithAutomaticReconnect default policy gives up after ~30s. Retries stay polite but the client eventually recovers from a multi-minute outage.
     private sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
     {
         private static readonly TimeSpan[] Schedule =

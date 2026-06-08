@@ -24,6 +24,9 @@ public class ChannelInviteConfiguration : IEntityTypeConfiguration<ChannelInvite
 
         builder.Property(i => i.CreatedAt).IsRequired();
 
+        builder.Property(i => i.Version)
+            .IsRowVersion();
+
         builder.HasOne<Channel>()
             .WithMany()
             .HasForeignKey(i => i.ChannelId)

@@ -191,6 +191,7 @@ public sealed class ChannelAdminPermissionTests : IAsyncLifetime
         {
             Name = "Hijacked",
             Permissions = (long)ChannelPermission.ManageChannel,
+            Version = "AAAAAAAAAAA=",
         });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 

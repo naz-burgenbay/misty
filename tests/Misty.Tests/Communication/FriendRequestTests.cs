@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -67,6 +67,12 @@ public sealed class FriendRequestTests : IAsyncLifetime
         return await _client.PostAsJsonAsync("/api/v1/friends/requests", new { Username = targetUsername });
     }
 
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
     private async Task<HttpResponseMessage> AcceptRequestAsync(string token, Guid requestId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -76,7 +82,13 @@ public sealed class FriendRequestTests : IAsyncLifetime
     private async Task<HttpResponseMessage> DeclineRequestAsync(string token, Guid requestId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return await _client.PostAsync($"/api/v1/friends/requests/{requestId}/decline", content: null);
+        string version;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var entity = await db.FriendRequests.FirstOrDefaultAsync(f => f.Id == requestId);
+            version = entity is null ? "AAAAAAAAAAA=" : Convert.ToBase64String(entity.Version);
+        }
+        return await _client.PostAsJsonAsync($"/api/v1/friends/requests/{requestId}/decline", new { Version = version });
     }
 
     private async Task<HttpResponseMessage> BlockAsync(string token, Guid targetId)
@@ -139,7 +151,7 @@ public sealed class FriendRequestTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Decline_MarksDeclined_NoOutbox()
+    public async Task Decline_MarksDeclined_EmitsFriendRequestDeclined()
     {
         var (tokenA, _, _) = await RegisterAndLoginAsync("fr_dec_a");
         var (tokenB, _, usernameB) = await RegisterAndLoginAsync("fr_dec_b");
@@ -156,12 +168,16 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var updated = await db2.FriendRequests.SingleAsync(r => r.Id == request.Id);
         updated.Status.Should().Be(FriendRequestStatus.Declined);
 
-        var declineOutbox = await db2.OutboxMessages.CountAsync(o =>
-            o.EventType == "FriendRequestAccepted" || o.EventType == "FriendRequestDeclined");
-        declineOutbox.Should().Be(0);
+        var declinedOutbox = await db2.OutboxMessages
+            .Where(o => o.EventType == "FriendRequestDeclined")
+            .ToListAsync();
+        declinedOutbox.Should().HaveCount(1);
+        declinedOutbox[0].Topic.Should().Be("friend-events");
+
+        var acceptedOutbox = await db2.OutboxMessages.CountAsync(o => o.EventType == "FriendRequestAccepted");
+        acceptedOutbox.Should().Be(0);
     }
 
-    // Planned self-target returns 400, but the handler throws ValidationException which the global handler maps to 422 (same as the established BlockSelf_Returns422 convention).
     [Fact]
     public async Task SendToSelf_Returns422()
     {
@@ -233,7 +249,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var (tokenS2, _, _) = await RegisterAndLoginAsync("fr_rcv_s2");
         var (tokenS3, _, _) = await RegisterAndLoginAsync("fr_rcv_s3");
 
-        // S1 -> R, then S2 -> R, then S3 -> R. R declines S2's, leaving Pending {S1, S3}.
         (await SendRequestAsync(tokenS1, usernameR)).StatusCode.Should().Be(HttpStatusCode.Created);
         await Task.Delay(20);
         (await SendRequestAsync(tokenS2, usernameR)).StatusCode.Should().Be(HttpStatusCode.Created);
@@ -264,7 +279,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var (tokenC, _, _) = await RegisterAndLoginAsync("fr_sent_c");
         var (_, userD, usernameD) = await RegisterAndLoginAsync("fr_sent_d");
 
-        // A sends to B; C sends to D. A's sent list should only contain B.
         (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
         (await SendRequestAsync(tokenC, usernameD)).StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -292,7 +306,10 @@ public sealed class FriendRequestTests : IAsyncLifetime
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
-        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        string canVer;
+        await using (var db0 = _factory.CreateDbContext())
+            canVer = Convert.ToBase64String((await db0.FriendRequests.FirstAsync(f => f.Id == requestId)).Version);
+        var resp = await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = canVer });
         resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var db2 = _factory.CreateDbContext();
@@ -315,7 +332,36 @@ public sealed class FriendRequestTests : IAsyncLifetime
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
-        var resp = await _client.DeleteAsync($"/api/v1/friends/requests/{requestId}");
+        var resp = await SendJsonDeleteAsync($"/api/v1/friends/requests/{requestId}", new { Version = "AAAAAAAAAAA=" });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Decline_WithStaleVersion_Returns409()
+    {
+        var (tokenA, _, _) = await RegisterAndLoginAsync("fr_stale_a");
+        var (tokenB, _, usernameB) = await RegisterAndLoginAsync("fr_stale_b");
+
+        (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        Guid requestId;
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var entity = await db.FriendRequests.SingleAsync();
+            requestId = entity.Id;
+            originalVersion = Convert.ToBase64String(entity.Version);
+        }
+
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.FriendRequest SET Id = Id WHERE Id = {0}", requestId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
+        var conflictResp = await _client.PostAsJsonAsync(
+            $"/api/v1/friends/requests/{requestId}/decline",
+            new { Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

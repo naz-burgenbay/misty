@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misty.Domain.Communication;
 using Misty.Domain.Messaging;
 using Misty.Domain.Users;
@@ -31,7 +31,6 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Each configuration assigns its entity to the correct SQL schema (SchemaNames.Users, SchemaNames.Comm, or SchemaNames.Msg) via ToTable()
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
 }

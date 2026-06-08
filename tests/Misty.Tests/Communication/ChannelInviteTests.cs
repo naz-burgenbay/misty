@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -195,11 +195,11 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         var invite = await db.ChannelInvites.SingleAsync();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
-        var accept = await _client.PostAsync($"/api/v1/channels/invites/{invite.Id}/accept", content: null);
+        var inviteVersion = Convert.ToBase64String(invite.Version);
+        var accept = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{invite.Id}/accept", new { Version = inviteVersion });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var db2 = _factory.CreateDbContext();
-        // Exactly one membership row for the invited user (the owner already has theirs from channel creation).
         var memberships = await db2.Memberships.Where(m => m.ChannelId == channelId && m.UserId == targetId).ToListAsync();
         memberships.Should().HaveCount(1, "join handler inserts exactly one Membership; the invite-accept handler must not insert its own row");
 
@@ -221,11 +221,43 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         var invite = await db.ChannelInvites.SingleAsync();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
-        var decline = await _client.PostAsync($"/api/v1/channels/invites/{invite.Id}/decline", content: null);
+        var inviteVersion = Convert.ToBase64String(invite.Version);
+        var decline = await _client.PostAsJsonAsync($"/api/v1/channels/invites/{invite.Id}/decline", new { Version = inviteVersion });
         decline.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var db2 = _factory.CreateDbContext();
         var updated = await db2.ChannelInvites.SingleAsync(i => i.Id == invite.Id);
         updated.Status.Should().Be(ChannelInviteStatus.Declined);
+    }
+
+    [Fact]
+    public async Task DeclineInvite_WithStaleVersion_Returns409()
+    {
+        var (ownerToken, _, _) = await RegisterAndLoginAsync("ci_stale_owner");
+        var (targetToken, _, targetUsername) = await RegisterAndLoginAsync("ci_stale_target");
+
+        var channelId = await CreateChannelAsync(ownerToken, isPrivate: true);
+        (await SendInviteAsync(ownerToken, channelId, targetUsername)).StatusCode
+            .Should().Be(HttpStatusCode.Created);
+
+        Guid inviteId;
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var invite = await db.ChannelInvites.SingleAsync();
+            inviteId = invite.Id;
+            originalVersion = Convert.ToBase64String(invite.Version);
+        }
+
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.ChannelInvite SET Id = Id WHERE Id = {0}", inviteId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
+        var conflictResp = await _client.PostAsJsonAsync(
+            $"/api/v1/channels/invites/{inviteId}/decline",
+            new { Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

@@ -97,7 +97,25 @@ public sealed class ChannelIconTests : IAsyncLifetime
     private async Task<HttpResponseMessage> UploadAsync(string token, Guid channelId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return await _client.PostAsync($"/api/v1/channels/{channelId}/icon", BuildPngForm());
+        var form = BuildPngForm();
+        form.Add(new StringContent(await CurrentChannelVersionAsync(channelId)), "version");
+        return await _client.PostAsync($"/api/v1/channels/{channelId}/icon", form);
+    }
+
+    private async Task<string> CurrentChannelVersionAsync(Guid channelId)
+    {
+        await using var db = _factory.CreateDbContext();
+        var ch = await db.Channels.IgnoreQueryFilters().FirstAsync(c => c.Id == channelId);
+        return Convert.ToBase64String(ch.Version);
+    }
+
+    private async Task<HttpResponseMessage> SendDeleteIconAsync(Guid channelId, string version)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/icon")
+        {
+            Content = JsonContent.Create(new { Version = version }),
+        };
+        return await _client.SendAsync(req);
     }
 
     private BlobContainerClient IconsContainer()
@@ -116,7 +134,7 @@ public sealed class ChannelIconTests : IAsyncLifetime
         upload.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
-        var del = await _client.DeleteAsync($"/api/v1/channels/{channelId}/icon");
+        var del = await SendDeleteIconAsync(channelId, "AAAAAAAAAAA=");
         del.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
@@ -154,7 +172,7 @@ public sealed class ChannelIconTests : IAsyncLifetime
         (await UploadAsync(ownerToken, channelId)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        var del = await _client.DeleteAsync($"/api/v1/channels/{channelId}/icon");
+        var del = await SendDeleteIconAsync(channelId, await CurrentChannelVersionAsync(channelId));
         del.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var get = await _client.GetAsync($"/api/v1/channels/{channelId}");

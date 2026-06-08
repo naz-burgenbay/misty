@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -7,7 +7,6 @@ using Misty.Web.Services.MockData;
 
 namespace Misty.Web.Services.Auth;
 
-// Access token lives only in memory, refresh token lives in localStorage. A SemaphoreSlim(1,1) serializes refresh so concurrent expirations of in-flight HTTP calls collapse into a single network refresh.
 public sealed class HttpAuthService : IAuthService, IDisposable
 {
     private const string RefreshTokenStorageKey = "misty.refreshToken";
@@ -108,7 +107,6 @@ public sealed class HttpAuthService : IAuthService, IDisposable
             throw new AuthException(await ExtractProblemTitleAsync(resp, "Registration failed.", ct));
         resp.EnsureSuccessStatusCode();
 
-        // Auto sign-in so the caller lands authenticated.
         await SignInAsync(username, password, ct);
     }
 
@@ -121,7 +119,6 @@ public sealed class HttpAuthService : IAuthService, IDisposable
             {
                 using var resp = await _http.PostAsJsonAsync(
                     "api/v1/auth/logout", new LogoutRequestDto(tokenToRevoke), ct);
-                // Best-effort revoke; do not fail the local sign-out if the server is unreachable.
             }
             catch (Exception ex)
             {
@@ -157,7 +154,6 @@ public sealed class HttpAuthService : IAuthService, IDisposable
         var me = await SendAuthorizedJsonAsync<MeResponseDto>(HttpMethod.Get, "api/v1/auth/me", ct)
             ?? throw new AuthException("Empty /me response.");
 
-        // The /me endpoint doesn't include display name or bio; fetch the full user record.
         var full = await SendAuthorizedJsonAsync<UserByIdResponseDto>(HttpMethod.Get, $"api/v1/users/{me.UserId}", ct);
 
         _currentUser = full is null

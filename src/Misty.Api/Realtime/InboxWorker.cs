@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,15 +13,18 @@ public sealed class InboxWorker : BackgroundService
 {
     private readonly ServiceBusClient _client;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IHubContext<MistyHub> _hub;
     private readonly ILogger<InboxWorker> _logger;
 
     public InboxWorker(
         ServiceBusClient client,
         IServiceScopeFactory scopeFactory,
+        IHubContext<MistyHub> hub,
         ILogger<InboxWorker> logger)
     {
         _client = client;
         _scopeFactory = scopeFactory;
+        _hub = hub;
         _logger = logger;
     }
 
@@ -75,13 +79,13 @@ public sealed class InboxWorker : BackgroundService
                 SocialEventTypes.FriendRequestSent => MapFriendRequestSent(body),
                 SocialEventTypes.FriendRequestAccepted => MapFriendRequestAccepted(body),
                 SocialEventTypes.ChannelInviteSent => MapChannelInviteSent(body),
-                SocialEventTypes.FirstDirectMessageSent => MapFirstDirectMessageSent(body),
+                SocialEventTypes.ChannelInviteAccepted => MapChannelInviteAccepted(body),
+                SocialEventTypes.ConversationStarted => MapConversationStarted(body),
                 _ => null,
             };
 
             if (item is null)
             {
-                // Unknown/unrelated event (e.g. MessageCreated on message-events): complete to avoid redelivery loops.
                 await args.CompleteMessageAsync(args.Message);
                 return;
             }
@@ -97,6 +101,12 @@ public sealed class InboxWorker : BackgroundService
             await repo.AddAsync(item, args.CancellationToken);
             await args.CompleteMessageAsync(args.Message);
             _logger.LogDebug("Inserted inbox item {ItemId} for {UserId} {Type}", item.Id, item.UserId, item.Type);
+
+            await _hub.Clients
+                .Group($"user:{item.UserId}")
+                .SendAsync("InboxItemReceived",
+                    new { ItemId = item.Id, Type = item.Type.ToString() },
+                    args.CancellationToken);
         }
         catch (Exception ex)
         {
@@ -126,11 +136,18 @@ public sealed class InboxWorker : BackgroundService
         return InboxItem.Create(Guid.NewGuid(), p.InvitedUserId, InboxItemType.ChannelInviteReceived, p.InvitedByUserId, p.InviteId);
     }
 
-    private static InboxItem? MapFirstDirectMessageSent(string body)
+    private static InboxItem? MapChannelInviteAccepted(string body)
     {
-        var p = JsonSerializer.Deserialize<FirstDirectMessageSentPayload>(body);
+        var p = JsonSerializer.Deserialize<ChannelInviteAcceptedPayload>(body);
         if (p is null) return null;
-        return InboxItem.Create(Guid.NewGuid(), p.RecipientId, InboxItemType.FirstDirectMessage, p.SenderId, p.ConversationId);
+        return InboxItem.Create(Guid.NewGuid(), p.OriginalInviterId, InboxItemType.ChannelInviteAccepted, p.AccepterId, p.InviteId);
+    }
+
+    private static InboxItem? MapConversationStarted(string body)
+    {
+        var p = JsonSerializer.Deserialize<ConversationStartedPayload>(body);
+        if (p is null) return null;
+        return InboxItem.Create(Guid.NewGuid(), p.RecipientId, InboxItemType.ConversationStarted, p.SenderId, p.ConversationId);
     }
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)

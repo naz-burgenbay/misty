@@ -26,7 +26,8 @@ public sealed record SentFriendRequestDto(
     string? ReceiverAvatarUrl,
     string Status,
     DateTime CreatedAt,
-    DateTime? RespondedAt);
+    DateTime? RespondedAt,
+    string Version = "");
 
 internal sealed record SendFriendRequestRequestDto(string Username);
 internal sealed record FriendRequestResponseDto(Guid Id, Guid TargetUserId, string TargetUsername, string TargetDisplayName);
@@ -42,7 +43,7 @@ public interface IFriendService
     Task<IReadOnlyList<SentFriendRequestDto>> GetSentRequestsAsync(CancellationToken ct = default);
     Task AcceptRequestAsync(Guid requestId, CancellationToken ct = default);
     Task DeclineRequestAsync(Guid requestId, CancellationToken ct = default);
-    Task CancelRequestAsync(Guid requestId, CancellationToken ct = default);
+    Task CancelRequestAsync(Guid requestId, string version, CancellationToken ct = default);
 }
 
 public sealed class HttpFriendService : IFriendService
@@ -122,9 +123,14 @@ public sealed class HttpFriendService : IFriendService
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task CancelRequestAsync(Guid requestId, CancellationToken ct = default)
+    public async Task CancelRequestAsync(Guid requestId, string version, CancellationToken ct = default)
     {
-        using var resp = await _http.DeleteAsync($"api/v1/friends/requests/{requestId}", ct);
+        using var req = new HttpRequestMessage(HttpMethod.Delete,
+            $"api/v1/friends/requests/{requestId}")
+        {
+            Content = JsonContent.Create(new { version }),
+        };
+        using var resp = await _http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();
     }
 }

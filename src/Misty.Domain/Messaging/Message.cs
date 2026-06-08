@@ -1,8 +1,8 @@
-namespace Misty.Domain.Messaging;
+﻿namespace Misty.Domain.Messaging;
 
 public class Message
 {
-    private Message() { } // For EF Core
+    private Message() { }
 
     public Guid Id { get; private set; }
     public Guid? ChannelId { get; private set; }
@@ -13,7 +13,9 @@ public class Message
     public Guid? ParentMessageId { get; private set; }
     public DateTime? EditedAt { get; private set; }
     public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Message CreateForChannel(
         Guid id,
@@ -65,5 +67,6 @@ public class Message
     {
         Content = string.Empty;
         IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

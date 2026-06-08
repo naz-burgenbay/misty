@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -169,7 +169,6 @@ public sealed class BlockTests : IAsyncLifetime
         var (_, userC) = await RegisterAndLoginAsync("getblocks_c");
         var (_, userD) = await RegisterAndLoginAsync("getblocks_d");
 
-        // A blocks B and C; B blocks D. A's list should be {B, C}.
         (await BlockAsync(tokenA, userB)).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await BlockAsync(tokenA, userC)).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await BlockAsync(tokenB, userD)).StatusCode.Should().Be(HttpStatusCode.NoContent);

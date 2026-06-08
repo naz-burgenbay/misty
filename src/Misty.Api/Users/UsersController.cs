@@ -69,7 +69,7 @@ public sealed class UsersController : ControllerBase
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(UploadAvatarResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UploadAvatar(IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadAvatar(IFormFile file, [FromForm] string version, CancellationToken ct)
     {
         if (file.Length > 5 * 1024 * 1024)
             return BadRequest(new ProblemDetails { Status = 400, Title = "File exceeds 5 MB limit." });
@@ -80,18 +80,20 @@ public sealed class UsersController : ControllerBase
 
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         await using var stream = file.OpenReadStream();
-        var result = await _mediator.Send(new UploadAvatarCommand(userId, stream, file.ContentType), ct);
+        var result = await _mediator.Send(new UploadAvatarCommand(userId, stream, file.ContentType, version), ct);
         return Ok(result);
     }
 
     [HttpDelete("me/avatar")]
     [ProducesResponseType(typeof(RemoveAvatarResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> RemoveAvatar(CancellationToken ct)
+    public async Task<IActionResult> RemoveAvatar([FromBody] RemoveAvatarRequest request, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        var result = await _mediator.Send(new RemoveAvatarCommand(userId), ct);
+        var result = await _mediator.Send(new RemoveAvatarCommand(userId, request.Version), ct);
         return Ok(result);
     }
 }
 
 public record UpdateUserRequest(string DisplayName, string? Bio, string Version);
+
+public record RemoveAvatarRequest(string Version);

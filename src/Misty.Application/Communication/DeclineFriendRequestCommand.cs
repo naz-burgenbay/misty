@@ -1,16 +1,35 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record DeclineFriendRequestCommand(Guid UserId, Guid RequestId) : IRequest;
+public record DeclineFriendRequestCommand(Guid UserId, Guid RequestId, string Version) : IRequest;
+
+public sealed class DeclineFriendRequestCommandValidator : AbstractValidator<DeclineFriendRequestCommand>
+{
+    public DeclineFriendRequestCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.RequestId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class DeclineFriendRequestCommandHandler : IRequestHandler<DeclineFriendRequestCommand>
 {
     private readonly IFriendRequestRepository _requests;
+    private readonly IOutboxWriter _outbox;
+    private readonly IInboxItemRepository _inbox;
 
-    public DeclineFriendRequestCommandHandler(IFriendRequestRepository requests) => _requests = requests;
+    public DeclineFriendRequestCommandHandler(IFriendRequestRepository requests, IOutboxWriter outbox, IInboxItemRepository inbox)
+    {
+        _requests = requests;
+        _outbox = outbox;
+        _inbox = inbox;
+    }
 
     public async Task Handle(DeclineFriendRequestCommand cmd, CancellationToken ct)
     {
@@ -24,6 +43,28 @@ public sealed class DeclineFriendRequestCommandHandler : IRequestHandler<Decline
             throw new ConflictException("Friend request is no longer pending.");
 
         entity.Decline();
-        await _requests.UpdateAsync(entity, ct);
+
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(cmd.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
+        _outbox.Queue(
+            SocialEventTopics.Friend,
+            SocialEventTypes.FriendRequestDeclined,
+            entity.Id,
+            new FriendRequestDeclinedPayload(entity.Id, cmd.UserId, entity.SenderId, DateTime.UtcNow));
+
+        await _requests.UpdateAsync(entity, concurrencyToken, ct);
+
+        var inboxItem = await _inbox.GetByReferenceAsync(cmd.UserId, cmd.RequestId, ct);
+        if (inboxItem is { IsActedOn: false })
+        {
+            inboxItem.MarkActedOn();
+            await _inbox.UpdateAsync(inboxItem, ct);
+        }
     }
 }

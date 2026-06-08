@@ -1,4 +1,4 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public enum FriendRequestStatus
 {
@@ -9,7 +9,7 @@ public enum FriendRequestStatus
 
 public class FriendRequest
 {
-    private FriendRequest() { } // For EF Core
+    private FriendRequest() { }
 
     public Guid Id { get; private set; }
     public Guid SenderId { get; private set; }
@@ -17,6 +17,9 @@ public class FriendRequest
     public FriendRequestStatus Status { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? RespondedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static FriendRequest Create(Guid id, Guid senderId, Guid receiverId)
         => new()
@@ -38,5 +41,11 @@ public class FriendRequest
     {
         Status = FriendRequestStatus.Declined;
         RespondedAt = DateTime.UtcNow;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

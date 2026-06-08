@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -12,6 +12,17 @@ public record RemoveReactionCommand(
     Guid UserId,
     string EmojiCode)
     : IRequest;
+
+public sealed class RemoveReactionCommandValidator : AbstractValidator<RemoveReactionCommand>
+{
+    public RemoveReactionCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.MessageId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.EmojiCode).NotEmpty().MaximumLength(100);
+    }
+}
 
 public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactionCommand>
 {
@@ -51,21 +62,19 @@ public sealed class RemoveReactionCommandHandler : IRequestHandler<RemoveReactio
         if (message.IsDeleted)
             throw new ValidationException("Cannot modify reactions on a deleted message.");
 
-        // Idempotent remove: missing reaction is a no-op.
         var existing = await _reactions.GetAsync(request.MessageId, request.UserId, request.EmojiCode, ct);
         if (existing is null)
             return;
 
         _outbox.Queue(
             MessageEventTopics.Message,
-            MessageEventTypes.ReactionChanged,
+            MessageEventTypes.ReactionRemoved,
             existing.MessageId,
-            new ReactionChangedPayload(
+            new ReactionRemovedPayload(
                 existing.MessageId,
                 message.ChannelId,
                 existing.UserId,
                 existing.EmojiCode,
-                "removed",
                 DateTime.UtcNow));
 
         await _reactions.RemoveAsync(existing, ct);

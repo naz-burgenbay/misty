@@ -16,13 +16,18 @@ public class UserRepository : IUserRepository
         => _db.Users
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, ct);
 
+    public Task<User?> GetByIdForReadAsync(Guid id, CancellationToken ct = default)
+        => _db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, ct);
+
     public Task<User?> GetByUsernameAsync(string username, CancellationToken ct = default)
         => _db.Users
             .FirstOrDefaultAsync(u => u.Username == username && !u.IsDeleted, ct);
 
     public async Task<IReadOnlyList<User>> SearchByUsernameAsync(string query, Guid? excludeUserId, int take, CancellationToken ct = default)
     {
-        var q = _db.Users.Where(u => !u.IsDeleted);
+        var q = _db.Users.AsNoTracking().Where(u => !u.IsDeleted);
         if (excludeUserId is { } self)
             q = q.Where(u => u.Id != self);
         if (!string.IsNullOrWhiteSpace(query))
@@ -58,10 +63,18 @@ public class UserRepository : IUserRepository
         }
     }
 
-    public async Task UpdateAvatarUrlAsync(User user, string? avatarUrl, CancellationToken ct = default)
+    public async Task UpdateAvatarUrlAsync(User user, string? avatarUrl, byte[] concurrencyToken, CancellationToken ct = default)
     {
         user.UpdateAvatarUrl(avatarUrl);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(user).Property(u => u.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 
     public async Task SoftDeleteAsync(User user, CancellationToken ct = default)

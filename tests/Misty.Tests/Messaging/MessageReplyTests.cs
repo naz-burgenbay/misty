@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -112,7 +112,6 @@ public sealed class MessageReplyTests : IAsyncLifetime
         var parentId = await SendAsync(channelId, "Top-level");
         var replyId = await SendAsync(channelId, "First reply", parentId);
 
-        // Attempt to reply to the reply (must be rejected)
         var resp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Reply to reply",
@@ -197,8 +196,14 @@ public sealed class MessageReplyTests : IAsyncLifetime
         var parentId = await SendAsync(channelId, "Parent to be tombstoned");
         var replyId = await SendAsync(channelId, "Reply that outlives parent", parentId);
 
-        // Deleting the parent while a reply exists tombstones it.
-        var del = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string delVer;
+        await using (var db0 = _factory.CreateDbContext())
+            delVer = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        var delReq = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/messages/{parentId}")
+        {
+            Content = JsonContent.Create(new { Version = delVer }),
+        };
+        var del = await _client.SendAsync(delReq);
         del.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var resp = await _client.GetAsync($"/api/v1/channels/{channelId}/messages");

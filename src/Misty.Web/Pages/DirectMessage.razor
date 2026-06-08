@@ -1,9 +1,11 @@
-@page "/dm/{ConversationId:guid}"
+﻿@page "/dm/{ConversationId:guid}"
 @implements IDisposable
+@inject NavigationManager Nav
 @inject IDirectMessageService Conversations
 @inject IUserDirectory Users
 @inject IMessageStore MessageStore
 @inject IToastService Toasts
+@inject IModalService Modals
 
 @code {
     [Parameter] public Guid ConversationId { get; set; }
@@ -17,6 +19,10 @@
     private bool _loadError;
     private bool _loadingOlder;
     private bool _userSubscribed;
+
+    private MockMessage? _editingMessage;
+
+    private bool _infoOpen;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -49,7 +55,6 @@
             InvokeAsync(StateHasChanged);
         });
 
-        // If the conversation list hasn't been loaded yet (e.g. deep-link), pull it now so the header has a name.
         if (Conversations.MyConversations.Value.Count == 0)
             await Conversations.RefreshAsync();
 
@@ -67,12 +72,19 @@
 
     private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
-        if (string.IsNullOrWhiteSpace(submit.Content)) return;
+        if (string.IsNullOrWhiteSpace(submit.Content) && submit.Attachment is null) return;
         var parentId = _replyingTo?.Id;
         _replyingTo = null;
         try
         {
-            await MessageStore.SendAsync(ConversationId, submit.Content, parentId);
+            var messageId = await MessageStore.SendAsync(ConversationId, submit.Content ?? string.Empty, parentId);
+            if (submit.Attachment is { } file && messageId is { } mid)
+            {
+                using var stream = file.OpenReadStream(25 * 1024 * 1024);
+                await MessageStore.UploadAttachmentAsync(ConversationId, mid, file.Name,
+                    string.IsNullOrEmpty(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                    file.Size, stream);
+            }
         }
         catch (Exception ex)
         {
@@ -95,6 +107,45 @@
         finally
         {
             _loadingOlder = false;
+        }
+    }
+
+    private async Task EditMessageAsync(MockMessage message)
+    {
+        _editingMessage = message;
+    }
+
+    private async Task SaveEditAsync(string newContent)
+    {
+        if (_editingMessage is null) return;
+        try
+        {
+            await MessageStore.EditAsync(ConversationId, _editingMessage.Id, newContent);
+            _editingMessage = null;
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Edit failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task DeleteMessageAsync(Guid messageId)
+    {
+        var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+            Title: "Delete message",
+            Message: "This message will be permanently deleted. This cannot be undone.",
+            ConfirmLabel: "Delete",
+            IsDestructive: true));
+        if (!ok) return;
+
+        try
+        {
+            await MessageStore.DeleteAsync(ConversationId, messageId);
+            Toasts.Show("Message deleted.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
         }
     }
 
@@ -122,7 +173,8 @@ else
     <div class="page">
         <div class="main">
             <ConversationHeader Title="@OtherName"
-                                ShowChannelActions="false">
+                                ShowChannelActions="false"
+                                OnOpenDmInfo="@(() => _infoOpen = !_infoOpen)">
                 <TitleIcon>
                     <UserContextMenu UserId="@(_dm?.OtherUserId ?? Guid.Empty)"
                                      UserName="@OtherName"
@@ -137,13 +189,27 @@ else
                            HasMoreOlder="@MessageStore.HasMoreOlder(ConversationId)"
                            LoadingOlder="_loadingOlder"
                            OnLoadOlder="LoadOlderAsync"
-                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))" />
+                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))"
+                           OnEditMessage="@(EventCallback.Factory.Create<MockMessage>(this, EditMessageAsync))"
+                           OnDeleteMessage="@(EventCallback.Factory.Create<Guid>(this, DeleteMessageAsync))" />
 
             <MessageComposer Placeholder="@($"Message {OtherName}")"
                              ReplyingTo="_replyingTo"
-                             AttachmentsEnabled="false"
+                             AttachmentsEnabled="true"
                              OnClearReply="@(() => _replyingTo = null)"
                              OnSend="SendAsync" />
         </div>
+
+        @if (_infoOpen && _dm is not null)
+        {
+            <DmInfoPanel ConversationId="@ConversationId"
+                         OtherUserId="@_dm.OtherUserId"
+                         OnClose="@(() => _infoOpen = false)" />
+        }
     </div>
+
+    <EditMessageModal Open="@(_editingMessage is not null)"
+                      InitialContent="@(_editingMessage?.Content ?? string.Empty)"
+                      OnClose="@(() => _editingMessage = null)"
+                      OnSave="SaveEditAsync" />
 }

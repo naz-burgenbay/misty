@@ -5,10 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Misty.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class AddMembershipSoftDeleteAndKickModerationType : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
@@ -40,7 +38,6 @@ namespace Misty.Infrastructure.Migrations
                 filter: "[IsDeleted] = 0");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(

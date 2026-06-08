@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -5,9 +6,19 @@ using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record RemoveChannelIconCommand(Guid ChannelId, Guid UserId) : IRequest<RemoveChannelIconResponse>;
+public record RemoveChannelIconCommand(Guid ChannelId, Guid UserId, string Version) : IRequest<RemoveChannelIconResponse>;
 
 public record RemoveChannelIconResponse(string Version);
+
+public sealed class RemoveChannelIconCommandValidator : AbstractValidator<RemoveChannelIconCommand>
+{
+    public RemoveChannelIconCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class RemoveChannelIconCommandHandler : IRequestHandler<RemoveChannelIconCommand, RemoveChannelIconResponse>
 {
@@ -39,8 +50,9 @@ public sealed class RemoveChannelIconCommandHandler : IRequestHandler<RemoveChan
         var channel = await _channels.GetByIdAsync(request.ChannelId, ct)
             ?? throw new NotFoundException("Channel not found.");
 
+        var concurrencyToken = Convert.FromBase64String(request.Version);
         await _icons.DeleteAsync(request.ChannelId, ct);
-        await _channels.UpdateIconUrlAsync(channel, null, ct);
+        await _channels.UpdateIconUrlAsync(channel, null, concurrencyToken, ct);
 
         return new RemoveChannelIconResponse(Convert.ToBase64String(channel.Version));
     }

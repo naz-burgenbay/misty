@@ -1,4 +1,4 @@
-@inject IChannelRolesService Roles
+﻿@inject IChannelRolesService Roles
 @inject IToastService Toasts
 
 @code {
@@ -85,6 +85,7 @@
 <Modal Open="Open" Title="@($"Manage roles · {TargetName}")" OnClose="OnClose">
     <ChildContent>
         <div class="manage-roles">
+                                    
             @if (_loading)
             {
                 <div class="hint">Loading roles…</div>
@@ -102,7 +103,7 @@
                     <div class="role-row">
                         <span class="role-name">@roleName</span>
                         <div class="role-actions">
-                            <Button Variant="Button.ButtonVariant.Ghost"
+                                                                                    <Button Variant="Button.ButtonVariant.Ghost"
                                     Disabled="@(_busyRole == roleId)"
                                     OnClick="@(() => AssignAsync(roleId, roleName))">Assign</Button>
                             <Button Variant="Button.ButtonVariant.Ghost"
@@ -118,3 +119,4 @@
         <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnClose">Close</Button>
     </Footer>
 </Modal>
+

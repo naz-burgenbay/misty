@@ -12,7 +12,8 @@ public record UpdateChannelCommand(
     string Name,
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
-    string Version)
+    string Version,
+    string? Description = null)
     : IRequest<UpdateChannelResponse>;
 
 public record UpdateChannelResponse(
@@ -30,11 +31,16 @@ public sealed class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelC
 {
     private readonly IChannelRepository _channels;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
-    public UpdateChannelCommandHandler(IChannelRepository channels, IPermissionService permissions)
+    public UpdateChannelCommandHandler(
+        IChannelRepository channels,
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task<UpdateChannelResponse> Handle(UpdateChannelCommand request, CancellationToken ct)
@@ -55,8 +61,14 @@ public sealed class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelC
                 [new("Version", "Invalid version token.")]);
         }
 
-        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions, channel.Description);
+        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions, request.Description ?? channel.Description);
         await _channels.UpdateAsync(channel, concurrencyToken, ct);
+        await _outbox.WriteAsync(
+            ChannelEventTopics.Channel,
+            ChannelEventTypes.ChannelUpdated,
+            channel.Id,
+            new ChannelUpdatedPayload(channel.Id, request.ActorUserId, channel.Name, DateTime.UtcNow),
+            ct);
 
         return new UpdateChannelResponse(
             channel.Id,

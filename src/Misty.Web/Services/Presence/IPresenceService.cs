@@ -1,10 +1,9 @@
-using Misty.Web.Services.Common;
+﻿using Misty.Web.Services.Common;
 
 namespace Misty.Web.Services.Presence;
 
 public enum PresenceState { Unknown, Online, Idle, Offline }
 
-// Eventually-consistent userId -> presence map. Never blocks UI: callers read Get(userId) synchronously, missing entries return Unknown. Phase 5.7 wires the backend presence subsystem.
 public interface IPresenceService
 {
     PresenceState Get(Guid userId);

@@ -1,0 +1,78 @@
+﻿@using Misty.Web.Services.Communication
+@inject IModerationService ModerationService
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public Guid ChannelId { get; set; }
+    [Parameter, EditorRequired] public Guid TargetUserId { get; set; }
+    [Parameter, EditorRequired] public Guid ActionId { get; set; }
+    [Parameter, EditorRequired] public string Version { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string ActionType { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string TargetUserName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnRevoked { get; set; }
+
+    private bool _revoking;
+    private string? _errorMessage;
+
+    private async Task Close()
+    {
+        _errorMessage = null;
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task ConfirmRevoke()
+    {
+        _revoking = true;
+        _errorMessage = null;
+
+        try
+        {
+            await ModerationService.RevokeAsync(ChannelId, TargetUserId, ActionId, Version);
+            await OnRevoked.InvokeAsync();
+            await Close();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to revoke {ActionType.ToLower()}";
+        }
+        finally
+        {
+            _revoking = false;
+        }
+    }
+}
+
+@if (Open)
+{
+    <Modal OnClose="Close">
+        <div class="revoke-modal">
+            <header class="modal-header">
+                <h2>Revoke @ActionType</h2>
+                <button type="button" class="close-btn" @onclick="Close">
+                    <Blazicon Svg="Lucide.X" />
+                </button>
+            </header>
+
+            <div class="modal-body">
+                <p>
+                    Are you sure you want to revoke the <strong>@ActionType</strong> action for <strong>@TargetUserName</strong>?
+                </p>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="error">@_errorMessage</div>
+                }
+            </div>
+
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="Close" disabled="@_revoking">
+                    Cancel
+                </button>
+                <button type="button" class="btn-danger" @onclick="ConfirmRevoke" disabled="@_revoking">
+                    @(_revoking ? "Revoking..." : "Revoke")
+                </button>
+            </footer>
+        </div>
+    </Modal>
+}

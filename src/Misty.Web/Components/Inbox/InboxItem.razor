@@ -1,0 +1,243 @@
+﻿@using Misty.Web.Services.Communication
+@using System.Net
+@using System.Text.Json
+
+@code {
+    [Parameter, EditorRequired] public InboxItemDto Item { get; set; } = default!;
+    [Parameter] public EventCallback<Guid> OnDismiss { get; set; }
+    [Parameter] public EventCallback<InboxItemDto> OnAction { get; set; }
+    [Parameter] public EventCallback<Guid> OnHandled { get; set; }
+
+    [Parameter, EditorRequired] public IChannelService ChannelService { get; set; } = default!;
+    [Parameter, EditorRequired] public IFriendService FriendService { get; set; } = default!;
+    [Parameter, EditorRequired] public IInboxService InboxService { get; set; } = default!;
+    [Parameter, EditorRequired] public NavigationManager Nav { get; set; } = default!;
+
+    private bool _acting;
+    private string? _error;
+
+    private Task DismissClicked() => OnDismiss.InvokeAsync(Item.Id);
+    private Task ActionClicked() => OnAction.InvokeAsync(Item);
+
+    private async Task FinishActedOn(string? navTo = null)
+    {
+        InboxService.RemoveItem(Item.Id);
+        _ = InboxService.DismissAsync(Item.Id);
+        await OnHandled.InvokeAsync(Item.Id);
+        if (navTo is not null) Nav.NavigateTo(navTo);
+    }
+
+    private static bool IsConflict(Exception ex)
+        => ex is HttpRequestException hre && hre.StatusCode == HttpStatusCode.Conflict;
+
+    private async Task AcceptInvite()
+    {
+        if (_acting || Item.ReferenceId is null) return;
+        _acting = true;
+        _error = null;
+        try
+        {
+            var payload = Item.ReferencePayload;
+            if (payload is null) { _error = "Invite data missing."; _acting = false; return; }
+
+            var inviteVersion = payload.Value.GetProperty("inviteVersion").GetString() ?? string.Empty;
+            var channelId = payload.Value.GetProperty("channelId").GetGuid();
+
+            await ChannelService.AcceptInviteAsync(Item.ReferenceId.Value, inviteVersion);
+            await ChannelService.RefreshAsync();
+            await FinishActedOn($"/c/{channelId}");
+        }
+        catch (Exception ex) when (IsConflict(ex))
+        {
+            await FinishActedOn();
+        }
+        catch
+        {
+            _error = "Failed to accept invite.";
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    private async Task AcceptFriendRequest()
+    {
+        if (_acting || Item.ReferenceId is null) return;
+        _acting = true;
+        _error = null;
+        try
+        {
+            await FriendService.AcceptRequestAsync(Item.ReferenceId.Value);
+            await FinishActedOn();
+        }
+        catch (Exception ex) when (IsConflict(ex))
+        {
+            await FinishActedOn();
+        }
+        catch
+        {
+            _error = "Failed to accept friend request.";
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    private async Task DeclineInvite()
+    {
+        if (_acting || Item.ReferenceId is null) return;
+        _acting = true;
+        _error = null;
+        try
+        {
+            var payload = Item.ReferencePayload;
+            if (payload is null) { _error = "Invite data missing."; _acting = false; return; }
+
+            var inviteVersion = payload.Value.GetProperty("inviteVersion").GetString() ?? string.Empty;
+
+            await ChannelService.DeclineInviteAsync(Item.ReferenceId.Value, inviteVersion);
+            await FinishActedOn();
+        }
+        catch (Exception ex) when (IsConflict(ex))
+        {
+            await FinishActedOn();
+        }
+        catch
+        {
+            _error = "Failed to decline invite.";
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    private async Task DeclineFriendRequest()
+    {
+        if (_acting || Item.ReferenceId is null) return;
+        _acting = true;
+        _error = null;
+        try
+        {
+            await FriendService.DeclineRequestAsync(Item.ReferenceId.Value);
+            await FinishActedOn();
+        }
+        catch (Exception ex) when (IsConflict(ex))
+        {
+            await FinishActedOn();
+        }
+        catch
+        {
+            _error = "Failed to decline friend request.";
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+}
+
+<div class="inbox-item @(Item.IsActedOn ? "read" : "unread")">
+    <div class="item-icon">
+        @switch (Item.Type)
+        {
+            case "ChannelInviteReceived":
+                <Blazicon Svg="Lucide.UserPlus" />
+                break;
+            case "ChannelInviteAccepted":
+                <Blazicon Svg="Lucide.BadgeCheck" />
+                break;
+            case "FriendRequestReceived":
+                <Blazicon Svg="Lucide.Heart" />
+                break;
+            case "FriendRequestAccepted":
+                <Blazicon Svg="Lucide.HeartHandshake" />
+                break;
+            case "ConversationStarted":
+                <Blazicon Svg="Lucide.MessageCircle" />
+                break;
+            default:
+                <Blazicon Svg="Lucide.Bell" />
+                break;
+        }
+    </div>
+
+    <div class="item-content">
+        <div class="item-header">
+            <span class="item-title">@Item.ActorDisplayName</span>
+            <span class="item-time">@FormatTime(Item.CreatedAt)</span>
+        </div>
+
+        <p class="item-description">
+            @switch (Item.Type)
+            {
+                case "ChannelInviteReceived":
+                    var channelName = GetPayloadString("channelName");
+                    @($"Invited you to {channelName ?? "a channel"}")
+                    break;
+                case "ChannelInviteAccepted":
+                    @("Accepted your channel invite")
+                    break;
+                case "FriendRequestReceived":
+                    @("Sent you a friend request")
+                    break;
+                case "FriendRequestAccepted":
+                    @("Accepted your friend request")
+                    break;
+                case "ConversationStarted":
+                    @("Started a conversation with you")
+                    break;
+                default:
+                    @Item.Type
+                    break;
+            }
+        </p>
+
+        @if (_error is not null)
+        {
+            <p class="item-error">@_error</p>
+        }
+
+        <div class="item-actions">
+            @if (Item.Type == "ChannelInviteReceived" && !Item.IsActedOn)
+            {
+                <button type="button" class="action-btn primary" @onclick="AcceptInvite" disabled="@_acting">
+                    @(_acting ? "..." : "Accept")
+                </button>
+                <button type="button" class="action-btn" @onclick="DeclineInvite" disabled="@_acting">
+                    Decline
+                </button>
+            }
+            else if (Item.Type == "FriendRequestReceived" && !Item.IsActedOn)
+            {
+                <button type="button" class="action-btn primary" @onclick="AcceptFriendRequest" disabled="@_acting">
+                    @(_acting ? "..." : "Accept")
+                </button>
+                <button type="button" class="action-btn" @onclick="DeclineFriendRequest" disabled="@_acting">
+                    Decline
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? GetPayloadString(string key)
+    {
+        try { return Item.ReferencePayload?.GetProperty(key).GetString(); }
+        catch { return null; }
+    }
+
+    private static string FormatTime(DateTime at)
+    {
+        var diff = DateTime.UtcNow - at;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return at.ToLocalTime().ToString("MMM d");
+    }
+}
+

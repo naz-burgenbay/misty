@@ -1,8 +1,8 @@
-namespace Misty.Domain.Users;
+﻿namespace Misty.Domain.Users;
 
 public class User
 {
-    private User() { } // For EF Core
+    private User() { }
 
     public Guid Id { get; private set; }
     public string Username { get; private set; } = null!;

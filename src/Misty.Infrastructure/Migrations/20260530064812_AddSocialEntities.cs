@@ -5,10 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Misty.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class AddSocialEntities : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
@@ -151,12 +149,10 @@ namespace Misty.Infrastructure.Migrations
                 table: "InboxItem",
                 columns: new[] { "UserId", "IsActedOn" });
 
-            // Owner roles seeded before the InviteMembers flag (and the moderation/admin bit reorder in ChannelPermission) need their Permissions value reset to the current ChannelPermission.All value (16383 = bits 0..13). New Owner roles get this automatically via CreateOwner.
             migrationBuilder.Sql(
                 "UPDATE [comm].[ChannelRole] SET [Permissions] = 16383 WHERE [IsOwnerRole] = 1;");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

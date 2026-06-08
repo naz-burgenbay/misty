@@ -18,7 +18,7 @@ public sealed class ConversationRepository : IConversationRepository
         => _db.Conversations.FirstOrDefaultAsync(
             c => c.UserAId == userAId && c.UserBId == userBId, ct);
 
-    public async Task<List<Conversation>> GetForUserAsync(Guid userId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Conversation>> GetForUserAsync(Guid userId, CancellationToken ct = default)
         => await _db.Conversations
             .AsNoTracking()
             .Where(c => c.UserAId == userId || c.UserBId == userId)

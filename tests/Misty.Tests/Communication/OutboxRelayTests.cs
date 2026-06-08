@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -113,7 +113,6 @@ public sealed class OutboxRelayTests : IAsyncLifetime
 
         var messageId = await SendMessageAsync(token, channelId, "Relay me");
 
-        // The OutboxRelayWorker runs every second. Poll until it marks the row published.
         DateTime? publishedAt = null;
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!cts.IsCancellationRequested)
@@ -136,7 +135,6 @@ public sealed class OutboxRelayTests : IAsyncLifetime
 
         var messageId = await SendMessageAsync(token, channelId, "Publish once");
 
-        // Wait for the relay to mark the row published.
         DateTime? firstPublishedAt = null;
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!cts.IsCancellationRequested)
@@ -150,7 +148,6 @@ public sealed class OutboxRelayTests : IAsyncLifetime
 
         firstPublishedAt.Should().NotBeNull();
 
-        // Wait for at least one more relay cycle and confirm PublishedAt is stable.
         await Task.Delay(2000);
 
         await using var dbCheck = _factory.CreateDbContext();
@@ -162,7 +159,6 @@ public sealed class OutboxRelayTests : IAsyncLifetime
     [Fact]
     public async Task OutboxConcurrencyToken_SecondUpdate_ThrowsDbUpdateConcurrencyException()
     {
-        // Arrange: send a message to produce an OutboxMessage row.
         var (token, _) = await RegisterAndLoginAsync("outbox_owner4");
         var channelId = await CreateChannelAsync(token, "outbox-ch4");
         var messageId = await SendMessageAsync(token, channelId, "Concurrent relay");
@@ -173,11 +169,9 @@ public sealed class OutboxRelayTests : IAsyncLifetime
         var outboxA = await dbA.OutboxMessages.SingleAsync(o => o.MessageId == messageId);
         var outboxB = await dbB.OutboxMessages.SingleAsync(o => o.MessageId == messageId);
 
-        // Instance A wins: marks published and saves.
         outboxA.MarkPublished();
         await dbA.SaveChangesAsync();
 
-        // Instance B uses the stale rowversion; EF must throw DbUpdateConcurrencyException.
         outboxB.MarkPublished();
         var act = async () => await dbB.SaveChangesAsync();
 
@@ -188,7 +182,6 @@ public sealed class OutboxRelayTests : IAsyncLifetime
     [Fact]
     public async Task SendMessage_MessageAndOutbox_AreInSameTransaction()
     {
-        // Verify referential integrity: the OutboxMessage.MessageId FK must point at a real Message.
         var (token, _) = await RegisterAndLoginAsync("outbox_owner5");
         var channelId = await CreateChannelAsync(token, "outbox-ch5");
 

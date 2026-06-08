@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -125,7 +125,6 @@ public sealed class UserProfileTests : IAsyncLifetime
         var profile = await getResp.Content.ReadFromJsonAsync<JsonElement>();
         var originalVersion = profile.GetProperty("version").GetString()!;
 
-        // First update succeeds and advances the version
         await _client.PutAsJsonAsync("/api/v1/users/me", new
         {
             DisplayName = "First Update",
@@ -133,7 +132,6 @@ public sealed class UserProfileTests : IAsyncLifetime
             Version = originalVersion,
         });
 
-        // Second update with the original (now stale) version must be rejected
         var conflictResp = await _client.PutAsJsonAsync("/api/v1/users/me", new
         {
             DisplayName = "Second Update",
@@ -153,7 +151,6 @@ public sealed class UserProfileTests : IAsyncLifetime
         var deleteResp = await _client.DeleteAsync("/api/v1/users/me");
         deleteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // Refresh token issued before delete must now be rejected
         _client.DefaultRequestHeaders.Authorization = null;
         var refreshResp = await _client.PostAsJsonAsync("/api/v1/auth/refresh",
             new { RefreshToken = refreshToken });

@@ -1,0 +1,85 @@
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string InitialContent { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<string> OnSave { get; set; }
+
+    private string _content = string.Empty;
+    private bool _submitting;
+
+    protected override void OnParametersSet()
+    {
+        if (Open && _content != InitialContent)
+        {
+            _content = InitialContent;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_content) || _submitting) return;
+        _submitting = true;
+        try
+        {
+            await OnSave.InvokeAsync(_content.Trim());
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SaveAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+}
+
+<Modal Open="Open" Title="Edit message" OnClose="OnClose">
+    <ChildContent>
+        <div class="edit-message-modal">
+            <textarea class="message-input"
+                      rows="4"
+                      placeholder="Message content"
+                      @bind="_content"
+                      @bind:event="oninput"
+                      @onkeydown="OnKeyDown"
+                      autofocus></textarea>
+        </div>
+    </ChildContent>
+
+    <Footer>
+        <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnClose">Cancel</Button>
+        <Button Variant="Button.ButtonVariant.Primary"
+                Disabled="@(_submitting || string.IsNullOrWhiteSpace(_content))"
+                OnClick="SaveAsync">
+            @(_submitting ? "Saving…" : "Save")
+        </Button>
+    </Footer>
+</Modal>
+
+<style>
+.edit-message-modal { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 400px; }
+.edit-message-modal .message-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+.edit-message-modal .message-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+</style>

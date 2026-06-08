@@ -1,0 +1,126 @@
+﻿@using Misty.Web.Services.Communication
+@using Misty.Web.Services.Users
+@inject IChannelService ChannelService
+@inject IUserDirectory Users
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public Guid ChannelId { get; set; }
+
+    private string _searchQuery = string.Empty;
+    private List<UserSummaryWithAvatar> _searchResults = new();
+    private bool _searching;
+    private bool _sending;
+    private string? _errorMessage;
+
+    private async Task Close()
+    {
+        _searchQuery = string.Empty;
+        _searchResults.Clear();
+        _errorMessage = null;
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task SearchUsers()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            _searchResults.Clear();
+            return;
+        }
+
+        _searching = true;
+        _errorMessage = null;
+
+        try
+        {
+            _searchResults = (await Users.SearchAsync(_searchQuery.Trim())).ToList();
+        }
+        catch
+        {
+            _errorMessage = "Failed to search users";
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private async Task SendInvite(string username)
+    {
+        _sending = true;
+        _errorMessage = null;
+
+        try
+        {
+            await ChannelService.SendInviteAsync(ChannelId, username);
+            await Close();
+        }
+        catch
+        {
+            _errorMessage = "Failed to send invite";
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+}
+
+@if (Open)
+{
+    <Modal OnClose="Close">
+        <div class="invite-modal">
+            <header class="modal-header">
+                <h2>Invite Member</h2>
+                <button type="button" class="close-btn" @onclick="Close">
+                    <Blazicon Svg="Lucide.X" />
+                </button>
+            </header>
+
+            <div class="modal-body">
+                                <div class="search-box">
+                    <Blazicon Svg="Lucide.Search" />
+                    <input type="text"
+                           placeholder="Search users..."
+                           @bind="_searchQuery"
+                           @bind:event="oninput"
+                           @onkeyup="@(async () => await SearchUsers())" />
+                </div>
+
+                @if (_searching)
+                {
+                    <div class="searching">Searching...</div>
+                }
+                else if (!string.IsNullOrWhiteSpace(_searchQuery) && _searchResults.Count == 0)
+                {
+                    <div class="no-results">No users found</div>
+                }
+                else if (_searchResults.Count > 0)
+                {
+                    <div class="results-list">
+                                                @foreach (var user in _searchResults)
+                        {
+                            <div class="user-result">
+                                <span class="user-name">@user.DisplayName</span>
+                                <span class="user-username">@@@user.Username</span>
+                                <button type="button"
+                                        class="invite-btn"
+                                        @onclick="() => SendInvite(user.Username)"
+                                        disabled="@_sending">
+                                    Invite
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="error">@_errorMessage</div>
+                }
+            </div>
+        </div>
+    </Modal>
+}

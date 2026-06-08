@@ -1,4 +1,4 @@
-@inject IJSRuntime JS
+﻿@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 @code {
@@ -13,6 +13,8 @@
     [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
     [Parameter] public bool CanModerate { get; set; }
     [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
+    [Parameter] public EventCallback<MockMessage> OnEditMessage { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteMessage { get; set; }
 
     private ElementReference _scrollEl;
     private DotNetObjectReference<MessageStream>? _selfRef;
@@ -30,7 +32,6 @@
 
         if (_wired && Messages.Count != _lastCount)
         {
-            // Initial render or new message at bottom: pin to the latest.
             await JS.InvokeVoidAsync("mistyScroll.scrollToBottomIfNear", _scrollEl);
             _lastCount = Messages.Count;
         }
@@ -46,7 +47,7 @@
     {
         if (_wired)
         {
-            try { await JS.InvokeVoidAsync("mistyScroll.detach", _scrollEl); } catch { /* ignore */ }
+            try { await JS.InvokeVoidAsync("mistyScroll.detach", _scrollEl); } catch {  }
         }
         _selfRef?.Dispose();
     }
@@ -76,7 +77,9 @@
                         OnAddReaction="OnAddReaction"
                         OnRemoveReaction="OnRemoveReaction"
                         CanModerate="CanModerate"
-                        OnModerateUser="OnModerateUser" />
+                        OnModerateUser="OnModerateUser"
+                        OnEditMessage="OnEditMessage"
+                        OnDeleteMessage="OnDeleteMessage" />
         }
     </div>
 </div>

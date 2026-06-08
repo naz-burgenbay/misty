@@ -5,10 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Misty.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class AddChannelTable : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
@@ -46,7 +44,6 @@ namespace Misty.Infrastructure.Migrations
                 filter: "[InviteCode] IS NOT NULL");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

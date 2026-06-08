@@ -1,4 +1,4 @@
-@page "/c/{ChannelId:guid}"
+﻿@page "/c/{ChannelId:guid}"
 @implements IDisposable
 @inject NavigationManager Nav
 @inject IChannelService Channels
@@ -21,8 +21,9 @@
     private bool _loadingOlder;
 
     private bool _membersOpen;
-    private bool _settingsOpen;
     private Guid? _moderationTarget;
+
+    private MockMessage? _editingMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -63,10 +64,11 @@
 
     private string Subtitle => _channel is null ? string.Empty : $"{_channel.MemberCount} members";
 
-    // Until server-side permission events land in this client, we conservatively allow send on any channel we know we're a member of.
     private bool CanSend       => _channel is not null;
     private bool CanModerate   => _myPermissions.CanModerate();
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
+
+    private void OpenSettings() => Nav.NavigateTo($"/c/{ChannelId}/settings");
 
     private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
@@ -120,14 +122,43 @@
         }
     }
 
-    private async Task ConfirmDeleteChannelAsync()
+    private async Task EditMessageAsync(MockMessage message)
+    {
+        _editingMessage = message;
+    }
+
+    private async Task SaveEditAsync(string newContent)
+    {
+        if (_editingMessage is null) return;
+        try
+        {
+            await MessageStore.EditAsync(ChannelId, _editingMessage.Id, newContent);
+            _editingMessage = null;
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Edit failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task DeleteMessageAsync(Guid messageId)
     {
         var ok = await Modals.ConfirmAsync(new ConfirmRequest(
-            Title: "Delete channel",
-            Message: $"This permanently deletes #{_channel?.Name}. This cannot be undone.",
+            Title: "Delete message",
+            Message: "This message will be permanently deleted. This cannot be undone.",
             ConfirmLabel: "Delete",
             IsDestructive: true));
-        if (ok) Toasts.Show("Channel deletion is wired to the backend in a later step.", ToastKind.Info);
+        if (!ok) return;
+
+        try
+        {
+            await MessageStore.DeleteAsync(ChannelId, messageId);
+            Toasts.Show("Message deleted.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
+        }
     }
 
     public void Dispose()
@@ -152,7 +183,7 @@ else
                                 Subtitle="@Subtitle"
                                 ShowAiBadge="@_channel.IsAiAssistantEnabled"
                                 OnToggleMembers="@(() => _membersOpen = !_membersOpen)"
-                                OnOpenSettings="@(() => _settingsOpen = true)">
+                                OnOpenSettings="OpenSettings">
                 <TitleIcon>
                     <Blazicon Svg="@(_channel.IsPrivate ? Lucide.Lock : Lucide.Hash)" />
                 </TitleIcon>
@@ -168,7 +199,9 @@ else
                            OnAddReaction="AddReactionAsync"
                            OnRemoveReaction="RemoveReactionAsync"
                            CanModerate="CanModerate"
-                           OnModerateUser="@(EventCallback.Factory.Create<Guid>(this, id => _moderationTarget = id))" />
+                           OnModerateUser="@(EventCallback.Factory.Create<Guid>(this, id => _moderationTarget = id))"
+                           OnEditMessage="@(EventCallback.Factory.Create<MockMessage>(this, EditMessageAsync))"
+                           OnDeleteMessage="@(EventCallback.Factory.Create<Guid>(this, DeleteMessageAsync))" />
 
             <MessageComposer Placeholder="@($"Message #{_channel.Name}")"
                              ReplyingTo="_replyingTo"
@@ -187,38 +220,18 @@ else
                     </IconButton>
                 </div>
                 <div class="pane-body">
-                    <div class="member-count">@_channel.MemberCount members</div>
+                    <MembersPanel ChannelId="@_channel.Id" />
                 </div>
             </aside>
         }
     </div>
 
-    <Drawer Open="_settingsOpen" Title="Channel settings" OnClose="@(() => _settingsOpen = false)">
-        <div class="settings">
-            <div class="field">
-                <span class="lbl">Name</span>
-                <TextField Value="@_channel.Name" />
-            </div>
-            <div class="field">
-                <span class="lbl">Privacy</span>
-                <SegmentedControl Options="@(new [] { "Public", "Private" })"
-                                  Value="@(_channel.IsPrivate ? "Private" : "Public")" />
-            </div>
-            <div class="field">
-                <span class="lbl">AI assistant</span>
-                <SegmentedControl Options="@(new [] { "Off", "On" })"
-                                  Value="@(_channel.IsAiAssistantEnabled ? "On" : "Off")" />
-            </div>
-            <div class="field danger-zone">
-                <h4>Danger zone</h4>
-                <Button Variant="Button.ButtonVariant.Danger"
-                        Disabled="@(!CanManageChannel)"
-                        OnClick="ConfirmDeleteChannelAsync">Delete channel</Button>
-            </div>
-        </div>
-    </Drawer>
     <ModerationActionModal Open="@(_moderationTarget is not null)"
                            ChannelId="ChannelId"
                            TargetUserId="_moderationTarget"
                            OnClose="@(() => _moderationTarget = null)" />
+    <EditMessageModal Open="@(_editingMessage is not null)"
+                      InitialContent="@(_editingMessage?.Content ?? string.Empty)"
+                      OnClose="@(() => _editingMessage = null)"
+                      OnSave="SaveEditAsync" />
 }

@@ -17,26 +17,28 @@ public sealed class UserBlockService : IUserBlockService
         _friendships = friendships;
     }
 
-    public async Task BlockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
+    public async Task<bool> BlockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
     {
         var exists = await _db.UserBlocks.AnyAsync(
             b => b.BlockerId == blockerId && b.BlockedId == blockedId, ct);
-        if (exists) return;
+        if (exists) return false;
 
         await _db.UserBlocks.AddAsync(UserBlock.Create(blockerId, blockedId), ct);
         await _db.SaveChangesAsync(ct);
 
         await _friendships.DeleteForPairAsync(blockerId, blockedId, ct);
+        return true;
     }
 
-    public async Task UnblockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
+    public async Task<bool> UnblockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
     {
         var block = await _db.UserBlocks.FirstOrDefaultAsync(
             b => b.BlockerId == blockerId && b.BlockedId == blockedId, ct);
-        if (block is null) return;
+        if (block is null) return false;
 
         _db.UserBlocks.Remove(block);
         await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public Task<bool> IsBlockedAsync(Guid userId1, Guid userId2, CancellationToken ct = default)
@@ -52,7 +54,7 @@ public sealed class UserBlockService : IUserBlockService
             where b.BlockerId == blockerId
             join u in _db.Users.AsNoTracking() on b.BlockedId equals u.Id
             orderby b.CreatedAt descending
-            select new BlockedUserDto(u.Id, u.Username, u.DisplayName, u.AvatarUrl, b.CreatedAt))
+            select new BlockedUserDto(u.Id, u.Username, u.DisplayName, u.AvatarUrl, b.CreatedAt, Convert.ToBase64String(b.Version)))
             .ToListAsync(ct);
     }
 }

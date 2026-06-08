@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -107,8 +107,19 @@ public sealed class ModerationTests : IAsyncLifetime
         string issuerToken, Guid channelId, Guid targetUserId, Guid actionId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issuerToken);
-        return await _client.DeleteAsync(
-            $"/api/v1/channels/{channelId}/members/{targetUserId}/moderation/{actionId}");
+        string version;
+        await using (var db = _factory.CreateDbContext())
+        {
+            var action = await db.ModerationActions.FirstOrDefaultAsync(a => a.Id == actionId);
+            version = action is null ? "AAAAAAAAAAA=" : Convert.ToBase64String(action.Version);
+        }
+        var req = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/channels/{channelId}/members/{targetUserId}/moderation/{actionId}")
+        {
+            Content = JsonContent.Create(new { Version = version }),
+        };
+        return await _client.SendAsync(req);
     }
 
     private async Task<Guid> CreateRoleAsync(string ownerToken, Guid channelId, ChannelPermission permissions)
@@ -233,7 +244,6 @@ public sealed class ModerationTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "mod-ch6");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Give member send permission via a role
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var roleResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/roles", new
         {
@@ -267,7 +277,6 @@ public sealed class ModerationTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "mod-ch7");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Apply ban and warn; then revoke the warn
         var (_, banId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Ban);
         var (_, warnId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Warn);
         await RevokeModerationAsync(ownerToken, channelId, memberId, warnId);
@@ -389,7 +398,6 @@ public sealed class ModerationTests : IAsyncLifetime
 
         var (_, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Mute);
 
-        // The muted member tries to revoke their own action -- they have no MuteMembers perm.
         var resp = await RevokeModerationAsync(memberToken, channelId, memberId, actionId);
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -402,7 +410,6 @@ public sealed class ModerationTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "mod-revoke-kick-ch");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Kick via the dedicated endpoint
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var kickReq = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/channels/{channelId}/members/{memberId}")
         {
@@ -451,14 +458,13 @@ public sealed class ModerationTests : IAsyncLifetime
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Seed an already-expired ban directly (the validator would reject a past ExpiresAt over the wire).
         await using (var db = _factory.CreateDbContext())
         {
             var expired = ModerationAction.Create(
                 Guid.NewGuid(),
                 channelId,
                 memberId,
-                issuedByUserId: memberId, // value irrelevant for this test
+                issuedByUserId: memberId,
                 ModerationActionType.Ban,
                 reason: "expired ban",
                 expiresAt: DateTime.UtcNow.AddMinutes(-5));
@@ -466,14 +472,42 @@ public sealed class ModerationTests : IAsyncLifetime
             await db.SaveChangesAsync();
         }
 
-        // PermissionService must NOT enforce the expired ban.
         var allowed = await CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
         allowed.Should().BeTrue("an expired ban is no longer active and must not deny permissions");
 
-        // Apply handler must NOT treat the expired ban as a duplicate active sanction.
         var (resp, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Ban);
         resp.StatusCode.Should().Be(HttpStatusCode.Created,
             "an expired ban must not count as an active duplicate when applying a new ban");
         actionId.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task RevokeModeration_WithStaleVersion_Returns409()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("mod_stale_owner");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("mod_stale_member");
+        var channelId = await CreateChannelAsync(ownerToken, "mod-stale-ch");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var (_, actionId) = await ApplyModerationAsync(ownerToken, channelId, memberId, ModerationActionType.Warn);
+
+        string originalVersion;
+        await using (var db = _factory.CreateDbContext())
+            originalVersion = Convert.ToBase64String((await db.ModerationActions.FirstAsync(a => a.Id == actionId)).Version);
+
+        await using (var db = _factory.CreateDbContext())
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE comm.ModerationAction SET Id = Id WHERE Id = {0}", actionId);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var req = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/channels/{channelId}/members/{memberId}/moderation/{actionId}")
+        {
+            Content = JsonContent.Create(new { Version = originalVersion }),
+        };
+        var conflictResp = await _client.SendAsync(req);
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

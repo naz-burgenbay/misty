@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
+using Misty.Application.Communication.Contracts;
 
 namespace Misty.Application.Users;
 
@@ -19,8 +20,13 @@ public record UpdateUserResponse(
 public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UpdateUserResponse>
 {
     private readonly IUserRepository _users;
+    private readonly IOutboxWriter _outbox;
 
-    public UpdateUserCommandHandler(IUserRepository users) => _users = users;
+    public UpdateUserCommandHandler(IUserRepository users, IOutboxWriter outbox)
+    {
+        _users = users;
+        _outbox = outbox;
+    }
 
     public async Task<UpdateUserResponse> Handle(UpdateUserCommand request, CancellationToken ct)
     {
@@ -37,6 +43,12 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
 
         user.UpdateProfile(request.DisplayName, request.Bio);
         await _users.UpdateAsync(user, concurrencyToken, ct);
+        await _outbox.WriteAsync(
+            UserEventTopics.User,
+            UserEventTypes.UserProfileUpdated,
+            user.Id,
+            new UserProfileUpdatedPayload(user.Id, user.DisplayName, user.Bio, DateTime.UtcNow),
+            ct);
 
         return new UpdateUserResponse(
             user.Id,

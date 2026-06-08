@@ -14,11 +14,11 @@ public sealed class AttachmentRepository : IAttachmentRepository
     public Task<Attachment?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Attachments.FirstOrDefaultAsync(a => a.Id == id, ct);
 
-    public async Task<IReadOnlyDictionary<Guid, List<Attachment>>> GetByMessageIdsAsync(
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Attachment>>> GetByMessageIdsAsync(
         IReadOnlyCollection<Guid> messageIds, CancellationToken ct = default)
     {
         if (messageIds.Count == 0)
-            return new Dictionary<Guid, List<Attachment>>();
+            return new Dictionary<Guid, IReadOnlyList<Attachment>>();
 
         var rows = await _db.Attachments
             .AsNoTracking()
@@ -27,7 +27,7 @@ public sealed class AttachmentRepository : IAttachmentRepository
 
         return rows
             .GroupBy(a => a.MessageId!.Value)
-            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.CreatedAt).ToList());
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Attachment>)g.OrderBy(a => a.CreatedAt).ToList());
     }
 
     public async Task AddAsync(Attachment attachment, CancellationToken ct = default)

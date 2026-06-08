@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -131,7 +131,6 @@ public sealed class LoginTests : IAsyncLifetime
         var body = await loginResp.Content.ReadFromJsonAsync<JsonElement>();
         var token = body.GetProperty("accessToken").GetString()!;
 
-        // Use a fresh client so shared _client is unaffected by auth header.
         using var authedClient = _factory.CreateClient();
         authedClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);

@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 
@@ -5,6 +6,15 @@ namespace Misty.Application.Communication;
 
 public record GetMyChannelPermissionsQuery(Guid UserId, Guid ChannelId)
     : IRequest<GetMyChannelPermissionsResponse>;
+
+public sealed class GetMyChannelPermissionsQueryValidator : AbstractValidator<GetMyChannelPermissionsQuery>
+{
+    public GetMyChannelPermissionsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
 
 public record GetMyChannelPermissionsResponse(Guid ChannelId, long EffectivePermissions);
 

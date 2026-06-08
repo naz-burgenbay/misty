@@ -1,12 +1,10 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Common;
 using Misty.Web.Services.Realtime;
 
 namespace Misty.Web.Services.Permissions;
 
-// Per-channel permission cache invalidated on MembershipChanged/RoleChanged/ModerationActionApplied SignalR events broadcast by PermissionEventsBroadcastWorker.
-// Returns the current user's effective flags for a given channel.
 public interface IPermissionsCache
 {
     ChannelPermissionFlags Get(Guid channelId);

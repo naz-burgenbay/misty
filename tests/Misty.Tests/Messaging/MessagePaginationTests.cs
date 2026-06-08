@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -37,6 +37,12 @@ public sealed class MessagePaginationTests : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    private Task<HttpResponseMessage> SendJsonDeleteAsync(string url, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(body) };
+        return _client.SendAsync(req);
+    }
+
     private async Task<(string Token, Guid UserId)> RegisterAndLoginAsync(string username)
     {
         var reg = await _client.PostAsJsonAsync("/api/v1/auth/register", new
@@ -60,12 +66,9 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         return (loginBody.GetProperty("accessToken").GetString()!, userId);
     }
 
-    // The critical test: two messages with the same CreatedAt timestamp must both appear in pagination results exactly once.
-    // Cursor-based pagination using only CreatedAt would skip one of them; using (CreatedAt, Id) as the stable sort key prevents this.
     [Fact]
     public async Task GetMessages_EqualTimestamps_NoDuplicationOrOmission()
     {
-        // Arrange: create channel and two messages with identical CreatedAt timestamps
         var (token, userId) = await RegisterAndLoginAsync("pagination_user");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -80,8 +83,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Send two messages (their timestamps may differ by milliseconds depending on execution speed).
-        // To force equal timestamps, we'll directly insert them in the DB with the same CreatedAt.
         var msg1Resp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Message 1",
@@ -100,13 +101,11 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var msg2Id = (await msg2Resp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Force identical CreatedAt timestamps in the DB
         await using var db = _factory.CreateDbContext();
         var sharedTimestamp = DateTime.UtcNow.AddMinutes(-5);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"UPDATE [msg].[Message] SET [CreatedAt] = {sharedTimestamp} WHERE [Id] IN ({msg1Id}, {msg2Id})");
 
-        // Act: paginate with pageSize=1 to force cursor usage across the boundary
         var page1Resp = await _client.GetAsync($"/api/v1/channels/{channelId}/messages?pageSize=1");
         page1Resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var page1 = await page1Resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -122,7 +121,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var page2Messages = page2.GetProperty("messages").EnumerateArray().ToList();
         page2Messages.Should().HaveCount(1, "second page must return the remaining message");
 
-        // Assert: both messages appear exactly once across the two pages
         var allMessageIds = page1Messages.Concat(page2Messages)
             .Select(m => m.GetProperty("id").GetGuid())
             .ToList();
@@ -136,7 +134,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
     [Fact]
     public async Task EditMessage_ValidRequest_UpdatesContent()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("edit_user");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -158,14 +155,16 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Act
-        var editResp = await _client.PutAsJsonAsync(
-            $"/api/v1/channels/{channelId}/messages/{messageId}",
-            new { Content = "Edited content" });
+        await using (var db0 = _factory.CreateDbContext())
+        {
+            var version = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+            var editResp = await _client.PutAsJsonAsync(
+                $"/api/v1/channels/{channelId}/messages/{messageId}",
+                new { Content = "Edited content", Version = version });
 
-        editResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            editResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        }
 
-        // Assert
         await using var db = _factory.CreateDbContext();
         var message = await db.Messages.FirstAsync(m => m.Id == messageId);
         message.Content.Should().Be("Edited content");
@@ -175,7 +174,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
     [Fact]
     public async Task DeleteMessage_NoReplies_HardDeletes()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("delete_user1");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -197,11 +195,12 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Act
-        var deleteResp = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{messageId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+        var deleteResp = await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{messageId}", new { Version = deleteVersion });
         deleteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // Assert: message is completely removed
         await using var db = _factory.CreateDbContext();
         var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
         message.Should().BeNull("message with no replies should be hard-deleted");
@@ -210,7 +209,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
     [Fact]
     public async Task DeleteMessage_HasReplies_Tombstones()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("delete_user2");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -224,7 +222,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Parent message
         var parentResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Parent message",
@@ -233,7 +230,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var parentId = (await parentResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Reply message
         await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Reply",
@@ -241,11 +237,12 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             ParentMessageId = parentId,
         });
 
-        // Act: delete the parent message
-        var deleteResp = await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        var deleteResp = await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
         deleteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // Assert: message is tombstoned (content cleared, IsDeleted=true, but row still exists)
         await using var db = _factory.CreateDbContext();
         var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == parentId);
         message.Should().NotBeNull("message with replies should be tombstoned, not hard-deleted");
@@ -256,7 +253,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
     [Fact]
     public async Task GetMessages_IncludesTombstones()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("tombstone_user");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -270,7 +266,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Parent + reply to force tombstone
         var parentResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Parent",
@@ -286,14 +281,15 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             ParentMessageId = parentId,
         });
 
-        await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
 
-        // Act: retrieve messages
         var getResp = await _client.GetAsync($"/api/v1/channels/{channelId}/messages");
         var messages = (await getResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messages").EnumerateArray().ToList();
 
-        // Assert: tombstoned parent appears in results
         var tombstone = messages.FirstOrDefault(m => m.GetProperty("id").GetGuid() == parentId);
         tombstone.ValueKind.Should().NotBe(JsonValueKind.Undefined, "tombstoned message must appear in pagination");
         tombstone.GetProperty("isDeleted").GetBoolean().Should().BeTrue();
@@ -303,7 +299,6 @@ public sealed class MessagePaginationTests : IAsyncLifetime
     [Fact]
     public async Task EditMessage_Tombstone_Returns422()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("edit_tombstone_user");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -332,15 +327,56 @@ public sealed class MessagePaginationTests : IAsyncLifetime
             ParentMessageId = parentId,
         });
 
-        await _client.DeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}");
+        string deleteVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            deleteVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == parentId)).Version);
+        await SendJsonDeleteAsync($"/api/v1/channels/{channelId}/messages/{parentId}", new { Version = deleteVersion });
 
-        // Act: attempt to edit the tombstoned message
         var editResp = await _client.PutAsJsonAsync(
             $"/api/v1/channels/{channelId}/messages/{parentId}",
-            new { Content = "Should fail" });
+            new { Content = "Should fail", Version = "AAAAAAAAAAA=" });
 
-        // Assert
         editResp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity,
             "editing a tombstoned message must be rejected");
+    }
+
+    [Fact]
+    public async Task EditMessage_WithStaleVersion_Returns409()
+    {
+        var (token, _) = await RegisterAndLoginAsync("edit_stale_user");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var createResp = await _client.PostAsJsonAsync("/api/v1/channels", new
+        {
+            Name = "edit-stale-ch",
+            IsPrivate = false,
+            IsAiAssistantEnabled = false,
+            DefaultPermissions = 0L,
+        });
+        var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("channelId").GetGuid();
+
+        var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
+        {
+            Content = "Original",
+            IdempotencyKey = Guid.NewGuid().ToString(),
+        });
+        var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("messageId").GetGuid();
+
+        string originalVersion;
+        await using (var db0 = _factory.CreateDbContext())
+            originalVersion = Convert.ToBase64String((await db0.Messages.FirstAsync(m => m.Id == messageId)).Version);
+
+        var firstEdit = await _client.PutAsJsonAsync(
+            $"/api/v1/channels/{channelId}/messages/{messageId}",
+            new { Content = "First edit", Version = originalVersion });
+        firstEdit.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var conflictResp = await _client.PutAsJsonAsync(
+            $"/api/v1/channels/{channelId}/messages/{messageId}",
+            new { Content = "Second edit", Version = originalVersion });
+
+        conflictResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

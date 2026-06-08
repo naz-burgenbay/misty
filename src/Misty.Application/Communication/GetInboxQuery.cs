@@ -1,11 +1,21 @@
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 using Misty.Application.Users;
 using Misty.Domain.Communication;
+using System.Globalization;
 
 namespace Misty.Application.Communication;
 
 public record GetInboxQuery(Guid UserId, string? Cursor, int Take) : IRequest<InboxPageDto>;
+
+public sealed class GetInboxQueryValidator : AbstractValidator<GetInboxQuery>
+{
+    public GetInboxQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, InboxPageDto>
 {
@@ -15,15 +25,18 @@ public sealed class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, InboxP
     private readonly IInboxItemRepository _inbox;
     private readonly IUserRepository _users;
     private readonly IChannelQueryService _channels;
+    private readonly IChannelInviteRepository _invites;
 
     public GetInboxQueryHandler(
         IInboxItemRepository inbox,
         IUserRepository users,
-        IChannelQueryService channels)
+        IChannelQueryService channels,
+        IChannelInviteRepository invites)
     {
         _inbox = inbox;
         _users = users;
         _channels = channels;
+        _invites = invites;
     }
 
     public async Task<InboxPageDto> Handle(GetInboxQuery query, CancellationToken ct)
@@ -66,12 +79,20 @@ public sealed class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, InboxP
     {
         switch (item.Type)
         {
-            case InboxItemType.ChannelInviteReceived when item.ReferenceId is { } channelId:
+            case InboxItemType.ChannelInviteReceived when item.ReferenceId is { } inviteId:
             {
-                var channel = await _channels.GetByIdAsync(channelId, ct);
-                return channel is null ? null : new { channelName = channel.Name };
+                var invite = await _invites.GetByIdAsync(inviteId, ct);
+                if (invite is null) return null;
+                var channel = await _channels.GetByIdAsync(invite.ChannelId, ct);
+                if (channel is null) return null;
+                return new
+                {
+                    channelId = invite.ChannelId,
+                    channelName = channel.Name,
+                    inviteVersion = Convert.ToBase64String(invite.Version),
+                };
             }
-            case InboxItemType.FirstDirectMessage:
+            case InboxItemType.ConversationStarted:
             {
                 var peer = await _users.GetByIdAsync(item.ActorUserId, ct);
                 return peer is null ? null : new { peerUsername = peer.Username, peerDisplayName = peer.DisplayName };

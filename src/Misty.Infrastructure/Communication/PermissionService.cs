@@ -1,14 +1,13 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
 
 namespace Misty.Infrastructure.Communication;
 
-// Resolves permissions directly from SQL. Used by CachedPermissionService when a cache entry is missing.
 public sealed class PermissionService : IPermissionService
 {
-    internal const long DeniedSentinel = long.MinValue; // banned or non-member
+    internal const long DeniedSentinel = long.MinValue;
 
     private static readonly ChannelPermission WriteMask =
         ChannelPermission.SendMessages
@@ -40,7 +39,6 @@ public sealed class PermissionService : IPermissionService
         return effective == DeniedSentinel ? ChannelPermission.None : (ChannelPermission)effective;
     }
 
-// Computes effective channel permissions from SQL. Muted users lose write permissions; banned users and non-members receive DeniedSentinel.
     internal async Task<long> ComputeEffectivePermissionsAsync(
         Guid userId,
         Guid channelId,
@@ -48,7 +46,6 @@ public sealed class PermissionService : IPermissionService
     {
         var utcNow = DateTime.UtcNow;
 
-        // If banned, deny everything
         var isBanned = await _db.ModerationActions
             .Where(m => m.ChannelId == channelId
                      && m.TargetUserId == userId
@@ -58,7 +55,6 @@ public sealed class PermissionService : IPermissionService
         if (isBanned)
             return DeniedSentinel;
 
-        // If not a member, deny everything
         var membership = await _db.Memberships
             .AsNoTracking()
             .FirstOrDefaultAsync(m => m.ChannelId == channelId && m.UserId == userId, ct);
@@ -66,7 +62,14 @@ public sealed class PermissionService : IPermissionService
         if (membership is null)
             return DeniedSentinel;
 
-        // Aggregate flags from all assigned roles
+        var channel = await _db.Channels
+            .AsNoTracking()
+            .Where(c => c.Id == channelId)
+            .Select(c => new { c.DefaultPermissions })
+            .FirstOrDefaultAsync(ct);
+
+        var defaultPerms = channel?.DefaultPermissions ?? ChannelPermission.None;
+
         var rolePerms = await _db.MemberRoles
             .AsNoTracking()
             .Where(mr => mr.MembershipId == membership.Id)
@@ -76,9 +79,8 @@ public sealed class PermissionService : IPermissionService
                 (mr, cr) => cr.Permissions)
             .ToListAsync(ct);
 
-        var aggregated = rolePerms.Aggregate(ChannelPermission.None, (acc, p) => acc | p);
+        var aggregated = rolePerms.Aggregate(defaultPerms, (acc, p) => acc | p);
 
-        // If muted, strip write-class bits
         var isMuted = await _db.ModerationActions
             .Where(m => m.ChannelId == channelId
                      && m.TargetUserId == userId

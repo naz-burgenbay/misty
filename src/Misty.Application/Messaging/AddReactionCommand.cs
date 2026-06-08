@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -52,7 +52,6 @@ public sealed class AddReactionCommandHandler : IRequestHandler<AddReactionComma
         if (message.IsDeleted)
             throw new ValidationException("Cannot react to a deleted message.");
 
-        // Idempotent add: existing reaction is a no-op (no outbox event, no error).
         var existing = await _reactions.GetAsync(request.MessageId, request.UserId, request.EmojiCode, ct);
         if (existing is not null)
             return;
@@ -61,14 +60,13 @@ public sealed class AddReactionCommandHandler : IRequestHandler<AddReactionComma
 
         _outbox.Queue(
             MessageEventTopics.Message,
-            MessageEventTypes.ReactionChanged,
+            MessageEventTypes.ReactionAdded,
             reaction.MessageId,
-            new ReactionChangedPayload(
+            new ReactionAddedPayload(
                 reaction.MessageId,
                 message.ChannelId,
                 reaction.UserId,
                 reaction.EmojiCode,
-                "added",
                 DateTime.UtcNow));
 
         await _reactions.AddAsync(reaction, ct);

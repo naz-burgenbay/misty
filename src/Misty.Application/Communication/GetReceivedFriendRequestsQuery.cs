@@ -1,9 +1,18 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Users;
 
 namespace Misty.Application.Communication;
 
 public record GetReceivedFriendRequestsQuery(Guid UserId) : IRequest<IReadOnlyList<FriendRequestDto>>;
+
+public sealed class GetReceivedFriendRequestsQueryValidator : AbstractValidator<GetReceivedFriendRequestsQuery>
+{
+    public GetReceivedFriendRequestsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetReceivedFriendRequestsQueryHandler
     : IRequestHandler<GetReceivedFriendRequestsQuery, IReadOnlyList<FriendRequestDto>>
@@ -43,7 +52,8 @@ public sealed class GetReceivedFriendRequestsQueryHandler
                     s.AvatarUrl,
                     r.Status.ToString(),
                     r.CreatedAt,
-                    r.RespondedAt);
+                    r.RespondedAt,
+                    Convert.ToBase64String(r.Version));
             })
             .ToList();
     }

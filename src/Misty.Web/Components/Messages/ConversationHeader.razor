@@ -1,4 +1,4 @@
-@code {
+﻿@code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public RenderFragment? TitleIcon { get; set; }
@@ -6,6 +6,7 @@
     [Parameter] public EventCallback OnToggleMembers { get; set; }
     [Parameter] public EventCallback OnOpenSettings { get; set; }
     [Parameter] public bool ShowChannelActions { get; set; } = true;
+    [Parameter] public EventCallback OnOpenDmInfo { get; set; }
 }
 
 <header class="header">
@@ -35,6 +36,9 @@
             <IconButton Title="Members" OnClick="OnToggleMembers"><Blazicon Svg="Lucide.Users" /></IconButton>
             <IconButton Title="Channel settings" OnClick="OnOpenSettings"><Blazicon Svg="Lucide.Settings" /></IconButton>
         }
-        <IconButton Title="More"><Blazicon Svg="Lucide.Ellipsis" /></IconButton>
+        else
+        {
+            <IconButton Title="Info" OnClick="OnOpenDmInfo"><Blazicon Svg="Lucide.Info" /></IconButton>
+        }
     </div>
 </header>

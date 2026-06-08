@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Domain.Communication;
 
@@ -28,7 +28,6 @@ public sealed class CreateConversationHandler : IRequestHandler<CreateConversati
     public async Task<CreateConversationResponse> Handle(
         CreateConversationCommand request, CancellationToken cancellationToken)
     {
-        // Canonicalise ordering so (A,B) and (B,A) hit the same DB row
         var (a, b) = request.RequestingUserId.CompareTo(request.OtherUserId) < 0
             ? (request.RequestingUserId, request.OtherUserId)
             : (request.OtherUserId, request.RequestingUserId);
@@ -43,24 +42,33 @@ public sealed class CreateConversationHandler : IRequestHandler<CreateConversati
     }
 }
 
-public record GetConversationsQuery(Guid UserId) : IRequest<List<ConversationDto>>;
+public record GetConversationsQuery(Guid UserId) : IRequest<IReadOnlyList<ConversationDto>>;
 
-public record ConversationDto(Guid ConversationId, Guid OtherUserId);
+public record ConversationDto(Guid ConversationId, Guid OtherUserId, string Version);
 
-public sealed class GetConversationsHandler : IRequestHandler<GetConversationsQuery, List<ConversationDto>>
+public sealed class GetConversationsQueryValidator : AbstractValidator<GetConversationsQuery>
+{
+    public GetConversationsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
+
+public sealed class GetConversationsHandler : IRequestHandler<GetConversationsQuery, IReadOnlyList<ConversationDto>>
 {
     private readonly IConversationRepository _repo;
 
     public GetConversationsHandler(IConversationRepository repo) => _repo = repo;
 
-    public async Task<List<ConversationDto>> Handle(
+    public async Task<IReadOnlyList<ConversationDto>> Handle(
         GetConversationsQuery request, CancellationToken cancellationToken)
     {
         var conversations = await _repo.GetForUserAsync(request.UserId, cancellationToken);
         return conversations
             .Select(c => new ConversationDto(
                 c.Id,
-                c.UserAId == request.UserId ? c.UserBId : c.UserAId))
+                c.UserAId == request.UserId ? c.UserBId : c.UserAId,
+                Convert.ToBase64String(c.Version)))
             .ToList();
     }
 }

@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 namespace Misty.Application.Communication;
 
@@ -23,8 +24,13 @@ public record CreateChannelResponse(
 public sealed class CreateChannelCommandHandler : IRequestHandler<CreateChannelCommand, CreateChannelResponse>
 {
     private readonly IChannelRepository _channels;
+    private readonly IOutboxWriter _outbox;
 
-    public CreateChannelCommandHandler(IChannelRepository channels) => _channels = channels;
+    public CreateChannelCommandHandler(IChannelRepository channels, IOutboxWriter outbox)
+    {
+        _channels = channels;
+        _outbox = outbox;
+    }
 
     public async Task<CreateChannelResponse> Handle(CreateChannelCommand request, CancellationToken ct)
     {
@@ -40,6 +46,17 @@ public sealed class CreateChannelCommandHandler : IRequestHandler<CreateChannelC
         var creatorMembership = Membership.Create(Guid.NewGuid(), channel.Id, request.UserId);
         channel.IncrementMemberCount();
         var ownerMemberRole = MemberRole.Create(creatorMembership.Id, ownerRole.Id);
+
+        _outbox.Queue(
+            ChannelEventTopics.Channel,
+            ChannelEventTypes.ChannelCreated,
+            channel.Id,
+            new ChannelCreatedPayload(
+                channel.Id,
+                request.UserId,
+                channel.Name,
+                channel.IsPrivate,
+                DateTime.UtcNow));
 
         await _channels.CreateWithOwnerAsync(channel, ownerRole, creatorMembership, ownerMemberRole, ct);
 

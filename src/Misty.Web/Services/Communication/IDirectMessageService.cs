@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Auth;
@@ -77,7 +77,6 @@ public sealed class HttpDirectMessageService : IDirectMessageService
         if (otherUserId == me)
             throw new InvalidOperationException("Cannot start a conversation with yourself.");
 
-        // Canonical ordering: the smaller GUID goes first. The server applies the same rule, so this keeps the client and server agreed on the deduplication key and avoids accidentally creating two conversations for the same pair when the two users initiate from opposite sides.
         var (_, _) = me.CompareTo(otherUserId) < 0 ? (me, otherUserId) : (otherUserId, me);
 
         using var resp = await _http.PostAsJsonAsync("api/v1/conversations",
@@ -88,7 +87,6 @@ public sealed class HttpDirectMessageService : IDirectMessageService
 
         var dto = new DirectConversationDto(created.ConversationId, otherUserId);
 
-        // Optimistically prepend; the next refresh reconciles.
         var next = new List<DirectConversationDto>(MyConversations.Value.Count + 1) { dto };
         next.AddRange(MyConversations.Value.Where(c => c.Id != dto.Id));
         MyConversations.Set(next);

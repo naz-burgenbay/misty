@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Auth;
 using Misty.Web.Services.Common;
@@ -6,7 +6,6 @@ using Misty.Web.Services.Realtime;
 
 namespace Misty.Web.Services.Presence;
 
-// Presence is eventually consistent. Watch(userId) returns Online/Offline immediately if cached, otherwise Unknown: and queues a debounced bulk fetch so the next render pulls the real state. Live updates arrive via the SignalR PresenceChanged event, which is broadcast to every authenticated connection.
 public sealed class HttpPresenceService : IPresenceService, IDisposable
 {
     private readonly HttpClient _http;
@@ -75,7 +74,6 @@ public sealed class HttpPresenceService : IPresenceService, IDisposable
         {
             if (!_byUser.TryGetValue(evt.UserId, out obs))
             {
-                // Nobody's watching yet; seed the cache so a later Watch call sees the right state without a fetch round-trip.
                 obs = new Observable<PresenceState>(evt.IsOnline ? PresenceState.Online : PresenceState.Offline);
                 _byUser[evt.UserId] = obs;
                 return;

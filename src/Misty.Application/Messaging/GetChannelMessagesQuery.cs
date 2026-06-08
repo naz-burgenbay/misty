@@ -1,3 +1,4 @@
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -11,6 +12,15 @@ public record GetChannelMessagesQuery(
     int PageSize,
     string? Cursor)
     : IRequest<GetChannelMessagesResponse>;
+
+public sealed class GetChannelMessagesQueryValidator : AbstractValidator<GetChannelMessagesQuery>
+{
+    public GetChannelMessagesQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public record GetChannelMessagesResponse(
     List<MessageDto> Messages,
@@ -26,7 +36,8 @@ public record MessageDto(
     DateTime? EditedAt,
     bool IsDeleted,
     IReadOnlyList<ReactionSummaryDto> Reactions,
-    IReadOnlyList<AttachmentDto> Attachments);
+    IReadOnlyList<AttachmentDto> Attachments,
+    string Version);
 
 public record AttachmentDto(
     Guid Id,
@@ -102,7 +113,6 @@ public sealed class GetChannelMessagesQueryHandler
             ParentPreviewDto? preview = null;
             if (m.ParentMessageId is { } pid && parents is not null && parents.TryGetValue(pid, out var parent))
             {
-                // For tombstones, Content is already empty and IsDeleted is true. The preview reflects that directly.
                 preview = new ParentPreviewDto(parent.Id, parent.AuthorId, parent.Content, parent.IsDeleted);
             }
 
@@ -126,7 +136,8 @@ public sealed class GetChannelMessagesQueryHandler
                 m.EditedAt,
                 m.IsDeleted,
                 reactions,
-                attachments);
+                attachments,
+                Convert.ToBase64String(m.Version));
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);

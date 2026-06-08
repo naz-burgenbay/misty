@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -9,20 +10,30 @@ public record JoinChannelCommand(Guid UserId, Guid ChannelId, string? InviteCode
 
 public record JoinChannelResponse(Guid MembershipId, Guid ChannelId, DateTime JoinedAt);
 
+public sealed class JoinChannelCommandValidator : AbstractValidator<JoinChannelCommand>
+{
+    public JoinChannelCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.InviteCode).MaximumLength(50).When(x => x.InviteCode is not null);
+    }
+}
+
 public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelCommand, JoinChannelResponse>
 {
     private readonly IChannelRepository _channels;
     private readonly IMembershipRepository _memberships;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public JoinChannelCommandHandler(
         IChannelRepository channels,
         IMembershipRepository memberships,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _memberships = memberships;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<JoinChannelResponse> Handle(JoinChannelCommand request, CancellationToken ct)
@@ -43,7 +54,9 @@ public sealed class JoinChannelCommandHandler : IRequestHandler<JoinChannelComma
 
         var membership = Membership.Create(Guid.NewGuid(), request.ChannelId, request.UserId);
         await _memberships.AddAsync(membership, channel, ct);
-        await _events.PublishMembershipChangedAsync(request.UserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipJoined, request.ChannelId,
+            new MembershipJoinedPayload(membership.Id, request.ChannelId, request.UserId, DateTime.UtcNow), ct);
 
         return new JoinChannelResponse(membership.Id, membership.ChannelId, membership.JoinedAt);
     }

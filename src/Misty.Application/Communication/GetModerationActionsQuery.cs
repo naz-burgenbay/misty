@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Domain.Communication;
 
@@ -6,12 +7,22 @@ namespace Misty.Application.Communication;
 public record GetModerationActionsQuery(Guid ChannelId, Guid TargetUserId)
     : IRequest<List<ModerationActionDto>>;
 
+public sealed class GetModerationActionsQueryValidator : AbstractValidator<GetModerationActionsQuery>
+{
+    public GetModerationActionsQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.TargetUserId).NotEmpty();
+    }
+}
+
 public record ModerationActionDto(
     Guid ActionId,
     ModerationActionType Type,
     Guid IssuedByUserId,
     string Reason,
-    DateTime? ExpiresAt);
+    DateTime? ExpiresAt,
+    string Version);
 
 public sealed class GetModerationActionsQueryHandler
     : IRequestHandler<GetModerationActionsQuery, List<ModerationActionDto>>
@@ -28,7 +39,7 @@ public sealed class GetModerationActionsQueryHandler
             request.ChannelId, request.TargetUserId, ct);
 
         return actions
-            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.Reason, a.ExpiresAt))
+            .Select(a => new ModerationActionDto(a.Id, a.Type, a.IssuedByUserId, a.Reason, a.ExpiresAt, Convert.ToBase64String(a.Version)))
             .ToList();
     }
 }

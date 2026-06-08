@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -28,7 +28,9 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .IsUnique()
             .HasDatabaseName("UX_Message_Author_IdempotencyKey");
 
-        // Self-reference for thread replies
+        builder.Property(m => m.Version)
+            .IsRowVersion();
+
         builder.HasOne<Message>()
             .WithMany()
             .HasForeignKey(m => m.ParentMessageId)

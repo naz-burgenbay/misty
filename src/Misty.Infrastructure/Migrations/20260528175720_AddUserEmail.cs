@@ -4,10 +4,8 @@
 
 namespace Misty.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class AddUserEmail : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
@@ -19,7 +17,6 @@ namespace Misty.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: "");
 
-            // Backfill existing rows with a deterministic, unique placeholder so the unique index below can be created. Real users will overwrite this on first profile edit.
             migrationBuilder.Sql(
                 "UPDATE [users].[User] SET [Email] = CONCAT(N'legacy+', LOWER([Username]), N'@local.invalid') WHERE [Email] = N'';");
 
@@ -31,7 +28,6 @@ namespace Misty.Infrastructure.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(

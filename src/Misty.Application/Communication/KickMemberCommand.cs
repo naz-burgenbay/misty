@@ -21,20 +21,20 @@ public sealed class KickMemberCommandHandler : IRequestHandler<KickMemberCommand
     private readonly IMembershipRepository _memberships;
     private readonly IModerationRepository _moderation;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public KickMemberCommandHandler(
         IChannelRepository channels,
         IMembershipRepository memberships,
         IModerationRepository moderation,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _memberships = memberships;
         _moderation = moderation;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<KickMemberResponse> Handle(KickMemberCommand request, CancellationToken ct)
@@ -56,7 +56,7 @@ public sealed class KickMemberCommandHandler : IRequestHandler<KickMemberCommand
         var membership = await _memberships.GetAsync(request.ChannelId, request.TargetUserId, ct)
             ?? throw new NotFoundException("Target user is not a member of this channel.");
 
-        await _memberships.SoftRemoveAsync(membership, channel, ct);
+        await _memberships.RemoveAsync(membership, channel, ct);
 
         var action = ModerationAction.Create(
             Guid.NewGuid(),
@@ -68,7 +68,17 @@ public sealed class KickMemberCommandHandler : IRequestHandler<KickMemberCommand
             expiresAt: null);
 
         await _moderation.AddAsync(action, ct);
-        await _events.PublishMembershipChangedAsync(request.TargetUserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipKicked, request.ChannelId,
+            new MembershipKickedPayload(
+                membership.Id,
+                request.ChannelId,
+                request.TargetUserId,
+                request.IssuedByUserId,
+                action.Id,
+                action.Reason,
+                DateTime.UtcNow),
+            ct);
 
         return new KickMemberResponse(action.Id);
     }

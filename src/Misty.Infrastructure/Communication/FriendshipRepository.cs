@@ -34,7 +34,7 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 && !_db.UserBlocks.Any(b => b.BlockerId == userId && b.BlockedId == otherId)
                 && !_db.UserBlocks.Any(b => b.BlockerId == otherId && b.BlockedId == userId)
             orderby u.DisplayName
-            select new Friend(u.Id, u.Username, u.DisplayName, u.AvatarUrl);
+            select new Friend(u.Id, u.Username, u.DisplayName, u.AvatarUrl, Convert.ToBase64String(f.Version));
 
         return await query.ToListAsync(ct);
     }

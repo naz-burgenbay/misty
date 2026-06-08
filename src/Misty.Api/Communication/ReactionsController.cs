@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +43,6 @@ public sealed class ReactionsController : ControllerBase
         CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        // The emoji code arrives URL-encoded; ASP.NET Core decodes route segments automatically.
         await _mediator.Send(new RemoveReactionCommand(channelId, messageId, userId, emojiCode), ct);
         return NoContent();
     }

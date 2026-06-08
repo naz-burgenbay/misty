@@ -6,7 +6,7 @@ using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record ChannelRoleResponse(Guid RoleId, Guid ChannelId, string Name, long Permissions, bool IsOwnerRole);
+public record ChannelRoleResponse(Guid RoleId, Guid ChannelId, string Name, long Permissions, bool IsOwnerRole, string Version);
 
 public record CreateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, string Name, ChannelPermission Permissions)
     : IRequest<ChannelRoleResponse>;
@@ -16,15 +16,18 @@ public sealed class CreateChannelRoleCommandHandler : IRequestHandler<CreateChan
     private readonly IChannelRepository _channels;
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
+    private readonly IOutboxWriter _outbox;
 
     public CreateChannelRoleCommandHandler(
         IChannelRepository channels,
         IChannelRoleRepository roles,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _roles = roles;
         _permissions = permissions;
+        _outbox = outbox;
     }
 
     public async Task<ChannelRoleResponse> Handle(CreateChannelRoleCommand request, CancellationToken ct)
@@ -39,8 +42,12 @@ public sealed class CreateChannelRoleCommandHandler : IRequestHandler<CreateChan
 
         var role = ChannelRole.Create(Guid.NewGuid(), channel.Id, request.Name, request.Permissions);
         await _roles.AddAsync(role, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleCreated, request.ChannelId,
+            new ChannelRoleCreatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
 
-        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
+        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole, Convert.ToBase64String(role.Version));
     }
 }
 
@@ -52,23 +59,23 @@ public sealed class CreateChannelRoleValidator : AbstractValidator<CreateChannel
     }
 }
 
-public record UpdateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, Guid RoleId, string Name, ChannelPermission Permissions)
+public record UpdateChannelRoleCommand(Guid ChannelId, Guid ActorUserId, Guid RoleId, string Name, ChannelPermission Permissions, string Version)
     : IRequest<ChannelRoleResponse>;
 
 public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChannelRoleCommand, ChannelRoleResponse>
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public UpdateChannelRoleCommandHandler(
         IChannelRoleRepository roles,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _roles = roles;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<ChannelRoleResponse> Handle(UpdateChannelRoleCommand request, CancellationToken ct)
@@ -85,11 +92,22 @@ public sealed class UpdateChannelRoleCommandHandler : IRequestHandler<UpdateChan
         if (role.IsOwnerRole)
             throw new ConflictException("The Owner role cannot be modified.");
 
-        role.Update(request.Name, request.Permissions);
-        await _roles.UpdateAsync(role, ct);
-        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
 
-        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole);
+        role.Update(request.Name, request.Permissions);
+        await _roles.UpdateAsync(role, concurrencyToken, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleUpdated, request.ChannelId,
+            new ChannelRoleUpdatedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
+
+        return new ChannelRoleResponse(role.Id, role.ChannelId, role.Name, (long)role.Permissions, role.IsOwnerRole, Convert.ToBase64String(role.Version));
     }
 }
 
@@ -98,6 +116,7 @@ public sealed class UpdateChannelRoleValidator : AbstractValidator<UpdateChannel
     public UpdateChannelRoleValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Version).NotEmpty();
     }
 }
 
@@ -107,16 +126,16 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
 {
     private readonly IChannelRoleRepository _roles;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public DeleteChannelRoleCommandHandler(
         IChannelRoleRepository roles,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _roles = roles;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(DeleteChannelRoleCommand request, CancellationToken ct)
@@ -134,13 +153,24 @@ public sealed class DeleteChannelRoleCommandHandler : IRequestHandler<DeleteChan
             throw new ConflictException("The Owner role cannot be deleted.");
 
         await _roles.DeleteAsync(role, ct);
-        await _events.PublishRoleChangedAsync(userId: null, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.ChannelRoleDeleted, request.ChannelId,
+            new ChannelRoleDeletedPayload(request.ChannelId, role.Id, request.ActorUserId, DateTime.UtcNow),
+            ct);
     }
 }
 
-public record GetChannelRolesQuery(Guid ChannelId) : IRequest<List<ChannelRoleResponse>>;
+public record GetChannelRolesQuery(Guid ChannelId) : IRequest<IReadOnlyList<ChannelRoleResponse>>;
 
-public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRolesQuery, List<ChannelRoleResponse>>
+public sealed class GetChannelRolesQueryValidator : AbstractValidator<GetChannelRolesQuery>
+{
+    public GetChannelRolesQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
+
+public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRolesQuery, IReadOnlyList<ChannelRoleResponse>>
 {
     private readonly IChannelRepository _channels;
     private readonly IChannelRoleRepository _roles;
@@ -151,13 +181,13 @@ public sealed class GetChannelRolesQueryHandler : IRequestHandler<GetChannelRole
         _roles = roles;
     }
 
-    public async Task<List<ChannelRoleResponse>> Handle(GetChannelRolesQuery request, CancellationToken ct)
+    public async Task<IReadOnlyList<ChannelRoleResponse>> Handle(GetChannelRolesQuery request, CancellationToken ct)
     {
         var channel = await _channels.GetByIdAsync(request.ChannelId, ct)
             ?? throw new NotFoundException($"Channel '{request.ChannelId}' was not found.");
 
         var roles = await _roles.GetByChannelIdAsync(channel.Id, ct);
-        return roles.Select(r => new ChannelRoleResponse(r.Id, r.ChannelId, r.Name, (long)r.Permissions, r.IsOwnerRole))
+        return roles.Select(r => new ChannelRoleResponse(r.Id, r.ChannelId, r.Name, (long)r.Permissions, r.IsOwnerRole, Convert.ToBase64String(r.Version)))
                     .ToList();
     }
 }

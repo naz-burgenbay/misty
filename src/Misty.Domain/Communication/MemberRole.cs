@@ -1,8 +1,8 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class MemberRole
 {
-    private MemberRole() { } // For EF Core
+    private MemberRole() { }
 
     public Guid MembershipId { get; private set; }
     public Guid RoleId { get; private set; }

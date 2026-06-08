@@ -45,10 +45,10 @@ public sealed class FriendsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DeclineRequest(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeclineRequest(Guid id, [FromBody] DeclineFriendRequestRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new DeclineFriendRequestCommand(userId, id), ct);
+        await _mediator.Send(new DeclineFriendRequestCommand(userId, id, body.Version), ct);
         return NoContent();
     }
 
@@ -93,12 +93,14 @@ public sealed class FriendsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> CancelRequest(Guid id, CancellationToken ct)
+    public async Task<IActionResult> CancelRequest(Guid id, [FromBody] CancelFriendRequestRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new CancelFriendRequestCommand(userId, id), ct);
+        await _mediator.Send(new CancelFriendRequestCommand(userId, id, body.Version), ct);
         return NoContent();
     }
 }
 
 public record SendFriendRequestRequest(string Username);
+public record DeclineFriendRequestRequest(string Version);
+public record CancelFriendRequestRequest(string Version);

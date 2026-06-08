@@ -4,14 +4,10 @@
 
 namespace Misty.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class MessageReactionEmojiBinaryCollation : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // EmojiCode is part of the composite primary key, so SQL Server refuses ALTER COLUMN
-            // while the constraint references it. Drop the PK, alter the collation, then recreate.
             migrationBuilder.DropPrimaryKey(
                 name: "PK_MessageReaction",
                 schema: "msg",
@@ -36,7 +32,6 @@ namespace Misty.Infrastructure.Migrations
                 columns: new[] { "MessageId", "UserId", "EmojiCode" });
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropPrimaryKey(

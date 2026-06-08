@@ -1,0 +1,566 @@
+﻿@page "/c/{ChannelId:guid}/settings"
+@implements IDisposable
+@inject NavigationManager Nav
+@inject IChannelService Channels
+@inject IChannelRolesService RoleService
+@inject IChannelMembersService MembersService
+@inject IModerationService Moderation
+@inject IPermissionsCache Permissions
+@inject IToastService Toasts
+@inject IModalService Modals
+@inject IAuthService Auth
+
+<PageTitle>Channel settings | Misty</PageTitle>
+
+@code {
+    [Parameter] public Guid ChannelId { get; set; }
+
+    private enum Section { Main, Roles, Moderation, DangerZone }
+    private Section _section = Section.Main;
+
+    private ChannelSummaryDto? _channel;
+    private ChannelPermissionFlags _myPermissions;
+    private IDisposable? _channelsSub;
+    private IDisposable? _permissionsSub;
+
+    private string _name = string.Empty;
+    private string _description = string.Empty;
+    private string _iconUrl = string.Empty;
+    private string _version = string.Empty;
+    private bool _isPrivate;
+    private bool _isAiEnabled;
+    private bool _saving;
+    private bool _uploadingIcon;
+
+    private IReadOnlyList<ChannelRoleDto> _roles = Array.Empty<ChannelRoleDto>();
+    private bool _loadingRoles;
+    private string _rolesSearch = string.Empty;
+    private bool _createRoleOpen;
+    private ChannelRoleDto? _editingRole;
+
+    private IReadOnlyList<ChannelMemberDto> _moderatedMembers = Array.Empty<ChannelMemberDto>();
+    private bool _loadingModeration;
+    private Guid? _revokeTargetUserId;
+    private Guid? _revokeActionId;
+    private string? _revokeVersion;
+    private string? _revokeActionType;
+    private string? _revokeTargetName;
+    private bool _revokeModalOpen;
+
+    private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
+    private bool CanManageRoles => _myPermissions.HasFlag(ChannelPermissionFlags.ManageRoles);
+    private bool CanModerate => _myPermissions.CanModerate();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _channelsSub?.Dispose();
+        _permissionsSub?.Dispose();
+
+        _channelsSub = Channels.MyChannels.Subscribe(list =>
+        {
+            var ch = list.FirstOrDefault(c => c.Id == ChannelId);
+            if (ch is not null && !_saving)
+            {
+                _channel = ch;
+                _name = ch.Name;
+                _isPrivate = ch.IsPrivate;
+                _isAiEnabled = ch.IsAiAssistantEnabled;
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        _permissionsSub = Permissions.Watch(ChannelId).Subscribe(flags =>
+        {
+            _myPermissions = flags;
+            InvokeAsync(StateHasChanged);
+        });
+
+        var detail = await Channels.GetDetailAsync(ChannelId);
+        if (detail is not null)
+        {
+            _description = detail.Description ?? string.Empty;
+            _iconUrl = detail.IconUrl ?? string.Empty;
+            _version = detail.Version;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await LoadSectionDataAsync();
+    }
+
+    private async Task SwitchSection(Section s)
+    {
+        _section = s;
+        await LoadSectionDataAsync();
+    }
+
+    private async Task LoadSectionDataAsync()
+    {
+        if (_section == Section.Roles)
+            await LoadRolesAsync();
+        else if (_section == Section.Moderation)
+            await LoadModerationAsync();
+    }
+
+    private async Task LoadRolesAsync()
+    {
+        _loadingRoles = true;
+        try
+        {
+            _roles = await RoleService.GetRolesAsync(ChannelId);
+        }
+        catch { }
+        finally
+        {
+            _loadingRoles = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteRoleAsync(ChannelRoleDto role)
+    {
+        try
+        {
+            await RoleService.DeleteAsync(ChannelId, role.Id);
+            await LoadRolesAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Failed to delete role: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task LoadModerationAsync()
+    {
+        _loadingModeration = true;
+        try
+        {
+            var members = await MembersService.GetMembersAsync(ChannelId);
+            _moderatedMembers = members
+                .Where(m => m.ActiveModerationTypes.Any(k => k != ChannelMemberModerationKind.Kick))
+                .ToList();
+        }
+        catch { }
+        finally
+        {
+            _loadingModeration = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveMainAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name) || _saving) return;
+        _saving = true;
+        try
+        {
+            await Channels.UpdateAsync(ChannelId, _name.Trim(), _isPrivate, _isAiEnabled, _description, _version);
+            var detail = await Channels.GetDetailAsync(ChannelId);
+            if (detail is not null) _version = detail.Version;
+            Toasts.Show("Channel updated.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Update failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task OnIconSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || string.IsNullOrEmpty(_version)) return;
+        if (file.Size > 5 * 1024 * 1024) { Toasts.Show("File must be under 5 MB.", ToastKind.Error); return; }
+        _uploadingIcon = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            var ct = string.IsNullOrEmpty(file.ContentType) ? "image/jpeg" : file.ContentType;
+            var newVersion = await Channels.UploadIconAsync(ChannelId, stream, ct, _version);
+            _version = newVersion;
+            var detail = await Channels.GetDetailAsync(ChannelId);
+            if (detail is not null) _iconUrl = detail.IconUrl ?? string.Empty;
+            Toasts.Show("Icon updated.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Upload failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _uploadingIcon = false;
+        }
+    }
+
+    private async Task RemoveIconAsync()
+    {
+        if (string.IsNullOrEmpty(_version)) return;
+        try
+        {
+            var newVersion = await Channels.RemoveIconAsync(ChannelId, _version);
+            _version = newVersion;
+            _iconUrl = string.Empty;
+            Toasts.Show("Icon removed.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Remove icon failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task LeaveAsync()
+    {
+        var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+            Title: "Leave channel",
+            Message: $"Are you sure you want to leave #{_channel?.Name}?",
+            ConfirmLabel: "Leave",
+            IsDestructive: true));
+        if (!ok) return;
+        try
+        {
+            await Channels.LeaveAsync(ChannelId);
+            Toasts.Show("Left channel.", ToastKind.Success);
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Leave failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+            Title: "Delete channel",
+            Message: $"This permanently deletes #{_channel?.Name}. This cannot be undone.",
+            ConfirmLabel: "Delete",
+            IsDestructive: true));
+        if (!ok) return;
+        try
+        {
+            await Channels.DeleteAsync(ChannelId);
+            Toasts.Show("Channel deleted.", ToastKind.Success);
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private void OpenRevoke(Guid userId, string userName, Guid actionId, string version, string actionType)
+    {
+        _revokeTargetUserId = userId;
+        _revokeTargetName = userName;
+        _revokeActionId = actionId;
+        _revokeVersion = version;
+        _revokeActionType = actionType;
+        _revokeModalOpen = true;
+    }
+
+    private async Task OnRevokedAsync()
+    {
+        _revokeModalOpen = false;
+        await LoadModerationAsync();
+    }
+
+    private IEnumerable<ChannelRoleDto> FilteredRoles =>
+        string.IsNullOrWhiteSpace(_rolesSearch)
+            ? _roles
+            : _roles.Where(r => r.Name.Contains(_rolesSearch, StringComparison.OrdinalIgnoreCase));
+
+    public void Dispose()
+    {
+        _channelsSub?.Dispose();
+        _permissionsSub?.Dispose();
+    }
+}
+
+<div class="settings-page">
+    <div class="settings-content">
+        @if (_channel is null)
+        {
+            <div class="loading-hint">Loading…</div>
+        }
+        else if (_section == Section.Main)
+        {
+            <div class="section-head">
+                <h1>Main</h1>
+            </div>
+
+            <section class="card">
+                                <div class="field icon-field">
+                    <span class="lbl">Channel icon</span>
+                    <div class="icon-row">
+                        <Avatar Name="@(_channel.Name)"
+                                ImageUrl="@(string.IsNullOrEmpty(_iconUrl) ? null : _iconUrl)"
+                                Size="Avatar.AvatarSize.Large" />
+                        <div class="icon-actions">
+                            <label class="icon-upload-btn @(!CanManageChannel ? "disabled" : "")">
+                                <Blazicon Svg="Lucide.Upload" />
+                                <span>Upload</span>
+                                <InputFile OnChange="OnIconSelected" accept="image/*" style="display:none" disabled="@(!CanManageChannel)" />
+                            </label>
+                            @if (!string.IsNullOrEmpty(_iconUrl) && CanManageChannel)
+                            {
+                                <button type="button" class="icon-remove-btn" @onclick="RemoveIconAsync" disabled="@_uploadingIcon">
+                                    <Blazicon Svg="Lucide.Trash2" />
+                                    <span>Remove</span>
+                                </button>
+                            }
+                        </div>
+                        @if (_uploadingIcon)
+                        {
+                            <span class="uploading-hint">Uploading…</span>
+                        }
+                    </div>
+                </div>
+                <div class="field">
+                    <span class="lbl">Channel name</span>
+                    <TextField Value="@_name"
+                               ValueChanged="@(v => _name = v ?? string.Empty)"
+                               Disabled="@(!CanManageChannel)" />
+                </div>
+                <div class="field">
+                    <span class="lbl">Description</span>
+                    <textarea class="description-input"
+                              value="@_description"
+                              @oninput="@(e => _description = e.Value?.ToString() ?? string.Empty)"
+                              placeholder="What's this channel about?"
+                              rows="3"
+                              disabled="@(!CanManageChannel)"></textarea>
+                </div>
+                <div class="field">
+                    <span class="lbl">Privacy</span>
+                    <SegmentedControl Options="@(new[] { "Public", "Private" })"
+                                      Value="@(_isPrivate ? "Private" : "Public")"
+                                      ValueChanged="@(v => _isPrivate = v == "Private")" />
+                </div>
+                <div class="field">
+                    <span class="lbl">AI assistant</span>
+                    <SegmentedControl Options="@(new[] { "Off", "On" })"
+                                      Value="@(_isAiEnabled ? "On" : "Off")"
+                                      ValueChanged="@(v => _isAiEnabled = v == "On")" />
+                </div>
+                @if (CanManageChannel)
+                {
+                    <div class="actions">
+                        <Button Variant="Button.ButtonVariant.Ghost"
+                                OnClick="@(() => { _name = _channel.Name; _isPrivate = _channel.IsPrivate; _isAiEnabled = _channel.IsAiAssistantEnabled; })"
+                                Disabled="@_saving">Cancel</Button>
+                        <Button Variant="Button.ButtonVariant.Primary"
+                                Disabled="@(_saving || string.IsNullOrWhiteSpace(_name))"
+                                OnClick="SaveMainAsync">
+                            @(_saving ? "Saving…" : "Save changes")
+                        </Button>
+                    </div>
+                }
+            </section>
+        }
+        else if (_section == Section.Roles)
+        {
+            <div class="section-head">
+                <h1>Roles</h1>
+                <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => _createRoleOpen = true)">
+                    New role
+                </Button>
+            </div>
+
+            <section class="card">
+                <div class="search-row">
+                    <TextField Value="@_rolesSearch"
+                               ValueChanged="@(v => _rolesSearch = v ?? string.Empty)"
+                               Placeholder="Search roles" />
+                </div>
+                @if (_loadingRoles)
+                {
+                    <div class="hint">Loading…</div>
+                }
+                else if (!FilteredRoles.Any())
+                {
+                    <div class="hint">No roles found.</div>
+                }
+                else
+                {
+                    <ul class="roles-list">
+                        @foreach (var role in FilteredRoles)
+                        {
+                            <li class="role-item">
+                                <span class="role-name">
+                                    @role.Name
+                                    @if (role.IsOwnerRole)
+                                    {
+                                        <span class="role-badge">Owner</span>
+                                    }
+                                </span>
+                                @if (!role.IsOwnerRole)
+                                {
+                                    <div class="role-actions">
+                                        <IconButton Title="Edit role" OnClick="@(() => _editingRole = role)">
+                                            <Blazicon Svg="Lucide.Pencil" />
+                                        </IconButton>
+                                        <IconButton Title="Delete role" OnClick="@(() => DeleteRoleAsync(role))">
+                                            <Blazicon Svg="Lucide.Trash2" />
+                                        </IconButton>
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+        else if (_section == Section.Moderation)
+        {
+            <div class="section-head">
+                <h1>Moderation</h1>
+            </div>
+
+            <section class="card">
+                @if (_loadingModeration)
+                {
+                    <div class="hint">Loading…</div>
+                }
+                else if (!_moderatedMembers.Any())
+                {
+                    <div class="hint">No active moderation actions.</div>
+                }
+                else
+                {
+                    <ul class="mod-list">
+                        @foreach (var member in _moderatedMembers)
+                        {
+                            <li class="mod-item">
+                                <Avatar Name="@member.DisplayName" ImageUrl="@member.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                <div class="mod-info">
+                                    <span class="mod-name">@member.DisplayName</span>
+                                    <span class="mod-kinds">
+                                        @foreach (var kind in member.ActiveModerationTypes.Where(k => k != ChannelMemberModerationKind.Kick))
+                                        {
+                                            <span class="mod-badge">@kind.ToString()</span>
+                                        }
+                                    </span>
+                                </div>
+                                <div class="mod-actions">
+                                    @foreach (var kind in member.ActiveModerationTypes.Where(k => k != ChannelMemberModerationKind.Kick))
+                                    {
+                                        var m = member;
+                                        var k = kind;
+                                        <Button Variant="Button.ButtonVariant.Ghost"
+                                                OnClick="@(async () => {
+                                                    var actions = await Moderation.GetActiveAsync(ChannelId, m.UserId);
+                                                    var match = actions.FirstOrDefault(a => (int)a.Type == (int)k);
+                                                    if (match is not null)
+                                                        OpenRevoke(m.UserId, m.DisplayName, match.ActionId, match.Version, k.ToString());
+                                                })">
+                                            Revoke @k.ToString().ToLower()
+                                        </Button>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+        else if (_section == Section.DangerZone)
+        {
+            <div class="section-head">
+                <h1>Danger zone</h1>
+            </div>
+
+            <section class="card danger-card">
+                <div class="danger-row">
+                    <div class="danger-text">
+                        <strong>Leave channel</strong>
+                        <span>You will lose access and need a new invite to rejoin.</span>
+                    </div>
+                    <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
+                </div>
+                @if (CanManageChannel)
+                {
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Delete channel</strong>
+                            <span>Permanently deletes #@_channel.Name and all its messages. This cannot be undone.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Danger" OnClick="DeleteAsync">Delete channel</Button>
+                    </div>
+                }
+            </section>
+        }
+    </div>
+
+    <nav class="settings-nav">
+        <button type="button" class="nav-back" @onclick="@(() => Nav.NavigateTo($"/c/{ChannelId}"))">
+            <Blazicon Svg="Lucide.ChevronLeft" />
+            Back to channel
+        </button>
+        <div class="nav-title">Channel settings</div>
+        <ul class="nav-list">
+            <li>
+                <button type="button" class="nav-item @(_section == Section.Main ? "active" : "")"
+                        @onclick="@(() => SwitchSection(Section.Main))">
+                    Main
+                </button>
+            </li>
+            @if (CanManageRoles)
+            {
+                <li>
+                    <button type="button" class="nav-item @(_section == Section.Roles ? "active" : "")"
+                            @onclick="@(() => SwitchSection(Section.Roles))">
+                        Roles
+                    </button>
+                </li>
+            }
+            @if (CanModerate)
+            {
+                <li>
+                    <button type="button" class="nav-item @(_section == Section.Moderation ? "active" : "")"
+                            @onclick="@(() => SwitchSection(Section.Moderation))">
+                        Moderation
+                    </button>
+                </li>
+            }
+            <li class="nav-sep" role="separator"></li>
+            <li>
+                <button type="button" class="nav-item danger @(_section == Section.DangerZone ? "active" : "")"
+                        @onclick="@(() => SwitchSection(Section.DangerZone))">
+                    Danger zone
+                </button>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<CreateRoleModal Open="_createRoleOpen"
+                 OpenChanged="EventCallback.Factory.Create<bool>(this, v => _createRoleOpen = v)"
+                 ChannelId="ChannelId"
+                 OnRoleCreated="LoadRolesAsync" />
+
+@if (_editingRole is not null)
+{
+    <EditRoleModal Open="true"
+                   OpenChanged="EventCallback.Factory.Create<bool>(this, v => { if (!v) _editingRole = null; })"
+                   ChannelId="ChannelId"
+                   Role="_editingRole"
+                   OnRoleUpdated="LoadRolesAsync" />
+}
+
+@if (_revokeModalOpen && _revokeTargetUserId is not null && _revokeActionId is not null)
+{
+    <RevokeModerationModal Open="true"
+                           OpenChanged="EventCallback.Factory.Create<bool>(this, v => { if (!v) _revokeModalOpen = false; })"
+                           ChannelId="ChannelId"
+                           TargetUserId="@_revokeTargetUserId.Value"
+                           ActionId="@_revokeActionId.Value"
+                           Version="@(_revokeVersion ?? "")"
+                           ActionType="@(_revokeActionType ?? "")"
+                           TargetUserName="@(_revokeTargetName ?? "")"
+                           OnRevoked="OnRevokedAsync" />
+}

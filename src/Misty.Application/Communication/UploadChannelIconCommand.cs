@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -5,10 +6,21 @@ using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
-public record UploadChannelIconCommand(Guid ChannelId, Guid UserId, Stream Content, string ContentType)
+public record UploadChannelIconCommand(Guid ChannelId, Guid UserId, Stream Content, string ContentType, string Version)
     : IRequest<UploadChannelIconResponse>;
 
 public record UploadChannelIconResponse(string IconUrl, string Version);
+
+public sealed class UploadChannelIconCommandValidator : AbstractValidator<UploadChannelIconCommand>
+{
+    public UploadChannelIconCommandValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ContentType).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Version).NotEmpty();
+    }
+}
 
 public sealed class UploadChannelIconCommandHandler : IRequestHandler<UploadChannelIconCommand, UploadChannelIconResponse>
 {
@@ -40,8 +52,9 @@ public sealed class UploadChannelIconCommandHandler : IRequestHandler<UploadChan
         var channel = await _channels.GetByIdAsync(request.ChannelId, ct)
             ?? throw new NotFoundException("Channel not found.");
 
+        var concurrencyToken = Convert.FromBase64String(request.Version);
         var url = await _icons.UploadAsync(request.ChannelId, request.Content, request.ContentType, ct);
-        await _channels.UpdateIconUrlAsync(channel, url, ct);
+        await _channels.UpdateIconUrlAsync(channel, url, concurrencyToken, ct);
 
         return new UploadChannelIconResponse(url, Convert.ToBase64String(channel.Version));
     }

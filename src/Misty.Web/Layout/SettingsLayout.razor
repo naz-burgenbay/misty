@@ -1,0 +1,42 @@
+@inherits LayoutComponentBase
+@inject IAuthService Auth
+@inject NavigationManager Nav
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.AuthStateChanged += OnAuthChanged;
+        if (!Auth.IsAuthenticated)
+            RedirectToLogin();
+    }
+
+    private void OnAuthChanged()
+    {
+        if (!Auth.IsAuthenticated)
+            RedirectToLogin();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RedirectToLogin()
+    {
+        var returnUrl = Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri));
+        Nav.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: false, replace: true);
+    }
+
+    public void Dispose() => Auth.AuthStateChanged -= OnAuthChanged;
+}
+
+@if (Auth.IsAuthenticated)
+{
+    <div class="shell">
+        <IconRail />
+        <main class="content">
+            @Body
+        </main>
+        <ConversationSidebar />
+    </div>
+
+    <ToastHost />
+    <ModalHost />
+}

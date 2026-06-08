@@ -1,4 +1,4 @@
-@inject NavigationManager Nav
+﻿@inject NavigationManager Nav
 @inject IChannelService Channels
 @inject IDirectMessageService DirectMessages
 @inject IUserDirectory Users
@@ -55,26 +55,89 @@
 
 @if (_createOpen)
 {
-    <Modal Open="true" Title="Create a channel" OnClose="@CloseCreate">
+    <Modal Open="true" Title="Create a channel" OnClose="CloseCreate">
         <ChildContent>
-            <div class="create-form">
+            <div class="create-form profile-style">
+                <div class="profile-head">
+                    <div class="icon-placeholder">
+                        <Blazicon Svg="Lucide.Hash" />
+                    </div>
+                    <div class="profile-hint">Your channel will be set up in seconds.</div>
+                </div>
+
                 <div class="field">
-                    <span class="lbl">Name</span>
+                    <span class="lbl">Channel name <span class="required">*</span></span>
                     <TextField Value="@_newName" ValueChanged="@(v => _newName = v ?? string.Empty)"
                                Placeholder="e.g. backend" />
                 </div>
                 <div class="field">
-                    <span class="lbl">Privacy</span>
-                    <SegmentedControl Options="@(new [] { "Public", "Private" })"
-                                      Value="@(_newPrivate ? "Private" : "Public")"
-                                      ValueChanged="@(v => _newPrivate = v == "Private")" />
+                    <span class="lbl">Description</span>
+                    <TextField Value="@_newDescription" ValueChanged="@(v => _newDescription = v ?? string.Empty)"
+                               Placeholder="What's this channel about?" />
                 </div>
+
+                <div class="form-row">
+                    <div class="field">
+                        <span class="lbl">Privacy</span>
+                        <SegmentedControl Options="@(new [] { "Public", "Private" })"
+                                          Value="@(_newPrivate ? "Private" : "Public")"
+                                          ValueChanged="@(v => _newPrivate = v == "Private")" />
+                    </div>
+                    <div class="field">
+                        <span class="lbl">AI assistant</span>
+                        <SegmentedControl Options="@(new [] { "Off", "On" })"
+                                          Value="@(_newAi ? "On" : "Off")"
+                                          ValueChanged="@(v => _newAi = v == "On")" />
+                    </div>
+                </div>
+
                 <div class="field">
-                    <span class="lbl">AI assistant</span>
-                    <SegmentedControl Options="@(new [] { "Off", "On" })"
-                                      Value="@(_newAi ? "On" : "Off")"
-                                      ValueChanged="@(v => _newAi = v == "On")" />
+                    <span class="lbl">Invite friends</span>
+                    <TextField Value="@_inviteQuery"
+                               ValueChanged="OnInviteQueryChanged"
+                               Placeholder="Search by username or display name" />
+                    @if (_inviteSearching)
+                    {
+                        <div class="hint">Searching…</div>
+                    }
+                    else if (_inviteResults.Count > 0)
+                    {
+                        <div class="user-results">
+                            @foreach (var user in _inviteResults)
+                            {
+                                var u = user;
+                                <button type="button" class="user-result @(_invitedUsers.Contains(u.Id) ? "selected" : "")"
+                                        @onclick="@(() => ToggleInvite(u))">
+                                    <Avatar Name="@u.DisplayName" ImageUrl="@u.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                    <span class="user-result-text">
+                                        <span class="display-name">@u.DisplayName</span>
+                                        <span class="username">@@@u.Username</span>
+                                    </span>
+                                    @if (_invitedUsers.Contains(u.Id))
+                                    {
+                                        <Blazicon Svg="Lucide.Check" />
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (_invitedUsers.Count > 0)
+                    {
+                        <div class="invited-chips">
+                            @foreach (var u in _invitedUserDetails)
+                            {
+                                var uid = u.Id;
+                                <span class="chip">
+                                    @u.DisplayName
+                                    <button type="button" @onclick="@(() => _invitedUsers.Remove(uid))" class="chip-remove">
+                                        <Blazicon Svg="Lucide.X" />
+                                    </button>
+                                </span>
+                            }
+                        </div>
+                    }
                 </div>
+
                 @if (!string.IsNullOrEmpty(_createError))
                 {
                     <div class="form-error">@_createError</div>
@@ -85,7 +148,7 @@
             <Button Variant="Button.ButtonVariant.Ghost" OnClick="CloseCreate">Cancel</Button>
             <Button Variant="Button.ButtonVariant.Primary"
                     Disabled="@(_creating || string.IsNullOrWhiteSpace(_newName))"
-                    OnClick="CreateAsync">@(_creating ? "Creating…" : "Create")</Button>
+                    OnClick="CreateAsync">@(_creating ? "Creating…" : "Create channel")</Button>
         </Footer>
     </Modal>
 }
@@ -148,9 +211,17 @@
     private bool _createOpen;
     private bool _creating;
     private string _newName = string.Empty;
+    private string _newDescription = string.Empty;
     private bool _newPrivate;
     private bool _newAi;
     private string? _createError;
+
+    private string _inviteQuery = string.Empty;
+    private bool _inviteSearching;
+    private IReadOnlyList<UserSummaryWithAvatar> _inviteResults = Array.Empty<UserSummaryWithAvatar>();
+    private HashSet<Guid> _invitedUsers = new();
+    private List<UserSummaryWithAvatar> _invitedUserDetails = new();
+    private CancellationTokenSource? _inviteSearchCts;
 
     private bool _newDmOpen;
     private bool _creatingDm;
@@ -195,6 +266,8 @@
         _directsSub?.Dispose();
         _dmSearchCts?.Cancel();
         _dmSearchCts?.Dispose();
+        _inviteSearchCts?.Cancel();
+        _inviteSearchCts?.Dispose();
     }
 
     private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
@@ -204,8 +277,57 @@
         _createOpen = false;
         _createError = null;
         _newName = string.Empty;
+        _newDescription = string.Empty;
         _newPrivate = false;
         _newAi = false;
+        _inviteQuery = string.Empty;
+        _inviteResults = Array.Empty<UserSummaryWithAvatar>();
+        _invitedUsers = new();
+        _invitedUserDetails = new();
+        _inviteSearchCts?.Cancel();
+        _inviteSearchCts = null;
+    }
+
+    private async Task OnInviteQueryChanged(string? value)
+    {
+        _inviteQuery = value ?? string.Empty;
+        _inviteSearchCts?.Cancel();
+        if (string.IsNullOrWhiteSpace(_inviteQuery))
+        {
+            _inviteResults = Array.Empty<UserSummaryWithAvatar>();
+            _inviteSearching = false;
+            return;
+        }
+        var cts = new CancellationTokenSource();
+        _inviteSearchCts = cts;
+        _inviteSearching = true;
+        try
+        {
+            await Task.Delay(200, cts.Token);
+            var results = await Users.SearchAsync(_inviteQuery, take: 10, cts.Token);
+            if (!cts.IsCancellationRequested)
+                _inviteResults = results;
+        }
+        catch (TaskCanceledException) { }
+        finally
+        {
+            if (!cts.IsCancellationRequested)
+                _inviteSearching = false;
+        }
+    }
+
+    private void ToggleInvite(UserSummaryWithAvatar user)
+    {
+        if (_invitedUsers.Contains(user.Id))
+        {
+            _invitedUsers.Remove(user.Id);
+            _invitedUserDetails.RemoveAll(u => u.Id == user.Id);
+        }
+        else
+        {
+            _invitedUsers.Add(user.Id);
+            _invitedUserDetails.Add(user);
+        }
     }
 
     private async Task CreateAsync()
@@ -216,6 +338,10 @@
         try
         {
             var created = await Channels.CreateAsync(_newName.Trim(), _newPrivate, _newAi);
+            foreach (var u in _invitedUserDetails)
+            {
+                try { await Channels.SendInviteAsync(created.Id, u.Username); } catch { }
+            }
             CloseCreate();
             Toasts.Show($"Created #{created.Name}.", ToastKind.Success);
             Nav.NavigateTo($"/c/{created.Id}");
@@ -259,7 +385,7 @@
         _searchingDm = true;
         try
         {
-            await Task.Delay(200, cts.Token); // debounce
+            await Task.Delay(200, cts.Token);
             var results = await Users.SearchAsync(_newDmQuery, take: 10, cts.Token);
             if (cts.IsCancellationRequested) return;
             _dmResults = results;

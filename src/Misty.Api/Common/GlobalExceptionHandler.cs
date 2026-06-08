@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Misty.Application.Common.Exceptions;
@@ -59,7 +59,7 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 break;
 
             default:
-                return false; // Will change in the future
+                return false;
         }
 
         ctx.Response.StatusCode = status;

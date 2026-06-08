@@ -1,0 +1,46 @@
+.inbox-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.inbox-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.inbox-header h1 {
+    margin: 0;
+    font-size: var(--fs-h2);
+    font-weight: var(--fw-semibold);
+}
+
+.count {
+    font-size: var(--fs-body);
+    color: var(--color-text-muted);
+}
+
+.inbox-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--sp-3);
+}
+
+.loading,
+.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-muted);
+}
+
+.inbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}

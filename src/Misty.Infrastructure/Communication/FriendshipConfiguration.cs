@@ -18,6 +18,9 @@ public class FriendshipConfiguration : IEntityTypeConfiguration<Friendship>
         builder.Property(f => f.UserBId).IsRequired();
         builder.Property(f => f.CreatedAt).IsRequired();
 
+        builder.Property(f => f.Version)
+            .IsRowVersion();
+
         builder.HasIndex(f => new { f.UserAId, f.UserBId })
             .IsUnique()
             .HasDatabaseName("UX_Friendship_UserA_UserB");

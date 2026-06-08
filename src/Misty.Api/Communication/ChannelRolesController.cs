@@ -48,7 +48,7 @@ public sealed class ChannelRolesController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         var result = await _mediator.Send(
-            new UpdateChannelRoleCommand(channelId, userId, roleId, request.Name, request.Permissions), ct);
+            new UpdateChannelRoleCommand(channelId, userId, roleId, request.Name, request.Permissions, request.Version), ct);
         return Ok(result);
     }
 
@@ -66,4 +66,4 @@ public sealed class ChannelRolesController : ControllerBase
 }
 
 public record CreateRoleRequest(string Name, ChannelPermission Permissions);
-public record UpdateRoleRequest(string Name, ChannelPermission Permissions);
+public record UpdateRoleRequest(string Name, ChannelPermission Permissions, string Version);

@@ -1,13 +1,12 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Misty.Infrastructure.Communication;
+using Misty.Application.Communication;
 
 namespace Misty.Api.Realtime;
 
-// Consumes membership-events, role-events, and moderation-events on the realtime-broadcast subscription (separate from CacheInvalidationWorker's cache-invalidation subscription) and fans them out to connected SignalR clients so the client-side PermissionsCache can invalidate.
 public sealed class PermissionEventsBroadcastWorker : BackgroundService
 {
     private const string BroadcastSubscription = "realtime-broadcast";
@@ -41,11 +40,11 @@ public sealed class PermissionEventsBroadcastWorker : BackgroundService
         await using var moderationProcessor =
             _client.CreateProcessor("moderation-events", BroadcastSubscription, opts);
 
-        membershipProcessor.ProcessMessageAsync += a => HandleAsync(a, "MembershipChanged");
+        membershipProcessor.ProcessMessageAsync += HandleAsync;
         membershipProcessor.ProcessErrorAsync += OnErrorAsync;
-        roleProcessor.ProcessMessageAsync += a => HandleAsync(a, "RoleChanged");
+        roleProcessor.ProcessMessageAsync += HandleAsync;
         roleProcessor.ProcessErrorAsync += OnErrorAsync;
-        moderationProcessor.ProcessMessageAsync += a => HandleAsync(a, "ModerationActionApplied");
+        moderationProcessor.ProcessMessageAsync += HandleAsync;
         moderationProcessor.ProcessErrorAsync += OnErrorAsync;
 
         await membershipProcessor.StartProcessingAsync(stoppingToken);
@@ -61,55 +60,92 @@ public sealed class PermissionEventsBroadcastWorker : BackgroundService
         }
     }
 
-    private async Task HandleAsync(ProcessMessageEventArgs args, string eventName)
+    private async Task HandleAsync(ProcessMessageEventArgs args)
     {
-        CacheInvalidationPayload? payload;
+        var eventType = args.Message.Subject;
+        BroadcastTarget? target;
+
         try
         {
-            payload = JsonSerializer.Deserialize<CacheInvalidationPayload>(args.Message.Body);
+            target = ExtractBroadcastTarget(eventType, args.Message.Body);
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Malformed {EventName} message; dead-lettering.", eventName);
+            _logger.LogError(ex, "Malformed {EventType} message; dead-lettering.", eventType);
             await args.DeadLetterMessageAsync(args.Message, "MalformedPayload",
                 cancellationToken: args.CancellationToken);
             return;
         }
 
-        if (payload is null)
+        if (target is null)
         {
-            await args.DeadLetterMessageAsync(args.Message, "NullPayload",
-                cancellationToken: args.CancellationToken);
+            _logger.LogWarning("Ignoring unknown permission broadcast event type '{EventType}'", eventType);
+            await args.CompleteMessageAsync(args.Message, args.CancellationToken);
             return;
         }
 
         try
         {
-            // Per-user events (most membership/role/moderation actions) target a single user's tabs/devices via the user:{userId} group set up in MistyHub.OnConnectedAsync.
-            // Channel-wide events (e.g. a role permission edit, UserId == null) fan out to every currently connected member of the channel.
+            var payload = new PermissionInvalidationDto(target.Value.UserId, target.Value.ChannelId);
             if (payload.UserId.HasValue)
             {
                 await _hub.Clients
                     .Group($"user:{payload.UserId}")
-                    .SendAsync(eventName, payload, args.CancellationToken);
+                    .SendAsync(target.Value.ClientEventName, payload, args.CancellationToken);
             }
             else
             {
                 await _hub.Clients
                     .Group($"channel:{payload.ChannelId}")
-                    .SendAsync(eventName, payload, args.CancellationToken);
+                    .SendAsync(target.Value.ClientEventName, payload, args.CancellationToken);
             }
 
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
-            _logger.LogDebug("Broadcast {EventName} for channel {ChannelId} user {UserId}",
-                eventName, payload.ChannelId, payload.UserId);
+            _logger.LogDebug("Broadcast {ClientEventName} (from {EventType}) for channel {ChannelId} user {UserId}",
+                target.Value.ClientEventName, eventType, payload.ChannelId, payload.UserId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to broadcast {EventName}; abandoning.", eventName);
+            _logger.LogError(ex, "Failed to broadcast {EventType}; abandoning.", eventType);
             await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
         }
     }
+
+    private static BroadcastTarget? ExtractBroadcastTarget(string eventType, BinaryData body) => eventType switch
+    {
+        PermissionEventTypes.MembershipJoined =>
+            JsonSerializer.Deserialize<MembershipJoinedPayload>(body) is { } p
+                ? new BroadcastTarget(p.UserId, p.ChannelId, "MembershipChanged") : null,
+        PermissionEventTypes.MembershipLeft =>
+            JsonSerializer.Deserialize<MembershipLeftPayload>(body) is { } p
+                ? new BroadcastTarget(p.UserId, p.ChannelId, "MembershipChanged") : null,
+        PermissionEventTypes.MembershipKicked =>
+            JsonSerializer.Deserialize<MembershipKickedPayload>(body) is { } p
+                ? new BroadcastTarget(p.TargetUserId, p.ChannelId, "MembershipChanged") : null,
+        PermissionEventTypes.MemberRoleAssigned =>
+            JsonSerializer.Deserialize<MemberRoleAssignedPayload>(body) is { } p
+                ? new BroadcastTarget(p.TargetUserId, p.ChannelId, "RoleChanged") : null,
+        PermissionEventTypes.MemberRoleRevoked =>
+            JsonSerializer.Deserialize<MemberRoleRevokedPayload>(body) is { } p
+                ? new BroadcastTarget(p.TargetUserId, p.ChannelId, "RoleChanged") : null,
+        PermissionEventTypes.ChannelRoleUpdated =>
+            JsonSerializer.Deserialize<ChannelRoleUpdatedPayload>(body) is { } p
+                ? new BroadcastTarget(null, p.ChannelId, "RoleChanged") : null,
+        PermissionEventTypes.ChannelRoleDeleted =>
+            JsonSerializer.Deserialize<ChannelRoleDeletedPayload>(body) is { } p
+                ? new BroadcastTarget(null, p.ChannelId, "RoleChanged") : null,
+        PermissionEventTypes.ModerationActionApplied =>
+            JsonSerializer.Deserialize<ModerationActionAppliedPayload>(body) is { } p
+                ? new BroadcastTarget(p.TargetUserId, p.ChannelId, "ModerationActionApplied") : null,
+        PermissionEventTypes.ModerationActionRevoked =>
+            JsonSerializer.Deserialize<ModerationActionRevokedPayload>(body) is { } p
+                ? new BroadcastTarget(p.TargetUserId, p.ChannelId, "ModerationActionApplied") : null,
+        _ => null,
+    };
+
+    private readonly record struct BroadcastTarget(Guid? UserId, Guid ChannelId, string ClientEventName);
+
+    private sealed record PermissionInvalidationDto(Guid? UserId, Guid ChannelId);
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)
     {

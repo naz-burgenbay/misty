@@ -66,7 +66,8 @@ public sealed class ChannelsController : ControllerBase
                 request.Name,
                 request.IsAiAssistantEnabled,
                 request.DefaultPermissions,
-                request.Version),
+                request.Version,
+                request.Description),
             ct);
         return Ok(result);
     }
@@ -118,7 +119,7 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UploadIcon(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadIcon(Guid id, IFormFile file, [FromForm] string version, CancellationToken ct)
     {
         if (file.Length > 5 * 1024 * 1024)
             return BadRequest(new ProblemDetails { Status = 400, Title = "File exceeds 5 MB limit." });
@@ -129,7 +130,7 @@ public sealed class ChannelsController : ControllerBase
 
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         await using var stream = file.OpenReadStream();
-        var result = await _mediator.Send(new UploadChannelIconCommand(id, userId, stream, file.ContentType), ct);
+        var result = await _mediator.Send(new UploadChannelIconCommand(id, userId, stream, file.ContentType, version), ct);
         return Ok(result);
     }
 
@@ -137,10 +138,10 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(RemoveChannelIconResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemoveIcon(Guid id, CancellationToken ct)
+    public async Task<IActionResult> RemoveIcon(Guid id, [FromBody] RemoveChannelIconRequest request, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        var result = await _mediator.Send(new RemoveChannelIconCommand(id, userId), ct);
+        var result = await _mediator.Send(new RemoveChannelIconCommand(id, userId, request.Version), ct);
         return Ok(result);
     }
 
@@ -161,10 +162,10 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> AcceptInvite(Guid id, CancellationToken ct)
+    public async Task<IActionResult> AcceptInvite(Guid id, [FromBody] AcceptChannelInviteRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new AcceptChannelInviteCommand(userId, id), ct);
+        await _mediator.Send(new AcceptChannelInviteCommand(userId, id, body.Version), ct);
         return Ok();
     }
 
@@ -173,15 +174,18 @@ public sealed class ChannelsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DeclineInvite(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeclineInvite(Guid id, [FromBody] DeclineChannelInviteRequest body, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        await _mediator.Send(new DeclineChannelInviteCommand(userId, id), ct);
+        await _mediator.Send(new DeclineChannelInviteCommand(userId, id, body.Version), ct);
         return NoContent();
     }
 }
 
 public record SendChannelInviteRequest(string Username);
+public record AcceptChannelInviteRequest(string Version);
+public record DeclineChannelInviteRequest(string Version);
+public record RemoveChannelIconRequest(string Version);
 
 public record CreateChannelRequest(
     string Name,
@@ -193,7 +197,8 @@ public record UpdateChannelRequest(
     string Name,
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
-    string Version);
+    string Version,
+    string? Description);
 
 public record JoinChannelRequest(string? InviteCode);
 

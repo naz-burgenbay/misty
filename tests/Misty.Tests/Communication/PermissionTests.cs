@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -118,8 +118,6 @@ public sealed class PermissionTests : IAsyncLifetime
 
     private async Task<bool> CheckAsync(Guid userId, Guid channelId, ChannelPermission permission)
     {
-    // Resolves the SQL-backed permission service directly to avoid cache state affecting these tests.
-    // CachedPermissionService behaviour is covered separately.
         using var scope = _factory.Services.CreateScope();
         var svc = scope.ServiceProvider.GetRequiredService<PermissionService>();
         return await svc.CheckPermissionAsync(userId, channelId, permission);
@@ -189,7 +187,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "perm-ch4");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Give the member full read permission via a role
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel | ChannelPermission.ReadHistory);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
@@ -210,7 +207,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "perm-ch5");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Give member read + write
         var roleId = await CreateRoleAsync(ownerToken, channelId,
             ChannelPermission.ViewChannel | ChannelPermission.SendMessages | ChannelPermission.AttachFiles);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
@@ -226,7 +222,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var canAttachAfter = await CheckAsync(memberId, channelId, ChannelPermission.AttachFiles);
         canAttachAfter.Should().BeFalse("a muted user must not attach files");
 
-        // Read-class permissions are not affected by a mute
         var canViewAfter = await CheckAsync(memberId, channelId, ChannelPermission.ViewChannel);
         canViewAfter.Should().BeTrue("a muted user can still view the channel");
     }
@@ -242,7 +237,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Insert an already-expired ban
         await InsertModerationActionAsync(channelId, memberId, ownerId, ModerationActionType.Ban,
             expiresAt: DateTime.UtcNow.AddSeconds(-1));
 
@@ -258,7 +252,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var channelId = await CreateChannelAsync(ownerToken, "perm-ch7");
         await JoinChannelAsync(memberToken, channelId);
 
-        // Role A grants ViewChannel; Role B grants SendMessages
         var roleAId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         var roleBId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.SendMessages);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleAId);
@@ -270,7 +263,6 @@ public sealed class PermissionTests : IAsyncLifetime
         var canSend = await CheckAsync(memberId, channelId, ChannelPermission.SendMessages);
         canSend.Should().BeTrue();
 
-        // ManageChannel was granted by neither role
         var canManage = await CheckAsync(memberId, channelId, ChannelPermission.ManageChannel);
         canManage.Should().BeFalse();
     }
@@ -286,22 +278,18 @@ public sealed class PermissionTests : IAsyncLifetime
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Wait for CacheInvalidationWorker to drain setup-time events (join + role-assign) before warming the cache, to avoid a race where the worker deletes the key we just wrote.
         await Task.Delay(3000);
 
-        // Evict any pre-existing cache entry so we start from a clean miss.
         var mux = _factory.Services.GetRequiredService<IConnectionMultiplexer>();
         var redis = mux.GetDatabase();
         var key = CachedPermissionService.CacheKey(memberId, channelId);
         await redis.KeyDeleteAsync(key);
 
-        // First check via the decorated service. Must hit SQL (cache miss), populate the cache and return true.
         using var scope = _factory.Services.CreateScope();
         var cachedSvc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
         var result = await cachedSvc.CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
         result.Should().BeTrue();
 
-        // Assert the cache key now exists with a value that encodes ViewChannel.
         var cached = await redis.StringGetAsync(key);
         cached.HasValue.Should().BeTrue("the cache must be populated after the first miss");
 

@@ -1,9 +1,8 @@
-using Misty.Application.Presence;
+﻿using Misty.Application.Presence;
 using StackExchange.Redis;
 
 namespace Misty.Infrastructure.Presence;
 
-// Redis-backed presence: each user has a SET keyed presence:user:{userId} containing their live SignalR connection ids. The user is online iff that set is non-empty. A transition is reported only when the set size crosses 0, so duplicate events aren't fanned out for each additional tab the user opens.
 public sealed class RedisPresenceTracker : IPresenceTracker
 {
     private readonly IConnectionMultiplexer _redis;

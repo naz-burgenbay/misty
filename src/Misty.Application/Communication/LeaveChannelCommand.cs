@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -6,20 +7,29 @@ namespace Misty.Application.Communication;
 
 public record LeaveChannelCommand(Guid UserId, Guid ChannelId) : IRequest;
 
+public sealed class LeaveChannelCommandValidator : AbstractValidator<LeaveChannelCommand>
+{
+    public LeaveChannelCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
+
 public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCommand>
 {
     private readonly IChannelRepository _channels;
     private readonly IMembershipRepository _memberships;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public LeaveChannelCommandHandler(
         IChannelRepository channels,
         IMembershipRepository memberships,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _memberships = memberships;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(LeaveChannelCommand request, CancellationToken ct)
@@ -31,6 +41,8 @@ public sealed class LeaveChannelCommandHandler : IRequestHandler<LeaveChannelCom
             ?? throw new NotFoundException("User is not a member of this channel.");
 
         await _memberships.RemoveAsync(membership, channel, ct);
-        await _events.PublishMembershipChangedAsync(request.UserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Membership, PermissionEventTypes.MembershipLeft, request.ChannelId,
+            new MembershipLeftPayload(membership.Id, request.ChannelId, request.UserId, DateTime.UtcNow), ct);
     }
 }

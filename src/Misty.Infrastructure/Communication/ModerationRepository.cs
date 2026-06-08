@@ -1,4 +1,5 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
 using Misty.Domain.Communication;
 using Misty.Infrastructure.Persistence;
@@ -23,12 +24,10 @@ public sealed class ModerationRepository : IModerationRepository
             .AnyAsync(ModerationAction.IsActiveExpr(utcNow), ct);
     }
 
-    public async Task<List<ModerationAction>> GetActiveForUserAsync(
+    public async Task<IReadOnlyList<ModerationAction>> GetActiveForUserAsync(
         Guid channelId, Guid targetUserId, CancellationToken ct = default)
     {
         var utcNow = DateTime.UtcNow;
-        // Kick is a historical event (no expiry, no revocation), not an active  sanction, so we exclude it here
-        // so accumulated kicks don't pollute the active-actions list. Use a dedicated history query for kicks.
         return await _db.ModerationActions
             .AsNoTracking()
             .Where(a => a.ChannelId == channelId
@@ -44,9 +43,16 @@ public sealed class ModerationRepository : IModerationRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateAsync(ModerationAction action, CancellationToken ct = default)
+    public async Task UpdateAsync(ModerationAction action, byte[] concurrencyToken, CancellationToken ct = default)
     {
-        _db.ModerationActions.Update(action);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(action).Property(a => a.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 }

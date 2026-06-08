@@ -56,6 +56,22 @@
 
     private void ClearAttachment() => _pendingAttachment = null;
 
+    private bool _emojiOpen;
+
+    private static readonly string[] CommonEmojis =
+    [
+        "😀","😂","😍","🥰","😎","🤔","😅","🙏",
+        "👍","👎","❤️","🔥","✨","🎉","💯","🤣",
+        "😢","😭","😤","😡","👀","🤝","💪","🙌",
+        "😊","😏","🫡","🤩","😬","😴","🤗","😇",
+    ];
+
+    private void InsertEmoji(string emoji)
+    {
+        _draft += emoji;
+        _emojiOpen = false;
+    }
+
     private static string FormatSize(long bytes) => bytes switch
     {
         < 1024 => $"{bytes} B",
@@ -88,9 +104,9 @@
     <div class="row">
         @if (AttachmentsEnabled)
         {
-            <label class="attach-btn" title="Attach">
+            <label class="attach-btn" title="Attach file">
                 <Blazicon Svg="Lucide.Paperclip" />
-                <InputFile OnChange="OnFileSelected" />
+                <InputFile OnChange="OnFileSelected" style="display:none" />
             </label>
         }
         <textarea class="input"
@@ -100,7 +116,18 @@
                   @bind="_draft"
                   @bind:event="oninput"
                   @onkeydown="OnKeyDown"></textarea>
-        <IconButton Title="Emoji"><Blazicon Svg="Lucide.Smile" /></IconButton>
+        <IconButton Title="Emoji" OnClick="@(() => _emojiOpen = !_emojiOpen)"><Blazicon Svg="Lucide.Smile" /></IconButton>
+        @if (_emojiOpen)
+        {
+            <div class="emoji-backdrop" @onclick="@(() => _emojiOpen = false)"></div>
+            <div class="emoji-picker">
+                @foreach (var emoji in CommonEmojis)
+                {
+                    var e = emoji;
+                    <button type="button" class="emoji-btn" @onclick="@(() => InsertEmoji(e))">@e</button>
+                }
+            </div>
+        }
         <Button Variant="Button.ButtonVariant.Primary" OnClick="Send" Disabled="@(!CanSubmit)">
             <Blazicon Svg="Lucide.Send" />
             <span>Send</span>
@@ -108,11 +135,3 @@
     </div>
 </div>
 
-<style>
-.attach-btn { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px; border-radius: var(--radius-sm); color: var(--color-text-muted); }
-.attach-btn:hover { background: var(--color-surface-raised); color: var(--color-text-primary); }
-.attach-btn ::deep input[type=file] { display: none; }
-.attachment-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; margin-bottom: 6px; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 12px; color: var(--color-text-secondary); width: max-content; max-width: 100%; }
-.attachment-chip .name { font-weight: var(--fw-medium); color: var(--color-text-primary); }
-.attachment-chip .size { color: var(--color-text-muted); }
-</style>

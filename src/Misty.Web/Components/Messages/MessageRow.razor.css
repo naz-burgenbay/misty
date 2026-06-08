@@ -14,22 +14,17 @@
 }
 
 .actions {
-    position: absolute;
-    top: var(--sp-1);
-    right: var(--sp-2);
     display: none;
+    flex-shrink: 0;
     background: var(--color-surface-raised, transparent);
     border-radius: var(--radius-md, 6px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding-top: 4px;
 }
 
 .row:hover .actions,
 .row:focus-within .actions {
     display: flex;
-}
-
-.row.mine .actions {
-    right: auto;
-    left: var(--sp-2);
 }
 
 .avatar-col {
@@ -47,6 +42,16 @@
 
 .row.mine .body {
     align-items: flex-end;
+}
+
+.message-with-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+}
+
+.row.mine .message-with-actions {
+    flex-direction: row-reverse;
 }
 
 .header {

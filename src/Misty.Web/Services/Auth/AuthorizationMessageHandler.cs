@@ -1,9 +1,8 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 
 namespace Misty.Web.Services.Auth;
 
-// Attaches the bearer access token to outgoing requests and, on a 401, refreshes once and retries. The refresh itself is serialized by a SemaphoreSlim inside HttpAuthService, so a 401 storm produces a single network refresh.
 public sealed class AuthorizationMessageHandler : DelegatingHandler
 {
     private readonly IAuthService _auth;
@@ -18,7 +17,6 @@ public sealed class AuthorizationMessageHandler : DelegatingHandler
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
 
-        // One retry after a forced refresh. HttpAuthService.GetAccessTokenAsync(forceRefresh: true) is the single source of refresh serialization.
         if (_auth is HttpAuthService http)
         {
             var refreshed = await http.GetAccessTokenAsync(forceRefresh: true, ct);

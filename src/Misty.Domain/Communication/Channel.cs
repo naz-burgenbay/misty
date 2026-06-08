@@ -1,8 +1,8 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class Channel
 {
-    private Channel() { } // For EF Core
+    private Channel() { }
 
     public Guid Id { get; private set; }
     public string Name { get; private set; } = null!;

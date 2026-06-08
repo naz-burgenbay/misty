@@ -1,8 +1,8 @@
-namespace Misty.Domain.Messaging;
+﻿namespace Misty.Domain.Messaging;
 
 public sealed class MessageReaction
 {
-    private MessageReaction() { } // For EF Core
+    private MessageReaction() { }
 
     public Guid MessageId { get; private set; }
     public Guid UserId { get; private set; }

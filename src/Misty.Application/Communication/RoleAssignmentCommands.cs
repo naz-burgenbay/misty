@@ -12,18 +12,18 @@ public sealed class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand
     private readonly IChannelRoleRepository _roles;
     private readonly IMembershipRepository _memberships;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public AssignRoleCommandHandler(
         IChannelRoleRepository roles,
         IMembershipRepository memberships,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _roles = roles;
         _memberships = memberships;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(AssignRoleCommand request, CancellationToken ct)
@@ -48,7 +48,15 @@ public sealed class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand
             throw new ConflictException("User already has this role.");
 
         await _memberships.AssignRoleAsync(MemberRole.Create(membership.Id, request.RoleId), ct);
-        await _events.PublishRoleChangedAsync(request.TargetUserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.MemberRoleAssigned, request.ChannelId,
+            new MemberRoleAssignedPayload(
+                request.ChannelId,
+                request.TargetUserId,
+                request.RoleId,
+                request.ActorUserId,
+                DateTime.UtcNow),
+            ct);
     }
 }
 
@@ -60,20 +68,20 @@ public sealed class RevokeRoleCommandHandler : IRequestHandler<RevokeRoleCommand
     private readonly IChannelRoleRepository _roles;
     private readonly IMembershipRepository _memberships;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public RevokeRoleCommandHandler(
         IChannelRepository channels,
         IChannelRoleRepository roles,
         IMembershipRepository memberships,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _channels = channels;
         _roles = roles;
         _memberships = memberships;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(RevokeRoleCommand request, CancellationToken ct)
@@ -102,6 +110,14 @@ public sealed class RevokeRoleCommandHandler : IRequestHandler<RevokeRoleCommand
             ?? throw new NotFoundException("User does not have this role.");
 
         await _memberships.RevokeRoleAsync(assignment, ct);
-        await _events.PublishRoleChangedAsync(request.TargetUserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Role, PermissionEventTypes.MemberRoleRevoked, request.ChannelId,
+            new MemberRoleRevokedPayload(
+                request.ChannelId,
+                request.TargetUserId,
+                request.RoleId,
+                request.ActorUserId,
+                DateTime.UtcNow),
+            ct);
     }
 }

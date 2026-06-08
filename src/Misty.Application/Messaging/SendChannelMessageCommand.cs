@@ -23,7 +23,8 @@ public record SendMessageResponse(
     string Content,
     Guid? ParentMessageId,
     bool WasIdempotent,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Version);
 
 public sealed class SendChannelMessageCommandHandler
     : IRequestHandler<SendChannelMessageCommand, SendMessageResponse>
@@ -95,7 +96,7 @@ public sealed class SendChannelMessageCommandHandler
     }
 
     private static SendMessageResponse ToResponse(Message m, bool wasIdempotent)
-        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt);
+        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt, Convert.ToBase64String(m.Version));
 }
 
 public sealed class SendChannelMessageValidator : AbstractValidator<SendChannelMessageCommand>

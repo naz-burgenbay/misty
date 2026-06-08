@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 
@@ -6,17 +6,19 @@ namespace Misty.Web.Services.Users;
 
 public sealed record UserSummary(Guid Id, string DisplayName, string Username, bool IsAi = false);
 
-// Per-session cache of user identity for message rendering. Misses trigger a one-shot fetch and an Updated event so subscribers can re-render once the real name arrives. Failures fall back to a stable placeholder so the UI never shows a partially-loaded user.
 public interface IUserDirectory
 {
     UserSummary Get(Guid id);
     Task EnsureAsync(Guid id, CancellationToken ct = default);
+    Task<UserPublicProfile?> GetProfileAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<UserSummaryWithAvatar>> SearchAsync(string query, int take = 10, CancellationToken ct = default);
     void Seed(UserSummary user);
     event Action<Guid>? Updated;
 }
 
 public sealed record UserSummaryWithAvatar(Guid Id, string DisplayName, string Username, string? AvatarUrl);
+
+public sealed record UserPublicProfile(Guid Id, string DisplayName, string Username, string? Bio, string? AvatarUrl);
 
 public sealed class HttpUserDirectory : IUserDirectory
 {
@@ -39,7 +41,6 @@ public sealed class HttpUserDirectory : IUserDirectory
         {
             if (_cache.TryGetValue(id, out var u)) return u;
         }
-        // Render a placeholder; caller should also schedule an EnsureAsync to populate the cache.
         var shortId = id.ToString("N")[..6];
         return new UserSummary(id, $"User {shortId}", shortId);
     }
@@ -82,6 +83,25 @@ public sealed class HttpUserDirectory : IUserDirectory
     }
 
     private sealed record UserByIdDto(Guid UserId, string Username, string DisplayName, string? Bio, string? AvatarUrl, string Version);
+
+    public async Task<UserPublicProfile?> GetProfileAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.GetAsync($"api/v1/users/{id}", ct);
+            if (resp.StatusCode == HttpStatusCode.NotFound) return null;
+            resp.EnsureSuccessStatusCode();
+            var body = await resp.Content.ReadFromJsonAsync<UserByIdDto>(cancellationToken: ct);
+            if (body is null) return null;
+            Seed(new UserSummary(body.UserId, body.DisplayName, body.Username));
+            return new UserPublicProfile(body.UserId, body.DisplayName, body.Username, body.Bio, body.AvatarUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch profile for user {UserId}.", id);
+            return null;
+        }
+    }
 
     public async Task<IReadOnlyList<UserSummaryWithAvatar>> SearchAsync(string query, int take = 10, CancellationToken ct = default)
     {

@@ -1,13 +1,16 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class Conversation
 {
-    private Conversation() { } // For EF Core
+    private Conversation() { }
 
     public Guid Id { get; private set; }
     public Guid UserAId { get; private set; }
     public Guid UserBId { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
+    public byte[] Version { get; private set; } = null!;
 
     public static Conversation Create(Guid id, Guid userId1, Guid userId2)
     {
@@ -19,5 +22,11 @@ public class Conversation
             UserBId = b,
             CreatedAt = DateTime.UtcNow,
         };
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
     }
 }

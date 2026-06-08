@@ -92,6 +92,7 @@ public sealed class SendChannelInviteCommandHandler : IRequestHandler<SendChanne
             inviter.Id,
             inviter.DisplayName,
             entity.Status.ToString(),
-            entity.CreatedAt);
+            entity.CreatedAt,
+            Convert.ToBase64String(entity.Version));
     }
 }

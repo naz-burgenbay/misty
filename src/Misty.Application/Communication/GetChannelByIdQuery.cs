@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Communication;
@@ -17,6 +18,14 @@ public record GetChannelByIdResponse(
     string? IconUrl,
     string? Description);
 
+public sealed class GetChannelByIdQueryValidator : AbstractValidator<GetChannelByIdQuery>
+{
+    public GetChannelByIdQueryValidator()
+    {
+        RuleFor(x => x.ChannelId).NotEmpty();
+    }
+}
+
 public sealed class GetChannelByIdQueryHandler : IRequestHandler<GetChannelByIdQuery, GetChannelByIdResponse?>
 {
     private readonly IChannelRepository _channels;
@@ -25,7 +34,7 @@ public sealed class GetChannelByIdQueryHandler : IRequestHandler<GetChannelByIdQ
 
     public async Task<GetChannelByIdResponse?> Handle(GetChannelByIdQuery request, CancellationToken ct)
     {
-        var channel = await _channels.GetByIdAsync(request.ChannelId, ct);
+        var channel = await _channels.GetByIdForReadAsync(request.ChannelId, ct);
         if (channel is null) return null;
 
         return new GetChannelByIdResponse(

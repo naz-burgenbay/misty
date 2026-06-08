@@ -1,16 +1,18 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public enum InboxItemType
 {
     FriendRequestReceived,
     FriendRequestAccepted,
     ChannelInviteReceived,
-    FirstDirectMessage,
+    ChannelInviteAccepted,
+    ConversationStarted,
+    FirstDirectMessage = ConversationStarted,
 }
 
 public class InboxItem
 {
-    private InboxItem() { } // For EF Core
+    private InboxItem() { }
 
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }

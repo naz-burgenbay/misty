@@ -1,12 +1,12 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Misty.Application.Communication;
 using StackExchange.Redis;
 
 namespace Misty.Infrastructure.Communication;
 
-// This worker only depends on singleton services. Workers that require DbContext access will create a separate DI scope per message.
 public sealed class CacheInvalidationWorker : BackgroundService
 {
     private const string CacheInvalidationSubscription = "cache-invalidation";
@@ -57,21 +57,21 @@ public sealed class CacheInvalidationWorker : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            // Actually expected during application shutdown; processors are disposed automatically.
         }
     }
 
     private async Task HandleMessageAsync(ProcessMessageEventArgs args)
     {
-        CacheInvalidationPayload? payload = null;
+        var eventType = args.Message.Subject;
+        (Guid? userId, Guid channelId)? target;
 
         try
         {
-            payload = JsonSerializer.Deserialize<CacheInvalidationPayload>(args.Message.Body);
+            target = ExtractInvalidationTarget(eventType, args.Message.Body);
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Malformed cache-invalidation message; dead-lettering.");
+            _logger.LogError(ex, "Malformed cache-invalidation message {EventType}; dead-lettering.", eventType);
             await args.DeadLetterMessageAsync(
                 args.Message,
                 deadLetterReason: "MalformedPayload",
@@ -79,25 +79,76 @@ public sealed class CacheInvalidationWorker : BackgroundService
             return;
         }
 
-        if (payload is null)
+        if (target is null)
         {
-            await args.DeadLetterMessageAsync(
-                args.Message,
-                deadLetterReason: "NullPayload",
-                cancellationToken: args.CancellationToken);
+            _logger.LogWarning("Ignoring unknown cache-invalidation event type '{EventType}'", eventType);
+            await args.CompleteMessageAsync(args.Message, args.CancellationToken);
             return;
         }
 
         try
         {
-            // Redis entries are invalidated before the message is acknowledged.
-            await InvalidateCacheAsync(payload.UserId, payload.ChannelId);
+            await InvalidateCacheAsync(target.Value.userId, target.Value.channelId);
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process cache-invalidation message; abandoning.");
+            _logger.LogError(ex, "Failed to process cache-invalidation message {EventType}; abandoning.", eventType);
             await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+        }
+    }
+
+    private static (Guid? userId, Guid channelId)? ExtractInvalidationTarget(string eventType, BinaryData body)
+    {
+        switch (eventType)
+        {
+            case PermissionEventTypes.MembershipJoined:
+            {
+                var p = JsonSerializer.Deserialize<MembershipJoinedPayload>(body);
+                return p is null ? null : (p.UserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MembershipLeft:
+            {
+                var p = JsonSerializer.Deserialize<MembershipLeftPayload>(body);
+                return p is null ? null : (p.UserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MembershipKicked:
+            {
+                var p = JsonSerializer.Deserialize<MembershipKickedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MemberRoleAssigned:
+            {
+                var p = JsonSerializer.Deserialize<MemberRoleAssignedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.MemberRoleRevoked:
+            {
+                var p = JsonSerializer.Deserialize<MemberRoleRevokedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.ChannelRoleUpdated:
+            {
+                var p = JsonSerializer.Deserialize<ChannelRoleUpdatedPayload>(body);
+                return p is null ? null : ((Guid?)null, p.ChannelId);
+            }
+            case PermissionEventTypes.ChannelRoleDeleted:
+            {
+                var p = JsonSerializer.Deserialize<ChannelRoleDeletedPayload>(body);
+                return p is null ? null : ((Guid?)null, p.ChannelId);
+            }
+            case PermissionEventTypes.ModerationActionApplied:
+            {
+                var p = JsonSerializer.Deserialize<ModerationActionAppliedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            case PermissionEventTypes.ModerationActionRevoked:
+            {
+                var p = JsonSerializer.Deserialize<ModerationActionRevokedPayload>(body);
+                return p is null ? null : (p.TargetUserId, p.ChannelId);
+            }
+            default:
+                return null;
         }
     }
 
@@ -107,14 +158,12 @@ public sealed class CacheInvalidationWorker : BackgroundService
 
         if (userId.HasValue)
         {
-            // Single-user invalidation (join, leave, role assign/revoke, moderation action).
             var key = CachedPermissionService.CacheKey(userId.Value, channelId);
             await redis.KeyDeleteAsync(key);
             _logger.LogDebug("Invalidated permission cache: {Key}", key);
         }
         else
         {
-            // Channel-wide invalidation (role permission update, role deletion).
             var server = _mux.GetServer(_mux.GetEndPoints()[0]);
             var pattern = $"perm:*:{channelId}";
             var keys = server.KeysAsync(pattern: pattern);

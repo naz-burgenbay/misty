@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Communication;
@@ -10,7 +11,16 @@ public record ChannelSummaryDto(
     bool IsPrivate,
     bool IsAiAssistantEnabled,
     int MemberCount,
-    DateTime? LastMessageAt);
+    DateTime? LastMessageAt,
+    string Version);
+
+public sealed class GetMyChannelsQueryValidator : AbstractValidator<GetMyChannelsQuery>
+{
+    public GetMyChannelsQueryValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetMyChannelsQueryHandler
     : IRequestHandler<GetMyChannelsQuery, IReadOnlyList<ChannelSummaryDto>>
@@ -24,7 +34,7 @@ public sealed class GetMyChannelsQueryHandler
         var channels = await _channels.ListForUserAsync(request.UserId, ct);
         return channels
             .Select(c => new ChannelSummaryDto(
-                c.Id, c.Name, c.IsPrivate, c.IsAiAssistantEnabled, c.MemberCount, c.LastMessageAt))
+                c.Id, c.Name, c.IsPrivate, c.IsAiAssistantEnabled, c.MemberCount, c.LastMessageAt, Convert.ToBase64String(c.Version)))
             .ToList();
     }
 }

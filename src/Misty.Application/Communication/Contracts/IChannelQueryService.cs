@@ -1,4 +1,4 @@
-using Misty.Domain.Communication;
+﻿using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication.Contracts;
 
@@ -9,7 +9,6 @@ public sealed record ChannelSummary(
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions);
 
-// Cross-module query service that allows non-communication modules (e.g. Messaging) to look up basic channel data without depending directly on the Communication infrastructure.
 public interface IChannelQueryService
 {
     Task<ChannelSummary?> GetByIdAsync(Guid channelId, CancellationToken ct = default);

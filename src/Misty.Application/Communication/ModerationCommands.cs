@@ -23,18 +23,18 @@ public sealed class ApplyModerationActionCommandHandler
     private readonly IModerationRepository _moderation;
     private readonly IChannelRepository _channels;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public ApplyModerationActionCommandHandler(
         IModerationRepository moderation,
         IChannelRepository channels,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _moderation = moderation;
         _channels = channels;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task<ApplyModerationActionResponse> Handle(
@@ -72,7 +72,18 @@ public sealed class ApplyModerationActionCommandHandler
             request.ExpiresAt);
 
         await _moderation.AddAsync(action, ct);
-        await _events.PublishModerationActionAppliedAsync(request.TargetUserId, request.ChannelId, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Moderation, PermissionEventTypes.ModerationActionApplied, request.ChannelId,
+            new ModerationActionAppliedPayload(
+                action.Id,
+                request.ChannelId,
+                request.TargetUserId,
+                request.IssuedByUserId,
+                request.Type.ToString(),
+                action.Reason,
+                request.ExpiresAt,
+                DateTime.UtcNow),
+            ct);
 
         return new ApplyModerationActionResponse(action.Id);
     }
@@ -109,22 +120,22 @@ public sealed class ApplyModerationActionValidator : AbstractValidator<ApplyMode
     }
 }
 
-public record RevokeModerationActionCommand(Guid ChannelId, Guid RevokedByUserId, Guid ActionId) : IRequest;
+public record RevokeModerationActionCommand(Guid ChannelId, Guid RevokedByUserId, Guid ActionId, string Version) : IRequest;
 
 public sealed class RevokeModerationActionCommandHandler : IRequestHandler<RevokeModerationActionCommand>
 {
     private readonly IModerationRepository _moderation;
     private readonly IPermissionService _permissions;
-    private readonly IEventPublisher _events;
+    private readonly IOutboxWriter _outbox;
 
     public RevokeModerationActionCommandHandler(
         IModerationRepository moderation,
         IPermissionService permissions,
-        IEventPublisher events)
+        IOutboxWriter outbox)
     {
         _moderation = moderation;
         _permissions = permissions;
-        _events = events;
+        _outbox = outbox;
     }
 
     public async Task Handle(RevokeModerationActionCommand request, CancellationToken ct)
@@ -146,8 +157,25 @@ public sealed class RevokeModerationActionCommandHandler : IRequestHandler<Revok
         if (!allowed)
             throw new ForbiddenException($"Missing {required} permission.");
 
+        byte[] concurrencyToken;
+        try { concurrencyToken = Convert.FromBase64String(request.Version); }
+        catch (FormatException)
+        {
+            throw new ValidationException(
+                [new("Version", "Invalid version token.")]);
+        }
+
         action.Revoke(DateTime.UtcNow);
-        await _moderation.UpdateAsync(action, ct);
-        await _events.PublishModerationActionAppliedAsync(action.TargetUserId, action.ChannelId, ct);
+        await _moderation.UpdateAsync(action, concurrencyToken, ct);
+        await _outbox.WriteAsync(
+            PermissionEventTopics.Moderation, PermissionEventTypes.ModerationActionRevoked, action.ChannelId,
+            new ModerationActionRevokedPayload(
+                action.Id,
+                action.ChannelId,
+                action.TargetUserId,
+                request.RevokedByUserId,
+                action.Type.ToString(),
+                DateTime.UtcNow),
+            ct);
     }
 }

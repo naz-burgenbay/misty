@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -10,7 +10,6 @@ using Respawn;
 
 namespace Misty.Tests.Realtime;
 
-// End-to-end pipeline test: HTTP write > SQL outbox > Service Bus > SignalR fan-out. This is the core integration proof for the thesis!!! Must remain a permanent fixture.
 [Collection("Integration")]
 public sealed class RealtimePipelineTests : IAsyncLifetime
 {
@@ -71,16 +70,9 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
             .Build();
     }
 
-    // Full pipeline: POST /channels/{id}/messages
-    // OutboxMessage row inserted
-    // OutboxRelayWorker publishes to Service Bus
-    // RealtimeDeliveryWorker receives from message-events/realtime-delivery
-    // IHubContext pushes "MessageCreated" to channel:{id} group
-    // Connected SignalR client receives the event.
     [Fact]
     public async Task SendMessage_FullPipeline_SignalRClientReceivesMessageCreated()
     {
-        // Arrange: register user, create channel (creator is automatically a member)
         var (token, _) = await RegisterAndLoginAsync("pipeline_user1");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -95,7 +87,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Connect to hub AFTER channel creation so OnConnectedAsync picks up the membership.
         var conn = BuildConnection(token);
         var received = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         conn.On<JsonElement>("MessageCreated", payload => received.TrySetResult(payload));
@@ -103,7 +94,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
 
         try
         {
-            // Act: send a message
             var idempotencyKey = Guid.NewGuid().ToString();
             var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
             {
@@ -114,14 +104,11 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
             var messageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
                 .GetProperty("messageId").GetGuid();
 
-            // Assert: OutboxMessage row exists immediately after the HTTP response
             await using var db = _factory.CreateDbContext();
             var outbox = await db.OutboxMessages
                 .FirstOrDefaultAsync(o => o.MessageId == messageId);
             outbox.Should().NotBeNull("a pending OutboxMessage must be written in the same transaction as the Message");
 
-            // Assert: SignalR push arrives within the pipeline timeout.
-            // The timeout covers: OutboxRelayWorker poll interval (~1 s) + Service Bus round-trip + RealtimeDeliveryWorker processing.
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             cts.Token.Register(() => received.TrySetCanceled());
 
@@ -140,7 +127,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
     [Fact]
     public async Task SendMessage_NonMemberConnected_DoesNotReceiveChannelMessage()
     {
-        // Arrange: owner creates channel and sends a message; outsider connects to hub
         var (ownerToken, _) = await RegisterAndLoginAsync("pipeline_owner2");
         var (outsiderToken, _) = await RegisterAndLoginAsync("pipeline_outsider2");
 
@@ -156,7 +142,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Outsider connects: they have no channel memberships so they join no channel groups.
         var outsiderConn = BuildConnection(outsiderToken);
         var unexpectedlyReceived = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         outsiderConn.On<JsonElement>("MessageCreated", payload => unexpectedlyReceived.TrySetResult(payload));
@@ -164,7 +149,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
 
         try
         {
-            // Owner sends a message
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
             var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
             {
@@ -173,7 +157,6 @@ public sealed class RealtimePipelineTests : IAsyncLifetime
             });
             msgResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-            // Wait briefly. If the outsider receives anything within 1 s the test fails.
             var completed = await Task.WhenAny(
                 unexpectedlyReceived.Task,
                 Task.Delay(TimeSpan.FromSeconds(1)));

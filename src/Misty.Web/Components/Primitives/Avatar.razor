@@ -1,4 +1,4 @@
-@using Misty.Web.Services.Presence
+﻿@using Misty.Web.Services.Presence
 @code {
     public enum AvatarSize { Small = 26, Medium = 28, Large = 44 }
 
@@ -31,7 +31,6 @@
 
     private static int PickAvatarIndex(string seed)
     {
-        // Stable, deterministic 1..6 pick from the user-supplied string.
         unchecked
         {
             var hash = 5381;

@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
@@ -65,15 +65,14 @@ public sealed class SendConversationMessageCommandHandler
         if (existing is not null)
             return ToResponse(existing, wasIdempotent: true);
 
-        // First-DM-between-non-friends inbox trigger: check before insert so the outbox row rides the same SaveChanges as the message.
         var isFirst = !await _messages.AnyForConversationAsync(request.ConversationId, ct);
         if (isFirst && !await _friendships.ExistsAsync(request.AuthorId, otherUserId, ct))
         {
             _outbox.Queue(
                 SocialEventTopics.Message,
-                SocialEventTypes.FirstDirectMessageSent,
+                SocialEventTypes.ConversationStarted,
                 request.ConversationId,
-                new FirstDirectMessageSentPayload(
+                new ConversationStartedPayload(
                     request.ConversationId, request.AuthorId, otherUserId, DateTime.UtcNow));
         }
 
@@ -103,7 +102,7 @@ public sealed class SendConversationMessageCommandHandler
     }
 
     private static SendMessageResponse ToResponse(Message m, bool wasIdempotent)
-        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt);
+        => new(m.Id, m.ChannelId, m.ConversationId, m.AuthorId, m.Content, m.ParentMessageId, wasIdempotent, m.CreatedAt, Convert.ToBase64String(m.Version));
 }
 
 public sealed class SendConversationMessageValidator : AbstractValidator<SendConversationMessageCommand>
@@ -121,6 +120,15 @@ public record GetConversationMessagesQuery(
     int PageSize,
     string? Cursor)
     : IRequest<GetChannelMessagesResponse>;
+
+public sealed class GetConversationMessagesQueryValidator : AbstractValidator<GetConversationMessagesQuery>
+{
+    public GetConversationMessagesQueryValidator()
+    {
+        RuleFor(x => x.ConversationId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
 
 public sealed class GetConversationMessagesQueryHandler
     : IRequestHandler<GetConversationMessagesQuery, GetChannelMessagesResponse>
@@ -194,7 +202,8 @@ public sealed class GetConversationMessagesQueryHandler
                 m.EditedAt,
                 m.IsDeleted,
                 reactions,
-                attachments);
+                attachments,
+                Convert.ToBase64String(m.Version));
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);

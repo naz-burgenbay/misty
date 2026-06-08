@@ -15,6 +15,9 @@ public sealed class ChannelRepository : IChannelRepository
     public Task<Channel?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Channels.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, ct);
 
+    public Task<Channel?> GetByIdForReadAsync(Guid id, CancellationToken ct = default)
+        => _db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, ct);
+
     public async Task<IReadOnlyList<Channel>> ListForUserAsync(Guid userId, CancellationToken ct = default)
     {
         var query =
@@ -59,12 +62,20 @@ public sealed class ChannelRepository : IChannelRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateIconUrlAsync(Channel channel, string? iconUrl, CancellationToken ct = default)
+    public async Task UpdateIconUrlAsync(Channel channel, string? iconUrl, byte[] concurrencyToken, CancellationToken ct = default)
     {
         if (iconUrl is null)
             channel.ClearIconUrl();
         else
             channel.SetIconUrl(iconUrl);
-        await _db.SaveChangesAsync(ct);
+        _db.Entry(channel).Property(c => c.Version).OriginalValue = concurrencyToken;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException();
+        }
     }
 }
