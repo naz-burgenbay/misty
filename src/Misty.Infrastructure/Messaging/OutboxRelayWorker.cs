@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,8 +8,6 @@ using Misty.Infrastructure.Persistence;
 
 namespace Misty.Infrastructure.Messaging;
 
-// Continuously checks msg.OutboxMessage for events that haven't been published yet, sends each payload to the correct Service Bus topic, and then marks it as published.
-// If a DbUpdateConcurrencyException occurs, another instance already processed that row so we skip it and continue with the next message.
 public sealed class OutboxRelayWorker : BackgroundService
 {
     private const int BatchSize = 50;
@@ -19,7 +17,6 @@ public sealed class OutboxRelayWorker : BackgroundService
     private readonly ServiceBusClient _client;
     private readonly ILogger<OutboxRelayWorker> _logger;
 
-    // Senders are cached for the lifetime of the worker (ServiceBusClient is thread-safe).
     private readonly Dictionary<string, ServiceBusSender> _senders = new();
 
     public OutboxRelayWorker(

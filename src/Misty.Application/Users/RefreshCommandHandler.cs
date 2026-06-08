@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using MediatR;
 using Misty.Application.Common.Exceptions;
@@ -29,7 +29,6 @@ internal sealed class RefreshCommandHandler : IRequestHandler<RefreshCommand, Re
         var (newRefreshTokenPlaintext, newRefreshTokenHash, expiresAt) = _tokens.CreateRefreshToken();
         var newRefreshToken = RefreshToken.Create(existing.UserId, newRefreshTokenHash, expiresAt);
 
-        // Atomic. revoke old + create new in a single SaveChangesAsync
         await _refreshTokens.RotateAsync(existing, newRefreshToken, ct);
 
         return new RefreshResponse(newAccessToken, newRefreshTokenPlaintext);

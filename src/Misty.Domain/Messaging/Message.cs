@@ -1,8 +1,8 @@
-namespace Misty.Domain.Messaging;
+﻿namespace Misty.Domain.Messaging;
 
 public class Message
 {
-    private Message() { } // For EF Core
+    private Message() { }
 
     public Guid Id { get; private set; }
     public Guid? ChannelId { get; private set; }

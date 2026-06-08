@@ -1,0 +1,84 @@
+@inject IUserDirectory Users
+@inject IFriendService Friends
+@inject IUserBlockService Blocks
+@inject IToastService Toasts
+@inject NavigationManager Nav
+@using Misty.Web.Services.Users
+
+@code {
+    [Parameter, EditorRequired] public Guid ConversationId { get; set; }
+    [Parameter, EditorRequired] public Guid OtherUserId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private UserPublicProfile? _profile;
+    private bool _loadingProfile = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadingProfile = true;
+        _profile = await Users.GetProfileAsync(OtherUserId);
+        _loadingProfile = false;
+    }
+
+    private async Task ReportAsync()
+    {
+        Toasts.Show("Report submitted.", ToastKind.Info);
+    }
+
+    private async Task BlockAsync()
+    {
+        try
+        {
+            await Blocks.BlockAsync(OtherUserId);
+            Toasts.Show($"{DisplayName} blocked.", ToastKind.Success);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't block: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private string DisplayName => _profile?.DisplayName ?? Users.Get(OtherUserId).DisplayName;
+    private string Username => _profile?.Username ?? string.Empty;
+    private string? Bio => _profile?.Bio;
+    private string? AvatarUrl => _profile?.AvatarUrl;
+}
+
+<aside class="dm-info-panel">
+    <div class="panel-head">
+        <IconButton Title="Close" OnClick="OnClose">
+            <Blazicon Svg="Lucide.X" />
+        </IconButton>
+    </div>
+
+    <div class="profile-section">
+        <Avatar Name="@DisplayName"
+                ImageUrl="@AvatarUrl"
+                Size="Avatar.AvatarSize.Large" />
+        <div class="profile-names">
+            <span class="display-name">@(_loadingProfile ? "…" : DisplayName)</span>
+            @if (!string.IsNullOrEmpty(Username))
+            {
+                <span class="username">@@@Username</span>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Bio))
+        {
+            <p class="bio">@Bio</p>
+        }
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="actions-section">
+        <button type="button" class="action-item" @onclick="ReportAsync">
+            <Blazicon Svg="Lucide.Flag" />
+            Report
+        </button>
+        <button type="button" class="action-item danger" @onclick="BlockAsync">
+            <Blazicon Svg="Lucide.Ban" />
+            Block
+        </button>
+    </div>
+</aside>

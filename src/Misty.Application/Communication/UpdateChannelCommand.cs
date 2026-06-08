@@ -12,7 +12,8 @@ public record UpdateChannelCommand(
     string Name,
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
-    string Version)
+    string Version,
+    string? Description = null)
     : IRequest<UpdateChannelResponse>;
 
 public record UpdateChannelResponse(
@@ -60,7 +61,7 @@ public sealed class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelC
                 [new("Version", "Invalid version token.")]);
         }
 
-        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions, channel.Description);
+        channel.Update(request.Name, request.IsAiAssistantEnabled, request.DefaultPermissions, request.Description ?? channel.Description);
         await _channels.UpdateAsync(channel, concurrencyToken, ct);
         await _outbox.WriteAsync(
             ChannelEventTopics.Channel,

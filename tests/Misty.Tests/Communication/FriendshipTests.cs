@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -118,7 +118,6 @@ public sealed class FriendshipTests : IAsyncLifetime
             (await dbBefore.Friendships.CountAsync()).Should().Be(1);
         }
 
-        // Snapshot outbox count before the block so we can isolate what the block produced.
         int outboxBefore;
         await using (var dbSnap = _factory.CreateDbContext())
         {
@@ -155,14 +154,12 @@ public sealed class FriendshipTests : IAsyncLifetime
 
         (await GetFriendIdsAsync(tokenA)).Should().BeEquivalentTo(new[] { userB, userC });
 
-        // A blocks B -> friendship hard-deleted; A still sees C.
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
         (await _client.PostAsJsonAsync($"/api/v1/users/{userB}/block", new { })).StatusCode
             .Should().Be(HttpStatusCode.NoContent);
 
         (await GetFriendIdsAsync(tokenA)).Should().BeEquivalentTo(new[] { userC });
 
-        // C blocks A: A should still not see C in friends list (block is bidirectional).
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenC);
         (await _client.PostAsJsonAsync($"/api/v1/users/{userA}/block", new { })).StatusCode
             .Should().Be(HttpStatusCode.NoContent);

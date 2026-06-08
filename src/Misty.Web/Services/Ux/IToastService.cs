@@ -1,4 +1,4 @@
-using Misty.Web.Services.Common;
+﻿using Misty.Web.Services.Common;
 
 namespace Misty.Web.Services.Ux;
 
@@ -6,7 +6,6 @@ public enum ToastKind { Info, Success, Warning, Error }
 
 public sealed record ToastRequest(Guid Id, string Message, ToastKind Kind, TimeSpan? Duration);
 
-// Imperative queue consumed by the global Toast host component in AppShell.
 public interface IToastService
 {
     Observable<IReadOnlyList<ToastRequest>> Toasts { get; }

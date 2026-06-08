@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,7 +7,6 @@ using StackExchange.Redis;
 
 namespace Misty.Infrastructure.Communication;
 
-// This worker only depends on singleton services. Workers that require DbContext access will create a separate DI scope per message.
 public sealed class CacheInvalidationWorker : BackgroundService
 {
     private const string CacheInvalidationSubscription = "cache-invalidation";
@@ -58,7 +57,6 @@ public sealed class CacheInvalidationWorker : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            // Actually expected during application shutdown; processors are disposed automatically.
         }
     }
 
@@ -83,7 +81,6 @@ public sealed class CacheInvalidationWorker : BackgroundService
 
         if (target is null)
         {
-            // Unknown event type on a permission topic: complete to avoid redelivery loops.
             _logger.LogWarning("Ignoring unknown cache-invalidation event type '{EventType}'", eventType);
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
             return;
@@ -91,7 +88,6 @@ public sealed class CacheInvalidationWorker : BackgroundService
 
         try
         {
-            // Redis entries are invalidated before the message is acknowledged.
             await InvalidateCacheAsync(target.Value.userId, target.Value.channelId);
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
         }
@@ -162,14 +158,12 @@ public sealed class CacheInvalidationWorker : BackgroundService
 
         if (userId.HasValue)
         {
-            // Single-user invalidation (join, leave, role assign/revoke, moderation action).
             var key = CachedPermissionService.CacheKey(userId.Value, channelId);
             await redis.KeyDeleteAsync(key);
             _logger.LogDebug("Invalidated permission cache: {Key}", key);
         }
         else
         {
-            // Channel-wide invalidation (role permission update, role deletion).
             var server = _mux.GetServer(_mux.GetEndPoints()[0]);
             var pattern = $"perm:*:{channelId}";
             var keys = server.KeysAsync(pattern: pattern);

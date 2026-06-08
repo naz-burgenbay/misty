@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Domain.Communication;
 
@@ -28,7 +28,6 @@ public sealed class CreateConversationHandler : IRequestHandler<CreateConversati
     public async Task<CreateConversationResponse> Handle(
         CreateConversationCommand request, CancellationToken cancellationToken)
     {
-        // Canonicalise ordering so (A,B) and (B,A) hit the same DB row
         var (a, b) = request.RequestingUserId.CompareTo(request.OtherUserId) < 0
             ? (request.RequestingUserId, request.OtherUserId)
             : (request.OtherUserId, request.RequestingUserId);

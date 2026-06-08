@@ -66,7 +66,8 @@ public sealed class ChannelsController : ControllerBase
                 request.Name,
                 request.IsAiAssistantEnabled,
                 request.DefaultPermissions,
-                request.Version),
+                request.Version,
+                request.Description),
             ct);
         return Ok(result);
     }
@@ -196,7 +197,8 @@ public record UpdateChannelRequest(
     string Name,
     bool IsAiAssistantEnabled,
     ChannelPermission DefaultPermissions,
-    string Version);
+    string Version,
+    string? Description);
 
 public record JoinChannelRequest(string? InviteCode);
 

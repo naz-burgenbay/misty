@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -200,7 +200,6 @@ public sealed class ChannelInviteTests : IAsyncLifetime
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var db2 = _factory.CreateDbContext();
-        // Exactly one membership row for the invited user (the owner already has theirs from channel creation).
         var memberships = await db2.Memberships.Where(m => m.ChannelId == channelId && m.UserId == targetId).ToListAsync();
         memberships.Should().HaveCount(1, "join handler inserts exactly one Membership; the invite-accept handler must not insert its own row");
 
@@ -250,7 +249,6 @@ public sealed class ChannelInviteTests : IAsyncLifetime
             originalVersion = Convert.ToBase64String(invite.Version);
         }
 
-        // No-op SQL update advances SQL Server's rowversion column without changing logical state.
         await using (var db = _factory.CreateDbContext())
             await db.Database.ExecuteSqlRawAsync(
                 "UPDATE comm.ChannelInvite SET Id = Id WHERE Id = {0}", inviteId);

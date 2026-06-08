@@ -1,4 +1,4 @@
-@page "/c/{ChannelId:guid}"
+﻿@page "/c/{ChannelId:guid}"
 @implements IDisposable
 @inject NavigationManager Nav
 @inject IChannelService Channels
@@ -21,15 +21,8 @@
     private bool _loadingOlder;
 
     private bool _membersOpen;
-    private bool _settingsOpen;
     private Guid? _moderationTarget;
 
-    private string _settingsName = string.Empty;
-    private bool _settingsIsPrivate;
-    private bool _settingsIsAiEnabled;
-    private bool _savingSettings;
-
-    // Edit message state
     private MockMessage? _editingMessage;
 
     protected override async Task OnParametersSetAsync()
@@ -44,13 +37,6 @@
         _channelsSub = Channels.MyChannels.Subscribe(list =>
         {
             _channel = list.FirstOrDefault(c => c.Id == ChannelId);
-            // Sync settings form when channel updates
-            if (_channel is not null && !_settingsOpen)
-            {
-                _settingsName = _channel.Name;
-                _settingsIsPrivate = _channel.IsPrivate;
-                _settingsIsAiEnabled = _channel.IsAiAssistantEnabled;
-            }
             InvokeAsync(StateHasChanged);
         });
 
@@ -78,10 +64,11 @@
 
     private string Subtitle => _channel is null ? string.Empty : $"{_channel.MemberCount} members";
 
-    // Until server-side permission events land in this client, we conservatively allow send on any channel we know we're a member of.
     private bool CanSend       => _channel is not null;
     private bool CanModerate   => _myPermissions.CanModerate();
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
+
+    private void OpenSettings() => Nav.NavigateTo($"/c/{ChannelId}/settings");
 
     private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
@@ -132,77 +119,6 @@
         finally
         {
             _loadingOlder = false;
-        }
-    }
-
-    private async Task ConfirmDeleteChannelAsync()
-    {
-        var ok = await Modals.ConfirmAsync(new ConfirmRequest(
-            Title: "Delete channel",
-            Message: $"This permanently deletes #{_channel?.Name}. This cannot be undone.",
-            ConfirmLabel: "Delete",
-            IsDestructive: true));
-        if (!ok) return;
-
-        try
-        {
-            await Channels.DeleteAsync(ChannelId);
-            Toasts.Show("Channel deleted.", ToastKind.Success);
-            Nav.NavigateTo("/");
-        }
-        catch (Exception ex)
-        {
-            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
-        }
-    }
-
-    private async Task LeaveChannelAsync()
-    {
-        var ok = await Modals.ConfirmAsync(new ConfirmRequest(
-            Title: "Leave channel",
-            Message: $"Are you sure you want to leave #{_channel?.Name}?",
-            ConfirmLabel: "Leave",
-            IsDestructive: true));
-        if (!ok) return;
-
-        try
-        {
-            await Channels.LeaveAsync(ChannelId);
-            Toasts.Show("Left channel.", ToastKind.Success);
-            Nav.NavigateTo("/");
-        }
-        catch (Exception ex)
-        {
-            Toasts.Show($"Leave failed: {ex.Message}", ToastKind.Error);
-        }
-    }
-
-    private void OpenSettings()
-    {
-        if (_channel is null) return;
-        _settingsName = _channel.Name;
-        _settingsIsPrivate = _channel.IsPrivate;
-        _settingsIsAiEnabled = _channel.IsAiAssistantEnabled;
-        _settingsOpen = true;
-    }
-
-    private async Task SaveSettingsAsync()
-    {
-        if (_channel is null || string.IsNullOrWhiteSpace(_settingsName) || _savingSettings) return;
-        _savingSettings = true;
-        try
-        {
-            await Channels.UpdateAsync(ChannelId, _settingsName.Trim(), _settingsIsPrivate, _settingsIsAiEnabled);
-            Toasts.Show("Channel updated.", ToastKind.Success);
-            _settingsOpen = false;
-        }
-        catch (Exception ex)
-        {
-            Toasts.Show($"Update failed: {ex.Message}", ToastKind.Error);
-        }
-        finally
-        {
-            _savingSettings = false;
         }
     }
 
@@ -267,7 +183,7 @@ else
                                 Subtitle="@Subtitle"
                                 ShowAiBadge="@_channel.IsAiAssistantEnabled"
                                 OnToggleMembers="@(() => _membersOpen = !_membersOpen)"
-                                OnOpenSettings="@(() => _settingsOpen = true)">
+                                OnOpenSettings="OpenSettings">
                 <TitleIcon>
                     <Blazicon Svg="@(_channel.IsPrivate ? Lucide.Lock : Lucide.Hash)" />
                 </TitleIcon>
@@ -304,58 +220,12 @@ else
                     </IconButton>
                 </div>
                 <div class="pane-body">
-                    <div class="member-count">@_channel.MemberCount members</div>
+                    <MembersPanel ChannelId="@_channel.Id" />
                 </div>
             </aside>
         }
     </div>
 
-    <Drawer Open="_settingsOpen" Title="Channel settings" OnClose="@(() => _settingsOpen = false)">
-        <div class="settings">
-            <div class="field">
-                <span class="lbl">Name</span>
-                <TextField Value="@_settingsName" 
-                           ValueChanged="@(v => _settingsName = v ?? string.Empty)"
-                           Disabled="@(!CanManageChannel)" />
-            </div>
-            <div class="field">
-                <span class="lbl">Privacy</span>
-                <SegmentedControl Options="@(new [] { "Public", "Private" })"
-                                  Value="@(_settingsIsPrivate ? "Private" : "Public")"
-                                  ValueChanged="@(v => _settingsIsPrivate = v == "Private")" />
-            </div>
-            <div class="field">
-                <span class="lbl">AI assistant</span>
-                <SegmentedControl Options="@(new [] { "Off", "On" })"
-                                  Value="@(_settingsIsAiEnabled ? "On" : "Off")"
-                                  ValueChanged="@(v => _settingsIsAiEnabled = v == "On")" />
-            </div>
-            
-            @if (CanManageChannel)
-            {
-                <div class="field">
-                    <Button Variant="Button.ButtonVariant.Primary"
-                            Disabled="@(_savingSettings || string.IsNullOrWhiteSpace(_settingsName))"
-                            OnClick="SaveSettingsAsync">
-                        @(_savingSettings ? "Saving…" : "Save changes")
-                    </Button>
-                </div>
-            }
-
-            <div class="field danger-zone">
-                <h4>Danger zone</h4>
-                <div class="button-group">
-                    <Button Variant="Button.ButtonVariant.Danger"
-                            OnClick="LeaveChannelAsync">Leave channel</Button>
-                    @if (CanManageChannel)
-                    {
-                        <Button Variant="Button.ButtonVariant.Danger"
-                                OnClick="ConfirmDeleteChannelAsync">Delete channel</Button>
-                    }
-                </div>
-            </div>
-        </div>
-    </Drawer>
     <ModerationActionModal Open="@(_moderationTarget is not null)"
                            ChannelId="ChannelId"
                            TargetUserId="_moderationTarget"

@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,15 +13,18 @@ public sealed class InboxWorker : BackgroundService
 {
     private readonly ServiceBusClient _client;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IHubContext<MistyHub> _hub;
     private readonly ILogger<InboxWorker> _logger;
 
     public InboxWorker(
         ServiceBusClient client,
         IServiceScopeFactory scopeFactory,
+        IHubContext<MistyHub> hub,
         ILogger<InboxWorker> logger)
     {
         _client = client;
         _scopeFactory = scopeFactory;
+        _hub = hub;
         _logger = logger;
     }
 
@@ -82,7 +86,6 @@ public sealed class InboxWorker : BackgroundService
 
             if (item is null)
             {
-                // Unknown/unrelated event (e.g. MessageCreated on message-events): complete to avoid redelivery loops.
                 await args.CompleteMessageAsync(args.Message);
                 return;
             }
@@ -98,6 +101,12 @@ public sealed class InboxWorker : BackgroundService
             await repo.AddAsync(item, args.CancellationToken);
             await args.CompleteMessageAsync(args.Message);
             _logger.LogDebug("Inserted inbox item {ItemId} for {UserId} {Type}", item.Id, item.UserId, item.Type);
+
+            await _hub.Clients
+                .Group($"user:{item.UserId}")
+                .SendAsync("InboxItemReceived",
+                    new { ItemId = item.Id, Type = item.Type.ToString() },
+                    args.CancellationToken);
         }
         catch (Exception ex)
         {

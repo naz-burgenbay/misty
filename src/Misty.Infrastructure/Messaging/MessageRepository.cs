@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misty.Application.Common;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Messaging;
@@ -86,14 +86,12 @@ public sealed class MessageRepository : IMessageRepository
     public Task<bool> AnyForConversationAsync(Guid conversationId, CancellationToken ct = default)
         => _db.Messages.AnyAsync(m => m.ConversationId == conversationId, ct);
 
-    // The handler is expected to queue the matching MessageCreated outbox row onto the same scoped DbContext before calling AddAsync; SaveChanges commits both in one SQL transaction.
     public async Task AddAsync(Message message, CancellationToken ct = default)
     {
         await _db.Messages.AddAsync(message, ct);
         await _db.SaveChangesAsync(ct);
     }
 
-    // The handler is expected to queue a MessageEdited or MessageDeleted (tombstone) outbox row onto the same DbContext before calling UpdateAsync.
     public async Task UpdateAsync(Message message, byte[] concurrencyToken, CancellationToken ct = default)
     {
         _db.Entry(message).Property(m => m.Version).OriginalValue = concurrencyToken;
@@ -107,7 +105,6 @@ public sealed class MessageRepository : IMessageRepository
         }
     }
 
-    // The handler is expected to queue a MessageDeleted outbox row onto the same DbContext before calling DeleteAsync.
     public async Task DeleteAsync(Message message, CancellationToken ct = default)
     {
         _db.Messages.Remove(message);

@@ -1,4 +1,4 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public enum FriendRequestStatus
 {
@@ -9,7 +9,7 @@ public enum FriendRequestStatus
 
 public class FriendRequest
 {
-    private FriendRequest() { } // For EF Core
+    private FriendRequest() { }
 
     public Guid Id { get; private set; }
     public Guid SenderId { get; private set; }

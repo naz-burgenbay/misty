@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
@@ -35,7 +35,6 @@ try
 }
 catch (InvalidOperationException)
 {
-    // Logger already frozen
 }
 
 try
@@ -113,7 +112,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
-        // SignalR connections pass the access token in the query string because the WebSocket protocol does not support custom headers. Without this hook every hub connection is rejected as unauthenticated.
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = ctx =>
@@ -128,7 +126,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// Custom IUserIdProvider: SignalR's default reads ClaimTypes.NameIdentifier (the long URI form), but MapInboundClaims=false keeps 'sub' as-is, so we must tell SignalR which claim to use.
 builder.Services.AddSingleton<IUserIdProvider, SubClaimUserIdProvider>();
 
 var connectionString = builder.Configuration.GetConnectionString("Database")
@@ -137,7 +134,6 @@ var connectionString = builder.Configuration.GetConnectionString("Database")
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// AddDbContextFactory is registered so that background services like outbox relay or cache invalidation worker can create their own DbContext instances without depending on the scoped lifetime of the main ApplicationDbContext
 builder.Services.AddDbContextFactory<ApplicationDbContext>(
     options => options.UseSqlServer(connectionString),
     ServiceLifetime.Scoped);
@@ -148,7 +144,7 @@ var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
     var opts = ConfigurationOptions.Parse(redisConnectionString);
-    opts.AllowAdmin = true; // Required for channel-wide cache invalidation scan (IServer.KeysAsync)
+    opts.AllowAdmin = true;
     return ConnectionMultiplexer.Connect(opts);
 });
 
@@ -169,7 +165,6 @@ builder.Services.AddHostedService<InboxWorker>();
 
 var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
     ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
-// Azurite rejects newer SDK defaults
 var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_11_04);
 
 builder.Services.AddHealthChecks()
@@ -258,6 +253,5 @@ app.MapHub<MistyHub>("/hubs/realtime");
 app.Run();
 }
 
-// Expose Program to the test project for WebApplicationFactory<Program>
 public partial class Program { }
 

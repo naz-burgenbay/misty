@@ -16,6 +16,9 @@ public sealed class InboxItemRepository : IInboxItemRepository
     public Task<InboxItem?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.InboxItems.FirstOrDefaultAsync(i => i.Id == id, ct);
 
+    public Task<InboxItem?> GetByReferenceAsync(Guid userId, Guid referenceId, CancellationToken ct = default)
+        => _db.InboxItems.FirstOrDefaultAsync(i => i.UserId == userId && i.ReferenceId == referenceId, ct);
+
     public Task<bool> ExistsAsync(Guid userId, InboxItemType type, Guid? referenceId, CancellationToken ct = default)
         => _db.InboxItems.AnyAsync(
             i => i.UserId == userId && i.Type == type && i.ReferenceId == referenceId,

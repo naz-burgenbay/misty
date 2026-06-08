@@ -1,0 +1,97 @@
+.revoke-modal {
+    width: 400px;
+    max-width: 90vw;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-4);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--sp-1);
+    color: var(--color-text-muted);
+}
+
+.close-btn:hover {
+    color: var(--color-text-primary);
+}
+
+.modal-body {
+    padding: var(--sp-4);
+}
+
+.modal-body p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.modal-body strong {
+    color: var(--color-text-primary);
+}
+
+.error {
+    margin-top: var(--sp-3);
+    padding: var(--sp-2);
+    background: var(--color-danger-surface);
+    color: var(--color-danger);
+    border-radius: var(--radius-md);
+    font-size: var(--fs-small);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+    padding: var(--sp-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.btn-secondary,
+.btn-danger {
+    padding: var(--sp-2) var(--sp-4);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-body);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary {
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+}
+
+.btn-danger {
+    background: var(--color-danger);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.btn-secondary:disabled,
+.btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

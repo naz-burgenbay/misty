@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -184,11 +184,9 @@ public sealed class AttachmentTests : IAsyncLifetime
     [Fact]
     public async Task UploadAttachment_ToOthersMessage_Returns403()
     {
-        // User A creates the channel and a role granting send+attach to others.
         var (tokenA, _) = await RegisterAndLoginAsync("att_userA");
         SetToken(tokenA);
         var channelId = await CreateChannelAsync("att-others-ch");
-        // ViewChannel|ReadHistory|SendMessages|AttachFiles = 1|2|4|8 = 15
         var roleId = await CreateRoleAsync(channelId, "Contrib", 15L);
 
         var (tokenB, userBId) = await RegisterAndLoginAsync("att_userB");
@@ -198,11 +196,9 @@ public sealed class AttachmentTests : IAsyncLifetime
         SetToken(tokenA);
         await AssignRoleAsync(channelId, userBId, roleId);
 
-        // B sends a message.
         SetToken(tokenB);
         var msgId = await SendMessageAsync(channelId, "B's message");
 
-        // A (owner) tries to attach a file to B's message: forbidden (not author).
         SetToken(tokenA);
         using var form = MakeFileContent();
         var resp = await UploadAttachmentAsync(channelId, msgId, form);
@@ -251,7 +247,6 @@ public sealed class AttachmentTests : IAsyncLifetime
         var (tokenA, _) = await RegisterAndLoginAsync("att_no_perm_A");
         SetToken(tokenA);
         var channelId = await CreateChannelAsync("att-noperm-ch");
-        // ViewChannel|ReadHistory|SendMessages = 1|2|4 = 7 (no AttachFiles=8)
         var roleId = await CreateRoleAsync(channelId, "Sender", 7L);
 
         var (tokenB, userBId) = await RegisterAndLoginAsync("att_no_perm_B");
@@ -329,7 +324,6 @@ public sealed class AttachmentTests : IAsyncLifetime
     [Fact]
     public async Task DeleteAttachment_ByModerator_Succeeds()
     {
-        // A = channel owner & uploader, B = moderator with ManageMessages.
         var (tokenA, _) = await RegisterAndLoginAsync("att_mod_A");
         SetToken(tokenA);
         var channelId = await CreateChannelAsync("att-mod-ch");
@@ -339,7 +333,6 @@ public sealed class AttachmentTests : IAsyncLifetime
         var attachmentId = (await up.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("attachmentId").GetGuid();
 
-        // ViewChannel|ReadHistory|ManageMessages = 1|2|512 = 515
         var roleId = await CreateRoleAsync(channelId, "Mod", 515L);
 
         var (tokenB, userBId) = await RegisterAndLoginAsync("att_mod_B");

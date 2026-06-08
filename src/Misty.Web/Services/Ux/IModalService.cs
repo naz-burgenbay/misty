@@ -1,4 +1,4 @@
-using Misty.Web.Services.Common;
+﻿using Misty.Web.Services.Common;
 
 namespace Misty.Web.Services.Ux;
 
@@ -9,8 +9,6 @@ public sealed record ConfirmRequest(
     string CancelLabel = "Cancel",
     bool IsDestructive = false);
 
-// Imperative confirm/modal queue consumed by the global Modal host component in AppShell.
-// ConfirmAsync resolves true if the user clicks confirm, false on cancel/dismiss.
 public interface IModalService
 {
     Observable<(ConfirmRequest Request, TaskCompletionSource<bool> Tcs)?> Current { get; }

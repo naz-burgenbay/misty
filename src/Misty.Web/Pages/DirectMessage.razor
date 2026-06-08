@@ -1,4 +1,4 @@
-@page "/dm/{ConversationId:guid}"
+﻿@page "/dm/{ConversationId:guid}"
 @implements IDisposable
 @inject NavigationManager Nav
 @inject IDirectMessageService Conversations
@@ -20,8 +20,9 @@
     private bool _loadingOlder;
     private bool _userSubscribed;
 
-    // Edit message state
     private MockMessage? _editingMessage;
+
+    private bool _infoOpen;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -54,7 +55,6 @@
             InvokeAsync(StateHasChanged);
         });
 
-        // If the conversation list hasn't been loaded yet (e.g. deep-link), pull it now so the header has a name.
         if (Conversations.MyConversations.Value.Count == 0)
             await Conversations.RefreshAsync();
 
@@ -72,12 +72,19 @@
 
     private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
-        if (string.IsNullOrWhiteSpace(submit.Content)) return;
+        if (string.IsNullOrWhiteSpace(submit.Content) && submit.Attachment is null) return;
         var parentId = _replyingTo?.Id;
         _replyingTo = null;
         try
         {
-            await MessageStore.SendAsync(ConversationId, submit.Content, parentId);
+            var messageId = await MessageStore.SendAsync(ConversationId, submit.Content ?? string.Empty, parentId);
+            if (submit.Attachment is { } file && messageId is { } mid)
+            {
+                using var stream = file.OpenReadStream(25 * 1024 * 1024);
+                await MessageStore.UploadAttachmentAsync(ConversationId, mid, file.Name,
+                    string.IsNullOrEmpty(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                    file.Size, stream);
+            }
         }
         catch (Exception ex)
         {
@@ -166,7 +173,8 @@ else
     <div class="page">
         <div class="main">
             <ConversationHeader Title="@OtherName"
-                                ShowChannelActions="false">
+                                ShowChannelActions="false"
+                                OnOpenDmInfo="@(() => _infoOpen = !_infoOpen)">
                 <TitleIcon>
                     <UserContextMenu UserId="@(_dm?.OtherUserId ?? Guid.Empty)"
                                      UserName="@OtherName"
@@ -187,10 +195,17 @@ else
 
             <MessageComposer Placeholder="@($"Message {OtherName}")"
                              ReplyingTo="_replyingTo"
-                             AttachmentsEnabled="false"
+                             AttachmentsEnabled="true"
                              OnClearReply="@(() => _replyingTo = null)"
                              OnSend="SendAsync" />
         </div>
+
+        @if (_infoOpen && _dm is not null)
+        {
+            <DmInfoPanel ConversationId="@ConversationId"
+                         OtherUserId="@_dm.OtherUserId"
+                         OnClose="@(() => _infoOpen = false)" />
+        }
     </div>
 
     <EditMessageModal Open="@(_editingMessage is not null)"

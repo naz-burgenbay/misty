@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -61,17 +61,9 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
         return (loginBody.GetProperty("accessToken").GetString()!, userId);
     }
 
-    // Full flow for AI-enabled channel:
-    //   POST /channels (IsAiAssistantEnabled=true)
-    //   POST /channels/{id}/messages
-    //   OutboxRelayWorker publishes to message-events
-    //   AIResponseWorker receives from ai-response subscription
-    //   writes AI Message + OutboxMessage in one transaction
-    //   HTTP caller already received 201 before the worker ever ran; worker failure cannot affect the write path.
     [Fact]
     public async Task AIResponseWorker_EnabledChannel_WritesAiResponseMessage()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("ai_user1");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -86,7 +78,6 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Act: send a message. HTTP write path completes immediately regardless of worker state.
         var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Hello AI",
@@ -97,8 +88,6 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
         var originalMessageId = (await msgResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("messageId").GetGuid();
 
-        // Assert: poll the DB until the AI response message appears or the timeout elapses.
-        // Pipeline hops: OutboxRelayWorker (~1 s poll) + SB round-trip + AIResponseWorker write.
         var deadline = DateTime.UtcNow.AddSeconds(15);
         Guid? aiMessageId = null;
         while (DateTime.UtcNow < deadline)
@@ -118,14 +107,12 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
 
         aiMessageId.Should().NotBeNull("AIResponseWorker must write a reply when IsAiAssistantEnabled=true");
 
-        // Also verify: the AI reply itself created an OutboxMessage (it goes through the same write path).
         await using var dbFinal = _factory.CreateDbContext();
         var aiOutbox = await dbFinal.OutboxMessages
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.MessageId == aiMessageId!.Value);
         aiOutbox.Should().NotBeNull("the AI reply must produce an OutboxMessage via the same write path");
 
-        // Verify idempotency key follows the expected convention.
         var aiMsgRecord = await dbFinal.Messages
             .AsNoTracking()
             .FirstAsync(m => m.Id == aiMessageId!.Value);
@@ -135,7 +122,6 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
     [Fact]
     public async Task AIResponseWorker_DisabledChannel_SkipsResponse()
     {
-        // Arrange
         var (token, _) = await RegisterAndLoginAsync("ai_user2");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -150,7 +136,6 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
         var channelId = (await createResp.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("channelId").GetGuid();
 
-        // Act
         var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "No AI here",
@@ -158,10 +143,8 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
         });
         msgResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // Wait long enough for the full pipeline to have run (relay poll + SB round-trip + worker ack).
         await Task.Delay(TimeSpan.FromSeconds(5));
 
-        // Assert: no AI-authored message in this channel.
         await using var db = _factory.CreateDbContext();
         var aiMessages = await db.Messages
             .AsNoTracking()

@@ -1,8 +1,8 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class Conversation
 {
-    private Conversation() { } // For EF Core
+    private Conversation() { }
 
     public Guid Id { get; private set; }
     public Guid UserAId { get; private set; }

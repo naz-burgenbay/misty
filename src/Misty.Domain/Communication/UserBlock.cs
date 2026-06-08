@@ -1,8 +1,8 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class UserBlock
 {
-    private UserBlock() { } // For EF Core
+    private UserBlock() { }
 
     public Guid BlockerId { get; private set; }
     public Guid BlockedId { get; private set; }

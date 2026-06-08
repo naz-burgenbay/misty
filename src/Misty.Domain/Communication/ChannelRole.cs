@@ -1,8 +1,8 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public class ChannelRole
 {
-    private ChannelRole() { } // For EF Core
+    private ChannelRole() { }
 
     public Guid Id { get; private set; }
     public Guid ChannelId { get; private set; }

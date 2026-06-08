@@ -1,4 +1,4 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 using System.Linq.Expressions;
 
@@ -37,12 +37,9 @@ public class ModerationAction
             ExpiresAt = expiresAt,
         };
 
-    // Returns true if this action is currently active (not revoked, not expired)
     public bool IsActive(DateTime utcNow)
         => RevokedAt is null && (ExpiresAt is null || ExpiresAt > utcNow);
 
-    // EF-translatable form of IsActive. The single source of truth for the "active moderation action" predicate.
-    // Both in-memory checks and SQL queries must go through this.
     public static Expression<Func<ModerationAction, bool>> IsActiveExpr(DateTime utcNow)
         => a => a.RevokedAt == null && (a.ExpiresAt == null || a.ExpiresAt > utcNow);
 

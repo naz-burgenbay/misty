@@ -28,9 +28,9 @@
         {
             var kind = _kind switch
             {
-                "Ban" => ModerationActionKind.Ban,
-                "Warn" => ModerationActionKind.Warn,
-                _ => ModerationActionKind.Mute,
+                "Ban" => ModerationActionType.Ban,
+                "Warn" => ModerationActionType.Warn,
+                _ => ModerationActionType.Mute,
             };
             await Moderation.ApplyAsync(ChannelId, targetId, kind, _reason!,
                 _hasExpiry ? DateTime.SpecifyKind(_expiresAt, DateTimeKind.Utc) : null);

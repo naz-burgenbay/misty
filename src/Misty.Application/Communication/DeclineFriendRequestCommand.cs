@@ -22,11 +22,13 @@ public sealed class DeclineFriendRequestCommandHandler : IRequestHandler<Decline
 {
     private readonly IFriendRequestRepository _requests;
     private readonly IOutboxWriter _outbox;
+    private readonly IInboxItemRepository _inbox;
 
-    public DeclineFriendRequestCommandHandler(IFriendRequestRepository requests, IOutboxWriter outbox)
+    public DeclineFriendRequestCommandHandler(IFriendRequestRepository requests, IOutboxWriter outbox, IInboxItemRepository inbox)
     {
         _requests = requests;
         _outbox = outbox;
+        _inbox = inbox;
     }
 
     public async Task Handle(DeclineFriendRequestCommand cmd, CancellationToken ct)
@@ -57,5 +59,12 @@ public sealed class DeclineFriendRequestCommandHandler : IRequestHandler<Decline
             new FriendRequestDeclinedPayload(entity.Id, cmd.UserId, entity.SenderId, DateTime.UtcNow));
 
         await _requests.UpdateAsync(entity, concurrencyToken, ct);
+
+        var inboxItem = await _inbox.GetByReferenceAsync(cmd.UserId, cmd.RequestId, ct);
+        if (inboxItem is { IsActedOn: false })
+        {
+            inboxItem.MarkActedOn();
+            await _inbox.UpdateAsync(inboxItem, ct);
+        }
     }
 }

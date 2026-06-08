@@ -1,8 +1,7 @@
-using Misty.Application.Communication.Contracts;
+﻿using Misty.Application.Communication.Contracts;
 
 namespace Misty.Infrastructure.Communication;
 
-// No-op stub used until the real SQL implementation is wired in later.
 public sealed class StubUserBlockService : IUserBlockService
 {
     public Task<bool> BlockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)

@@ -1,8 +1,7 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 
 namespace Misty.Web.Services.Auth;
 
-// Tiny localStorage wrapper. The refresh token lives here, the access token never does.
 public interface ILocalStorage
 {
     ValueTask<string?> GetAsync(string key);

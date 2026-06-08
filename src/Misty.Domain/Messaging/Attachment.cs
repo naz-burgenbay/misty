@@ -1,4 +1,4 @@
-namespace Misty.Domain.Messaging;
+﻿namespace Misty.Domain.Messaging;
 
 public enum AttachmentOwnerType
 {
@@ -9,12 +9,11 @@ public enum AttachmentOwnerType
 
 public sealed class Attachment
 {
-    private Attachment() { } // For EF Core
+    private Attachment() { }
 
     public Guid Id { get; private set; }
     public AttachmentOwnerType OwnerType { get; private set; }
 
-    // Exactly one of the following is non-null, enforced by a CHECK constraint matching OwnerType.
     public Guid? MessageId { get; private set; }
     public Guid? AvatarUserId { get; private set; }
     public Guid? ChannelIconChannelId { get; private set; }

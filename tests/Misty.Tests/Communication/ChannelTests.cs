@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -69,7 +69,7 @@ public sealed class ChannelTests : IAsyncLifetime
             Name = "general",
             IsPrivate = false,
             IsAiAssistantEnabled = false,
-            DefaultPermissions = 7L, // ViewChannel | ReadHistory | SendMessages
+            DefaultPermissions = 7L,
         });
 
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -79,7 +79,7 @@ public sealed class ChannelTests : IAsyncLifetime
         body.GetProperty("name").GetString().Should().Be("general");
         body.GetProperty("isPrivate").GetBoolean().Should().BeFalse();
         body.TryGetProperty("inviteCode", out var ic).Should().BeTrue();
-        ic.ValueKind.Should().Be(JsonValueKind.Null); // public channels have no invite code
+        ic.ValueKind.Should().Be(JsonValueKind.Null);
         body.GetProperty("defaultPermissions").GetInt64().Should().Be(7L);
         body.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
     }
@@ -212,7 +212,6 @@ public sealed class ChannelTests : IAsyncLifetime
         var channelId = created.GetProperty("channelId").GetGuid();
         var originalVersion = created.GetProperty("version").GetString()!;
 
-        // First update advances the version
         await _client.PutAsJsonAsync($"/api/v1/channels/{channelId}", new
         {
             Name = "first-update",
@@ -221,7 +220,6 @@ public sealed class ChannelTests : IAsyncLifetime
             Version = originalVersion,
         });
 
-        // Second update using the original (now stale) version must be rejected
         var conflictResp = await _client.PutAsJsonAsync($"/api/v1/channels/{channelId}", new
         {
             Name = "second-update",

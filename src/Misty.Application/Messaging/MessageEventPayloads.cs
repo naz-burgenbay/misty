@@ -1,7 +1,4 @@
-namespace Misty.Application.Messaging;
-
-// Payloads written to msg.OutboxMessage and later published to the message-events Service Bus topic.
-// Public so consumers in Misty.Api (RealtimeDeliveryWorker) and Misty.Infrastructure (AIResponseWorker) can deserialize them directly.
+﻿namespace Misty.Application.Messaging;
 
 public sealed record MessageCreatedPayload(
     Guid MessageId,
@@ -12,7 +9,6 @@ public sealed record MessageCreatedPayload(
     Guid? ParentMessageId,
     DateTime CreatedAt)
 {
-    // Discriminator included in the JSON envelope for forward-compatible polymorphic deserialization.
     public string EventType { get; init; } = "MessageCreated";
 }
 

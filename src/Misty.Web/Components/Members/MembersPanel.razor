@@ -1,86 +1,277 @@
-@using Misty.Web.Components.Primitives
+﻿@using Misty.Web.Components.Primitives
+@using Misty.Web.Components.Moderation
 @using Misty.Web.Services.Communication
+@using Misty.Web.Services.Permissions
 @inject IChannelMembersService MembersService
 @inject IChannelRolesService RolesService
+@inject IChannelService ChannelService
+@inject IModerationService ModerationService
+@inject IPermissionsCache Permissions
+@inject IDirectMessageService DirectMessages
+@inject NavigationManager Nav
+@inject IToastService Toasts
+@implements IDisposable
 
 @code {
     [Parameter, EditorRequired] public Guid ChannelId { get; set; }
 
     private IReadOnlyList<ChannelMemberDto> _members = Array.Empty<ChannelMemberDto>();
-    private Dictionary<Guid, string> _roleNames = new();
+    private IReadOnlyList<ChannelRoleDto> _roles = Array.Empty<ChannelRoleDto>();
     private bool _loading = true;
     private Guid _loadedFor;
+    private ChannelPermissionFlags _myFlags;
+    private IDisposable? _permSub;
+
+    private string _search = string.Empty;
+
+    private Guid? _menuOpenFor;
+
+    private bool _moderationModalOpen;
+    private Guid _moderationTargetUserId;
+    private ModerationActionType _moderationKind;
+
+    private bool _revokeModalOpen;
+    private Guid _revokeTargetUserId;
+    private Guid _revokeActionId;
+    private string _revokeActionType = string.Empty;
+    private string _revokeTargetUserName = string.Empty;
+    private string _revokeVersion = string.Empty;
+
+    private bool CanKick => (_myFlags & ChannelPermissionFlags.KickMembers) != 0;
+    private bool CanMute => (_myFlags & ChannelPermissionFlags.MuteMembers) != 0;
+    private bool CanBan => (_myFlags & ChannelPermissionFlags.BanMembers) != 0;
+    private bool CanManageRoles => (_myFlags & ChannelPermissionFlags.ManageRoles) != 0;
+    private bool CanModerate => CanMute || CanBan;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_loadedFor == ChannelId && !_loading)
-            return;
+        _permSub?.Dispose();
+        var obs = Permissions.Watch(ChannelId);
+        _myFlags = obs.Value;
+        _permSub = obs.Subscribe(f => { _myFlags = f; InvokeAsync(StateHasChanged); });
+
+        if (_loadedFor == ChannelId && !_loading) return;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
         _loadedFor = ChannelId;
         _loading = true;
-
         var rolesTask = RolesService.GetRolesAsync(ChannelId);
         var membersTask = MembersService.GetMembersAsync(ChannelId);
         await Task.WhenAll(rolesTask, membersTask);
-
-        _roleNames = (await rolesTask).ToDictionary(r => r.Id, r => r.Name);
+        _roles = await rolesTask;
         _members = await membersTask;
         _loading = false;
+    }
+
+    public void Dispose() => _permSub?.Dispose();
+
+    private IEnumerable<(ChannelRoleDto? Role, IReadOnlyList<ChannelMemberDto> Members)> GroupedMembers()
+    {
+        var filtered = string.IsNullOrWhiteSpace(_search)
+            ? _members
+            : _members.Where(m =>
+                m.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                m.Username.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var assigned = new HashSet<Guid>();
+        foreach (var role in _roles.OrderByDescending(r => r.IsOwnerRole).ThenBy(r => r.Name))
+        {
+            var group = filtered.Where(m => m.RoleIds.Contains(role.Id)).ToList();
+            if (group.Any())
+            {
+                foreach (var m in group) assigned.Add(m.UserId);
+                yield return (role, group);
+            }
+        }
+        var unassigned = filtered.Where(m => !assigned.Contains(m.UserId)).ToList();
+        if (unassigned.Any())
+            yield return (null, unassigned);
+    }
+
+    private async Task GoToDmAsync(Guid userId)
+    {
+        _menuOpenFor = null;
+        try
+        {
+            var dm = await DirectMessages.CreateOrGetAsync(userId);
+            Nav.NavigateTo($"/dm/{dm.Id}");
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't open DM: {ex.Message}", ToastKind.Error); }
+    }
+
+    private void OpenInviteToChannel(Guid userId)
+    {
+        _menuOpenFor = null;
+    }
+
+    private void Report()
+    {
+        _menuOpenFor = null;
+        Toasts.Show("Report submitted.", ToastKind.Info);
+    }
+
+    private async Task KickAsync(Guid userId, string name)
+    {
+        _menuOpenFor = null;
+        try
+        {
+            await ChannelService.KickMemberAsync(ChannelId, userId);
+            Toasts.Show($"{name} kicked.", ToastKind.Success);
+            await ReloadAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't kick: {ex.Message}", ToastKind.Error); }
+    }
+
+    private void OpenModeration(Guid userId, ModerationActionType kind)
+    {
+        _menuOpenFor = null;
+        _moderationTargetUserId = userId;
+        _moderationKind = kind;
+        _moderationModalOpen = true;
+    }
+
+    private async Task OpenRevoke(Guid userId, string userName, ChannelMemberModerationKind kind)
+    {
+        _menuOpenFor = null;
+        var actions = await ModerationService.GetActiveAsync(ChannelId, userId);
+        var actionType = (ModerationActionType)(int)kind;
+        var action = actions.FirstOrDefault(a => a.Type == actionType);
+        if (action is null) return;
+
+        _revokeTargetUserId = userId;
+        _revokeTargetUserName = userName;
+        _revokeActionId = action.ActionId;
+        _revokeVersion = action.Version;
+        _revokeActionType = kind.ToString();
+        _revokeModalOpen = true;
+    }
+
+    private async Task OnRevoked()
+    {
+        _revokeModalOpen = false;
+        _loadedFor = default;
+        await ReloadAsync();
+        StateHasChanged();
     }
 }
 
 <div class="panel">
+    <div class="search-row">
+        <div class="search-field">
+            <Blazicon Svg="Lucide.Search" />
+            <input class="search-input" type="search"
+                   placeholder="Search members…"
+                   value="@_search"
+                   @oninput="@(e => _search = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+    </div>
+
     @if (_loading)
     {
-        <p class="empty">Loading members…</p>
-    }
-    else if (_members.Count == 0)
-    {
-        <p class="empty">No members yet.</p>
+        <p class="empty">Loading…</p>
     }
     else
     {
-        <section class="group">
-            <h3 class="group-title">Members · @_members.Count</h3>
-            @foreach (var m in _members)
-            {
-                <UserContextMenu UserId="@m.UserId"
-                                 UserName="@m.DisplayName"
-                                 UserUsername="@m.Username"
-                                 ChannelId="@ChannelId"
-                                 Class="member-anchor">
-                    <div class="member">
-                        <Avatar Name="@m.DisplayName" Size="Avatar.AvatarSize.Medium" />
-                        <div class="info">
-                            <div class="line">
-                                <span class="name">@m.DisplayName</span>
-                                @foreach (var roleId in m.RoleIds)
-                                {
-                                    if (_roleNames.TryGetValue(roleId, out var roleName))
+        @foreach (var (role, members) in GroupedMembers())
+        {
+            <section class="group">
+                <h3 class="group-title">
+                    @(role is null ? "Members" : role.Name)
+                    @if (role?.IsOwnerRole == true)
+                    {
+                        <span class="owner-label">· Owner</span>
+                    }
+                    <span class="count">· @members.Count</span>
+                </h3>
+                @foreach (var m in members.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+                {
+                    var member = m;
+                    <div class="member-row">
+                        <Avatar Name="@m.DisplayName" Size="Avatar.AvatarSize.Small" />
+                        <div class="member-info">
+                            <span class="member-name">@m.DisplayName</span>
+                            @if (m.ActiveModerationTypes.Any(k => k != ChannelMemberModerationKind.Kick))
+                            {
+                                <span class="mod-badges">
+                                    @foreach (var k in m.ActiveModerationTypes.Where(x => x != ChannelMemberModerationKind.Kick))
                                     {
-                                        <Badge Variant="Badge.BadgeVariant.Admin" Label="@roleName" />
+                                        var kind = k;
+                                        <button type="button" class="badge-btn" title="Revoke @k.ToString().ToLower()"
+                                                @onclick="@(() => OpenRevoke(member.UserId, member.DisplayName, kind))"
+                                                @onclick:stopPropagation="true">
+                                            <span class="mod-badge @k.ToString().ToLower()">@k.ToString()</span>
+                                        </button>
                                     }
-                                }
-                                @foreach (var mod in m.ActiveModerationTypes)
-                                {
-                                    @switch (mod)
+                                </span>
+                            }
+                        </div>
+                        <div class="member-menu-anchor" @onclick:stopPropagation="true">
+                            @if (_menuOpenFor == member.UserId)
+                            {
+                                <div class="menu-backdrop" @onclick="@(() => _menuOpenFor = null)"></div>
+                            }
+                            <IconButton Title="More"
+                                        OnClick="@(() => _menuOpenFor = _menuOpenFor == member.UserId ? null : member.UserId)">
+                                <Blazicon Svg="Lucide.Ellipsis" />
+                            </IconButton>
+                            <Popover Open="@(_menuOpenFor == member.UserId)"
+                                     Placement="Popover.PopoverPlacement.BottomRight"
+                                     OnClose="@(() => _menuOpenFor = null)">
+                                <ul class="member-menu">
+                                    <li><button type="button" class="mmenu-item" @onclick="@(() => GoToDmAsync(member.UserId))">Send direct message</button></li>
+                                    <li><button type="button" class="mmenu-item" @onclick="Report">Report</button></li>
+                                    @if (CanModerate || CanKick)
                                     {
-                                        case ChannelMemberModerationKind.Mute:
-                                            <Badge Variant="Badge.BadgeVariant.Muted" Label="Muted" />
-                                            break;
-                                        case ChannelMemberModerationKind.Ban:
-                                            <Badge Variant="Badge.BadgeVariant.Banned" Label="Banned" />
-                                            break;
-                                        case ChannelMemberModerationKind.Warn:
-                                            <Badge Variant="Badge.BadgeVariant.Warned" Label="Warned" />
-                                            break;
+                                        <li class="mmenu-sep" role="separator"></li>
                                     }
-                                }
-                            </div>
-                            <div class="handle">@m.Username</div>
+                                    @if (CanMute)
+                                    {
+                                        <li><button type="button" class="mmenu-item" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Mute))">Mute</button></li>
+                                    }
+                                    @if (CanBan)
+                                    {
+                                        <li><button type="button" class="mmenu-item danger" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Ban))">Ban</button></li>
+                                    }
+                                    @if (CanKick)
+                                    {
+                                        <li><button type="button" class="mmenu-item danger" @onclick="@(() => KickAsync(member.UserId, member.DisplayName))">Kick</button></li>
+                                    }
+                                    @foreach (var modKind in member.ActiveModerationTypes.Where(k => k != ChannelMemberModerationKind.Kick))
+                                    {
+                                        var k = modKind;
+                                        <li><button type="button" class="mmenu-item" @onclick="@(() => OpenRevoke(member.UserId, member.DisplayName, k))">End @k.ToString().ToLower()</button></li>
+                                    }
+                                </ul>
+                            </Popover>
                         </div>
                     </div>
-                </UserContextMenu>
-            }
-        </section>
+                }
+            </section>
+        }
+
+        @if (!GroupedMembers().Any())
+        {
+            <p class="empty">No members match.</p>
+        }
     }
 </div>
+
+<ModerationActionModal Open="_moderationModalOpen"
+                       ChannelId="ChannelId"
+                       TargetUserId="@(_moderationModalOpen ? _moderationTargetUserId : (Guid?)null)"
+                       OnClose="@(() => _moderationModalOpen = false)" />
+
+<RevokeModerationModal Open="@_revokeModalOpen"
+                        OpenChanged="@(v => _revokeModalOpen = v)"
+                        ChannelId="@ChannelId"
+                        TargetUserId="@_revokeTargetUserId"
+                        TargetUserName="@_revokeTargetUserName"
+                        ActionId="@_revokeActionId"
+                        Version="@_revokeVersion"
+                        ActionType="@_revokeActionType"
+                        OnRevoked="OnRevoked" />
+

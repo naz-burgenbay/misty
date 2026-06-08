@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,7 +7,6 @@ using System.Text.Json;
 
 namespace Misty.Api.Realtime;
 
-// Consumes MessageCreated events from the realtime-delivery subscription and fans them out to connected SignalR clients.
 public sealed class RealtimeDeliveryWorker : BackgroundService
 {
     private readonly ServiceBusClient _client;
@@ -54,7 +53,6 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
     {
         try
         {
-            // Dispatch by Subject (set from OutboxMessage.EventType when published).
             var eventType = args.Message.Subject;
             switch (eventType)
             {
@@ -74,7 +72,6 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
                     await HandleReactionRemovedAsync(args);
                     break;
                 default:
-                    // Unknown event type: complete to avoid poison-message redelivery loops.
                     _logger.LogWarning("Skipping unknown event type '{EventType}'", eventType);
                     await args.CompleteMessageAsync(args.Message);
                     break;

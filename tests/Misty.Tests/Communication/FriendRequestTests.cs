@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -178,7 +178,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
         acceptedOutbox.Should().Be(0);
     }
 
-    // Planned self-target returns 400, but the handler throws ValidationException which the global handler maps to 422 (same as the established BlockSelf_Returns422 convention).
     [Fact]
     public async Task SendToSelf_Returns422()
     {
@@ -250,7 +249,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var (tokenS2, _, _) = await RegisterAndLoginAsync("fr_rcv_s2");
         var (tokenS3, _, _) = await RegisterAndLoginAsync("fr_rcv_s3");
 
-        // S1 -> R, then S2 -> R, then S3 -> R. R declines S2's, leaving Pending {S1, S3}.
         (await SendRequestAsync(tokenS1, usernameR)).StatusCode.Should().Be(HttpStatusCode.Created);
         await Task.Delay(20);
         (await SendRequestAsync(tokenS2, usernameR)).StatusCode.Should().Be(HttpStatusCode.Created);
@@ -281,7 +279,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
         var (tokenC, _, _) = await RegisterAndLoginAsync("fr_sent_c");
         var (_, userD, usernameD) = await RegisterAndLoginAsync("fr_sent_d");
 
-        // A sends to B; C sends to D. A's sent list should only contain B.
         (await SendRequestAsync(tokenA, usernameB)).StatusCode.Should().Be(HttpStatusCode.Created);
         (await SendRequestAsync(tokenC, usernameD)).StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -356,7 +353,6 @@ public sealed class FriendRequestTests : IAsyncLifetime
             originalVersion = Convert.ToBase64String(entity.Version);
         }
 
-        // No-op SQL update advances SQL Server's rowversion column without changing logical state.
         await using (var db = _factory.CreateDbContext())
             await db.Database.ExecuteSqlRawAsync(
                 "UPDATE comm.FriendRequest SET Id = Id WHERE Id = {0}", requestId);

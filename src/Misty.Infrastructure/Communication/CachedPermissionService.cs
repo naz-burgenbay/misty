@@ -1,10 +1,9 @@
-using Misty.Application.Communication.Contracts;
+﻿using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
 using StackExchange.Redis;
 
 namespace Misty.Infrastructure.Communication;
 
-// Redis cache layer over PermissionService. Cache misses fall back to SQL and populate the cache automatically.
 public sealed class CachedPermissionService : IPermissionService
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);

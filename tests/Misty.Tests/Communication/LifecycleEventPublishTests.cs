@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -50,8 +50,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         var user = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == userId);
         return Convert.ToBase64String(user.Version);
     }
-
-    // Friend request lifecycle 
 
     [Fact]
     public async Task FriendRequestDeclined_PublishesEvent()
@@ -117,8 +115,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         removed.Topic.Should().Be("friend-events");
     }
 
-    // Channel invite lifecycle 
-
     [Fact]
     public async Task ChannelInviteDeclined_PublishesEvent()
     {
@@ -140,8 +136,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
         await AssertOutboxAsync("channel-invite-events", "ChannelInviteDeclined", inviteId);
     }
-
-    // Channel lifecycle 
 
     [Fact]
     public async Task ChannelCreated_PublishesEvent()
@@ -185,8 +179,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         await AssertOutboxAsync("channel-events", "ChannelDeleted", channelId);
     }
 
-    // Block lifecycle 
-
     [Fact]
     public async Task UserBlocked_PublishesEvent()
     {
@@ -212,8 +204,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         await AssertOutboxAsync("block-events", "UserUnblocked", userB);
     }
 
-    // Channel role create 
-
     [Fact]
     public async Task ChannelRoleCreated_PublishesEvent()
     {
@@ -230,8 +220,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
         await AssertOutboxAsync("role-events", "ChannelRoleCreated", channelId);
     }
-
-    // User profile lifecycle 
 
     [Fact]
     public async Task UserRegistered_PublishesEvent()
@@ -284,7 +272,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         (await _client.PostAsync("/api/v1/users/me/avatar", form)).EnsureSuccessStatusCode();
         (await SendJsonDeleteAsync("/api/v1/users/me/avatar", new { Version = await CurrentUserVersionAsync(userId) })).EnsureSuccessStatusCode();
 
-        // Two events should now exist for this user (upload + remove). Both share the same EventType.
         await using var db = _factory.CreateDbContext();
         var rows = await db.OutboxMessages
             .Where(o => o.EventType == "UserAvatarChanged" && o.MessageId == userId)
@@ -304,8 +291,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
         await AssertOutboxAsync("user-events", "UserDeleted", userId);
     }
 
-    // Helpers 
-
     private void SetToken(string token)
         => _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -324,7 +309,6 @@ public sealed class LifecycleEventPublishTests : IAsyncLifetime
 
     private async Task<(string Token, Guid UserId, string Username)> RegisterAndLoginAsync(string prefix)
     {
-        // Append a per-test sequence number so re-registering the same prefix in different tests stays unique within the run.
         var n = Interlocked.Increment(ref _seq);
         var username = $"{prefix}_{n}";
         var regResp = await _client.PostAsJsonAsync("/api/v1/auth/register", new

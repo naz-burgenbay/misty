@@ -1,0 +1,100 @@
+@inject IChannelService Channels
+@inject IToastService Toasts
+@implements IDisposable
+
+@code {
+    [Parameter, EditorRequired] public bool Open { get; set; }
+    [Parameter, EditorRequired] public Guid TargetUserId { get; set; }
+    [Parameter] public string? TargetName { get; set; }
+    [Parameter, EditorRequired] public string? TargetUsername { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private IReadOnlyList<ChannelSummaryDto> _channels = Array.Empty<ChannelSummaryDto>();
+    private string _search = string.Empty;
+    private bool _sending;
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        _sub = Channels.MyChannels.Subscribe(list =>
+        {
+            _channels = list;
+            InvokeAsync(StateHasChanged);
+        });
+        _channels = Channels.MyChannels.Value;
+    }
+
+    public void Dispose() => _sub?.Dispose();
+
+    private IEnumerable<ChannelSummaryDto> Filtered =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _channels
+            : _channels.Where(c => c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private async Task InviteAsync(Guid channelId, string channelName)
+    {
+        if (_sending || string.IsNullOrWhiteSpace(TargetUsername)) return;
+        _sending = true;
+        try
+        {
+            await Channels.SendInviteAsync(channelId, TargetUsername!);
+            var displayName = string.IsNullOrWhiteSpace(TargetName) ? TargetUsername : TargetName;
+            Toasts.Show($"Invited {displayName} to #{channelName}.", ToastKind.Success);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Invite failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+}
+
+@if (Open)
+{
+    <Modal Open="true" Title="Invite to a channel" OnClose="OnClose">
+        <ChildContent>
+            <div class="invite-channel-modal">
+                <div class="search-row">
+                    <TextField Value="@_search"
+                               ValueChanged="@(v => _search = v ?? string.Empty)"
+                               Placeholder="Search channels" />
+                </div>
+                @if (!_channels.Any())
+                {
+                    <div class="hint">You're not a member of any channels.</div>
+                }
+                else if (!Filtered.Any())
+                {
+                    <div class="hint">No channels match.</div>
+                }
+                else
+                {
+                    <ul class="channel-list">
+                        @foreach (var channel in Filtered)
+                        {
+                            <li>
+                                <button type="button"
+                                        class="channel-item"
+                                        disabled="@_sending"
+                                        @onclick="@(() => InviteAsync(channel.Id, channel.Name))">
+                                    <span class="channel-icon">
+                                        <Blazicon Svg="@(channel.IsPrivate ? Lucide.Lock : Lucide.Hash)" />
+                                    </span>
+                                    <span class="channel-name">@channel.Name</span>
+                                    <span class="member-count">@channel.MemberCount members</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </ChildContent>
+        <Footer>
+            <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnClose">Cancel</Button>
+        </Footer>
+    </Modal>
+}

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -11,10 +11,8 @@ public sealed class MessageReactionConfiguration : IEntityTypeConfiguration<Mess
     {
         builder.ToTable("MessageReaction", SchemaNames.Msg);
 
-        // Composite primary key enforces one reaction of a given emoji per user per message.
         builder.HasKey(r => new { r.MessageId, r.UserId, r.EmojiCode });
 
-        // Binary collation is required so SQL Server distinguishes between distinct emoji codes.
         builder.Property(r => r.EmojiCode)
             .IsRequired()
             .HasMaxLength(64)

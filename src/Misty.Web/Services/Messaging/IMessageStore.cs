@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Auth;
@@ -9,8 +9,6 @@ using Misty.Web.Services.Users;
 
 namespace Misty.Web.Services.Messaging;
 
-// Per-conversation observable message list. Optimistic insert produces a local message with a client-generated idempotency key; when the SignalR MessageCreated event arrives (or the 201 response with the persisted Id), the optimistic entry is replaced atomically using the key (SignalR-vs-201 dedup as described in the design system).
-// Ids must be registered as either a channel (via EnsureChannelLoadedAsync) or a direct conversation (via EnsureConversationLoadedAsync) before the store can talk to the API on their behalf.
 public interface IMessageStore
 {
     Observable<IReadOnlyList<MockMessage>> GetConversation(Guid conversationId);
@@ -26,6 +24,7 @@ public interface IMessageStore
     Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default);
     Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
         string contentType, long sizeBytes, Stream content, CancellationToken ct = default);
+    Task DeleteAttachmentAsync(Guid conversationId, Guid messageId, Guid attachmentId, CancellationToken ct = default);
 }
 
 public sealed class HttpMessageStore : IMessageStore, IDisposable
@@ -40,7 +39,6 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private readonly Dictionary<Guid, Observable<IReadOnlyList<MockMessage>>> _byConversation = new();
     private readonly Dictionary<Guid, TopicState> _topics = new();
-    // Pending optimistic sends keyed by idempotency key, scoped per topic (channel or DM), so the 201 echo can swap the placeholder Id without duplicating the row.
     private readonly Dictionary<Guid, Dictionary<string, Guid>> _pendingByTopic = new();
 
     private readonly List<IDisposable> _hubSubs = new();
@@ -90,7 +88,6 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             state.NextCursor = page.NextCursor;
             state.InitialLoaded = true;
 
-            // Backend returns descending (newest first); reverse to ascending (oldest first) for display
             var mapped = page.Messages.Select(ToMockMessage).Reverse().ToList();
             obs.Set(mapped);
             ScheduleUserPreload(mapped);
@@ -115,9 +112,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
             if (page.Messages.Count == 0) return;
             var obs = GetConversation(topicId);
-            // Backend returns descending (newest first within page); reverse to ascending, then prepend to existing list
             var older = page.Messages.Select(ToMockMessage).Reverse().ToList();
-            // The cursor API returns pages in DESC order (newest first within the page); we keep the visible list in ASC order, so older messages prepend.
             var merged = new List<MockMessage>(older.Count + obs.Value.Count);
             merged.AddRange(older);
             merged.AddRange(obs.Value);
@@ -262,7 +257,6 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
         var attachment = new MockAttachment(body.AttachmentId, body.FileName, body.ContentType, body.SizeBytes, body.CdnUrl);
 
-        // Locally augment the just-sent message so the uploader sees the attachment immediately. Other clients see it on next history load.
         if (_byConversation.TryGetValue(channelId, out var obs))
         {
             var next = obs.Value.Select(m =>
@@ -276,6 +270,11 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
 
         return attachment;
+    }
+
+    public async Task DeleteAttachmentAsync(Guid conversationId, Guid messageId, Guid attachmentId, CancellationToken ct = default)
+    {
+        throw new NotImplementedException("Attachment deletion not yet implemented");
     }
 
     private void OnReactionAdded(ReactionAddedEvent evt)
@@ -352,10 +351,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         var obs = GetConversation(id);
         var existing = obs.Value;
 
-        // Echo of a message we just sent: the optimistic row was already swapped to the real Id by the 201 path; skip.
         if (existing.Any(m => m.Id == evt.MessageId)) return;
 
-        // SignalR payload doesn't carry the parent preview; backfill from the loaded window when possible.
         MockParentPreview? preview = null;
         if (evt.ParentMessageId is { } parentId)
         {
@@ -404,7 +401,6 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private void OnHubReconnected()
     {
-        // On reconnect, refetch every loaded topic from the cursor head. Simpler than reasoning about gap recovery for the small page sizes this client uses.
         foreach (var (topicId, state) in _topics.ToList())
         {
             var kind = state.Kind;

@@ -22,11 +22,13 @@ public sealed class DeclineChannelInviteCommandHandler : IRequestHandler<Decline
 {
     private readonly IChannelInviteRepository _invites;
     private readonly IOutboxWriter _outbox;
+    private readonly IInboxItemRepository _inbox;
 
-    public DeclineChannelInviteCommandHandler(IChannelInviteRepository invites, IOutboxWriter outbox)
+    public DeclineChannelInviteCommandHandler(IChannelInviteRepository invites, IOutboxWriter outbox, IInboxItemRepository inbox)
     {
         _invites = invites;
         _outbox = outbox;
+        _inbox = inbox;
     }
 
     public async Task Handle(DeclineChannelInviteCommand cmd, CancellationToken ct)
@@ -57,5 +59,12 @@ public sealed class DeclineChannelInviteCommandHandler : IRequestHandler<Decline
             new ChannelInviteDeclinedPayload(entity.Id, entity.ChannelId, cmd.UserId, entity.InvitedByUserId, DateTime.UtcNow));
 
         await _invites.UpdateAsync(entity, concurrencyToken, ct);
+
+        var inboxItem = await _inbox.GetByReferenceAsync(cmd.UserId, cmd.InviteId, ct);
+        if (inboxItem is { IsActedOn: false })
+        {
+            inboxItem.MarkActedOn();
+            await _inbox.UpdateAsync(inboxItem, ct);
+        }
     }
 }

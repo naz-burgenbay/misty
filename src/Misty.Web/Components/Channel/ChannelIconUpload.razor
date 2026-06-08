@@ -1,0 +1,183 @@
+﻿@using Misty.Web.Services.Communication
+@using Microsoft.AspNetCore.Components.Forms
+@inject IChannelService ChannelService
+
+@code {
+    [Parameter, EditorRequired] public Guid ChannelId { get; set; }
+    [Parameter, EditorRequired] public string Version { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> VersionChanged { get; set; }
+    [Parameter] public EventCallback OnUploadComplete { get; set; }
+
+    private bool _uploading;
+    private string? _errorMessage;
+    private string? _currentIconUrl;
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _errorMessage = null;
+        _uploading = true;
+
+        try
+        {
+            var file = e.File;
+            
+            if (!file.ContentType.StartsWith("image/"))
+            {
+                _errorMessage = "Please select an image file";
+                return;
+            }
+
+            const long maxSize = 5 * 1024 * 1024;
+            if (file.Size > maxSize)
+            {
+                _errorMessage = "Image must be smaller than 5MB";
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxSize);
+            var newVersion = await ChannelService.UploadIconAsync(ChannelId, stream, file.ContentType, Version);
+            Version = newVersion;
+            await VersionChanged.InvokeAsync(newVersion);
+
+            await OnUploadComplete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Failed to upload icon";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task RemoveIcon()
+    {
+        _errorMessage = null;
+        _uploading = true;
+
+        try
+        {
+            var newVersion = await ChannelService.RemoveIconAsync(ChannelId, Version);
+            Version = newVersion;
+            await VersionChanged.InvokeAsync(newVersion);
+            _currentIconUrl = null;
+            await OnUploadComplete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Failed to remove icon";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+}
+
+<div class="channel-icon-upload">
+    <label class="upload-label">Channel Icon</label>
+    
+    @if (_currentIconUrl is not null)
+    {
+        <div class="current-icon">
+            <img src="@_currentIconUrl" alt="Channel icon" />
+            <button type="button"
+                    class="remove-btn"
+                    @onclick="RemoveIcon"
+                    disabled="@_uploading">
+                Remove Icon
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="upload-area">
+            <InputFile OnChange="HandleFileSelected"
+                       accept="image/*"
+                       disabled="@_uploading" />
+            <div class="upload-hint">
+                @if (_uploading)
+                {
+                    <span>Uploading...</span>
+                }
+                else
+                {
+                    <span>Click to upload an image (max 5MB)</span>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_errorMessage is not null)
+    {
+        <div class="error">@_errorMessage</div>
+    }
+</div>
+
+<style>
+    .channel-icon-upload {
+        margin-bottom: var(--sp-4);
+    }
+
+    .upload-label {
+        display: block;
+        font-weight: var(--fw-medium);
+        margin-bottom: var(--sp-2);
+        color: var(--color-text-primary);
+    }
+
+    .current-icon {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+    }
+
+    .current-icon img {
+        width: 64px;
+        height: 64px;
+        border-radius: var(--radius-md);
+        object-fit: cover;
+    }
+
+    .remove-btn {
+        padding: var(--sp-2) var(--sp-3);
+        background: var(--color-danger);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: var(--fs-small);
+    }
+
+    .remove-btn:hover:not(:disabled) {
+        opacity: 0.9;
+    }
+
+    .remove-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .upload-area {
+        padding: var(--sp-4);
+        border: 2px dashed var(--color-border);
+        border-radius: var(--radius-md);
+        text-align: center;
+    }
+
+    .upload-hint {
+        margin-top: var(--sp-2);
+        font-size: var(--fs-small);
+        color: var(--color-text-muted);
+    }
+
+    .error {
+        margin-top: var(--sp-2);
+        padding: var(--sp-2);
+        background: var(--color-danger-surface);
+        color: var(--color-danger);
+        border-radius: var(--radius-md);
+        font-size: var(--fs-small);
+    }
+</style>

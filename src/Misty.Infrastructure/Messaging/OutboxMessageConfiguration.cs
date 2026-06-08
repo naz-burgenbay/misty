@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -21,15 +21,12 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
             .IsRequired()
             .HasMaxLength(128);
 
-        // Payload is an unbounded JSON string; no max length constraint.
         builder.Property(m => m.Payload)
             .IsRequired();
 
-        // rowversion is automatically included in UPDATE/DELETE WHERE clauses by EF Core.
         builder.Property(m => m.Version)
             .IsRowVersion();
 
-        // Filtered index to make relay queries fast; only unpublished rows are ever scanned.
         builder.HasIndex(m => m.CreatedAt)
             .HasFilter("[PublishedAt] IS NULL")
             .HasDatabaseName("IX_OutboxMessage_Unpublished_CreatedAt");

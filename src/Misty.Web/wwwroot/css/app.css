@@ -1,38 +1,36 @@
-/* Misty global stylesheet. Source of truth: docs/misc/misty-design-system.md
-
-/* Design tokens                                                       */
+﻿
 
 :root {
-    /* Surfaces */
+    
     --color-surface:          #FFFFFF;
     --color-surface-raised:   #F5F5F5;
     --color-surface-active:   #EBEBEB;
     --color-border:           #E1E1E1;
 
-    /* Text */
+    
     --color-text-primary:     #242424;
     --color-text-secondary:   #616161;
     --color-text-muted:       #8A8A8A;
 
-    /* Accent */
+    
     --color-accent:           #0099BC;
     --color-accent-tint:      #D9F2F7;
     --color-accent-bubble:    #A8E0EA;
 
-    /* AI assistant */
+    
     --color-ai:               #9373E6;
     --color-ai-tint:          #F0E8FA;
 
-    /* Status */
+    
     --color-status-online:    #6BB700;
     --color-status-warn:      #F7B900;
     --color-status-danger:    #C4314B;
 
-    /* Typography */
+    
     --font-ui:                'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif;
     --font-display:           'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
 
-    /* Type scale */
+    
     --fs-display:             32px;
     --fs-section-head:        18px;
     --fs-label:               14px;
@@ -40,19 +38,19 @@
     --fs-preview:             11.5px;
     --fs-timestamp:           10px;
 
-    /* Weights */
+    
     --fw-regular:             400;
     --fw-medium:              500;
 
-    /* Line heights */
+    
     --lh-message:             1.65;
     --lh-ui:                  1.4;
 
-    /* Letter-spacing for caps labels */
+    
     --tracking-caps:          0.03em;
     --tracking-section:       0.1em;
 
-    /* Spacing */
+    
     --sp-1:                   4px;
     --sp-2:                   8px;
     --sp-3:                   12px;
@@ -61,31 +59,31 @@
     --sp-6:                   24px;
     --sp-8:                   32px;
 
-    /* Radius */
+    
     --radius-sm:              4px;
     --radius-md:              4px;
     --radius-card:            8px;
     --radius-bubble-sent:     8px 8px 2px 8px;
     --radius-bubble-received: 8px 8px 8px 2px;
 
-    /* Motion */
+    
     --transition-fast:        100ms cubic-bezier(0.33, 0.0, 0.67, 1);
     --transition-std:         200ms cubic-bezier(0.33, 0.0, 0.67, 1);
 
-    /* Focus ring */
+    
     --ring-focus:             0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-accent);
 
-    /* Elevation */
+    
     --shadow-overlay:         0 8px 16px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
 
-    /* Accent (extended) */
-    --color-accent-text:           #005B70;  /* accent button text, Owner/Admin badge text */
+    
+    --color-accent-text:           #005B70;  
 
-    /* Bubble text colors */
+    
     --color-bubble-sent-text:      #003D4D;
     --color-bubble-ai-text:        #4B2D7A;
 
-    /* Status tints (badges, button fills) */
+    
     --color-status-online-bg:      #DFF6DD;
     --color-status-online-text:    #107C10;
     --color-status-warn-bg:        #FFF4CE;
@@ -94,22 +92,20 @@
     --color-status-danger-text:    #A4262C;
     --color-ai-text:               #6435C9;
 
-    /* Borders */
-    --color-border-strong:         #C7C7C7;  /* reactions active, segmented selected */
+    
+    --color-border-strong:         #C7C7C7;  
 
-    /* Overlay */
+    
     --color-overlay:               rgba(0, 0, 0, 0.4);
 
-    /* Avatar palette (deterministic by user-id hash) */
-    --color-avatar-1:              #0099BC;  /* cyan-blue (brand) */
-    --color-avatar-2:              #038387;  /* teal */
-    --color-avatar-3:              #CA5010;  /* burnt orange */
-    --color-avatar-4:              #498205;  /* green */
-    --color-avatar-5:              #5B5FC7;  /* purple */
-    --color-avatar-6:              #C239B3;  /* magenta */
+    
+    --color-avatar-1:              #0099BC;  
+    --color-avatar-2:              #038387;  
+    --color-avatar-3:              #CA5010;  
+    --color-avatar-4:              #498205;  
+    --color-avatar-5:              #5B5FC7;  
+    --color-avatar-6:              #C239B3;  
 }
-
-/* Global resets                                                       */
 
 *,
 *::before,
@@ -180,8 +176,6 @@ select {
     color: var(--color-text-muted);
 }
 
-/* Blazor framework chrome (error boundary + WASM loading progress)    */
-
 #blazor-error-ui {
     color-scheme: light only;
     background: var(--color-surface-raised);
@@ -250,8 +244,6 @@ select {
 .loading-progress-text:after {
     content: var(--blazor-load-percentage-text, "Loading");
 }
-
-/* Toasts                                                              */
 
 .toast-host {
     position: fixed;

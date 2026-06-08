@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -123,7 +123,6 @@ public sealed class MessageTests : IAsyncLifetime
         var (ownerToken, _) = await RegisterAndLoginAsync("msg_owner1");
         var channelId = await CreateChannelAsync(ownerToken, "msg-ch1");
 
-        // Owner has all permissions, send directly as owner
         var idempotencyKey = Guid.NewGuid().ToString();
         var resp = await SendMessageAsync(ownerToken, channelId, "Hello world", idempotencyKey);
 
@@ -135,7 +134,6 @@ public sealed class MessageTests : IAsyncLifetime
         body.GetProperty("content").GetString().Should().Be("Hello world");
         body.GetProperty("wasIdempotent").GetBoolean().Should().BeFalse();
 
-        // Verify message persisted to DB
         await using var db = _factory.CreateDbContext();
         var stored = await db.Messages.FindAsync(messageId);
         stored.Should().NotBeNull();
@@ -150,13 +148,11 @@ public sealed class MessageTests : IAsyncLifetime
 
         var idempotencyKey = Guid.NewGuid().ToString();
 
-        // First send
         var first = await SendMessageAsync(ownerToken, channelId, "First send", idempotencyKey);
         first.StatusCode.Should().Be(HttpStatusCode.Created);
         var firstBody = await first.Content.ReadFromJsonAsync<JsonElement>();
         var originalId = firstBody.GetProperty("messageId").GetGuid();
 
-        // Second send with same idempotency key (different content to prove we return original)
         var second = await SendMessageAsync(ownerToken, channelId, "Second attempt", idempotencyKey);
         second.StatusCode.Should().Be(HttpStatusCode.Created);
         var secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
@@ -173,11 +169,9 @@ public sealed class MessageTests : IAsyncLifetime
     {
         var (ownerToken, _) = await RegisterAndLoginAsync("msg_owner3");
         var (memberToken, _) = await RegisterAndLoginAsync("msg_member3");
-        // Channel with no default permissions
         var channelId = await CreateChannelAsync(ownerToken, "msg-ch3", defaultPermissions: 0L);
         await JoinChannelAsync(memberToken, channelId);
 
-        // Member has no roles and no default SendMessages permission
         var resp = await SendMessageAsync(memberToken, channelId, "Should be denied", Guid.NewGuid().ToString());
 
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden,
@@ -189,32 +183,24 @@ public sealed class MessageTests : IAsyncLifetime
     {
         var (ownerToken, _) = await RegisterAndLoginAsync("msg_owner4");
         var (memberToken, memberId) = await RegisterAndLoginAsync("msg_member4");
-        // Channel where members can send by default
         var channelId = await CreateChannelAsync(ownerToken, "msg-ch4", defaultPermissions: 0L);
         await JoinChannelAsync(memberToken, channelId);
 
-        // Grant member SendMessages via a role
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.SendMessages);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Confirm member can send before the ban
         var beforeBan = await SendMessageAsync(memberToken, channelId, "Before ban", Guid.NewGuid().ToString());
         beforeBan.StatusCode.Should().Be(HttpStatusCode.Created, "member with SendMessages role must be able to send");
 
-        // Ban the member
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var banResp = await _client.PostAsJsonAsync(
             $"/api/v1/channels/{channelId}/members/{memberId}/moderation",
-            new { Type = 1 /* Ban */, Reason = "test reason", ExpiresAt = (DateTime?)null });
+            new { Type = 1 , Reason = "test reason", ExpiresAt = (DateTime?)null });
         banResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // Redis is cleared directly here so the test stays deterministic and does not depend on asynchronous Service Bus processing timing in the emulator. 
-        // In production this invalidation happens through CacheInvalidationWorker.
         var redisDb = _factory.Services.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
         await redisDb.KeyDeleteAsync(CachedPermissionService.CacheKey(memberId, channelId));
 
-        // With the cache cleared the permission service falls back to SQL,
-        // which must reflect the ban and deny the request.
         var afterBan = await SendMessageAsync(memberToken, channelId, "After ban", Guid.NewGuid().ToString());
         afterBan.StatusCode.Should().Be(HttpStatusCode.Forbidden,
             "a banned user must be denied SendMessages permission");

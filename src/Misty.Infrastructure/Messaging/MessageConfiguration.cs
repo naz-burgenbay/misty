@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -31,7 +31,6 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(m => m.Version)
             .IsRowVersion();
 
-        // Self-reference for thread replies
         builder.HasOne<Message>()
             .WithMany()
             .HasForeignKey(m => m.ParentMessageId)

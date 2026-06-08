@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,13 +11,8 @@ using System.Text.Json;
 
 namespace Misty.Infrastructure.Messaging;
 
-// Consumes MessageCreated events from the ai-response subscription.
-// If the channel has IsAiAssistantEnabled=true, writes an AI reply via the standard message write path (Message + OutboxMessage in one transaction), which fans it out through SignalR automatically.
-// A new DI scope is created per message so that the scoped ApplicationDbContext and IMessageRepository are never shared across messages.
 public sealed class AIResponseWorker : BackgroundService
 {
-    // Well-known author ID stamped on every AI-generated message.
-    // No corresponding row in users.User is required. AuthorId has no FK in EF config.
     public static readonly Guid AiUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     private readonly ServiceBusClient _client;
@@ -60,8 +55,6 @@ public sealed class AIResponseWorker : BackgroundService
 
     private async Task OnMessageAsync(ProcessMessageEventArgs args)
     {
-        // The ai-response subscription receives every event published to message-events.
-        // Only MessageCreated events are relevant here; skip everything else (e.g. ReactionAdded/ReactionRemoved).
         if (args.Message.Subject != "MessageCreated")
         {
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
@@ -94,14 +87,12 @@ public sealed class AIResponseWorker : BackgroundService
             return;
         }
 
-        // Only respond to channel messages
         if (!payload.ChannelId.HasValue)
         {
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
             return;
         }
 
-        // Don't reply to messages already authored by the AI (prevents reply storms).
         if (payload.AuthorId == AiUserId)
         {
             await args.CompleteMessageAsync(args.Message, args.CancellationToken);
@@ -123,7 +114,6 @@ public sealed class AIResponseWorker : BackgroundService
             return;
         }
 
-        // Idempotency: redelivery of the same event must not produce a second AI reply.
         var idempotencyKey = $"ai-response:{payload.MessageId}";
         var existing = await messageRepo.FindByIdempotencyKeyAsync(AiUserId, idempotencyKey, args.CancellationToken);
         if (existing is not null)

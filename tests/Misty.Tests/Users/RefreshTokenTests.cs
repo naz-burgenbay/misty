@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -85,11 +85,9 @@ public sealed class RefreshTokenTests : IAsyncLifetime
     {
         var (_, refreshToken, _) = await RegisterAndLoginAsync("replayuser");
 
-        // First rotation succeeds
         var firstResp = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { RefreshToken = refreshToken });
         firstResp.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Presenting the now-used token must be rejected
         var replayResp = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { RefreshToken = refreshToken });
         replayResp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -99,7 +97,6 @@ public sealed class RefreshTokenTests : IAsyncLifetime
     {
         var (_, refreshToken, userId) = await RegisterAndLoginAsync("revokeduser");
 
-        // Directly revoke the token in the DB
         await using var db = _factory.CreateDbContext();
         var rt = await db.RefreshTokens.FirstAsync(t => t.UserId == userId);
         rt.Revoke();
@@ -114,7 +111,6 @@ public sealed class RefreshTokenTests : IAsyncLifetime
     {
         var (_, refreshToken, userId) = await RegisterAndLoginAsync("expireduser");
 
-        // Backdate the expiry directly via SQL (ExpiresAt is private-set in the domain model)
         await using var db = _factory.CreateDbContext();
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"UPDATE [users].[RefreshToken] SET ExpiresAt = {DateTime.UtcNow.AddHours(-1)} WHERE UserId = {userId}");

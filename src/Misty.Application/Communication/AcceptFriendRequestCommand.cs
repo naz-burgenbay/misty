@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -24,17 +24,20 @@ public sealed class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFr
     private readonly IFriendshipRepository _friendships;
     private readonly IUserRepository _users;
     private readonly IOutboxWriter _outbox;
+    private readonly IInboxItemRepository _inbox;
 
     public AcceptFriendRequestCommandHandler(
         IFriendRequestRepository requests,
         IFriendshipRepository friendships,
         IUserRepository users,
-        IOutboxWriter outbox)
+        IOutboxWriter outbox,
+        IInboxItemRepository inbox)
     {
         _requests = requests;
         _friendships = friendships;
         _users = users;
         _outbox = outbox;
+        _inbox = inbox;
     }
 
     public async Task<FriendDto> Handle(AcceptFriendRequestCommand cmd, CancellationToken ct)
@@ -69,7 +72,13 @@ public sealed class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFr
                 cmd.AccepterId,
                 DateTime.UtcNow));
 
-        // AddAsync flushes the new friendship, the mutated request, and the queued outbox row in one SaveChanges.
+        var inboxItem = await _inbox.GetByReferenceAsync(cmd.AccepterId, cmd.RequestId, ct);
+        if (inboxItem is { IsActedOn: false })
+        {
+            inboxItem.MarkActedOn();
+            await _inbox.UpdateAsync(inboxItem, ct);
+        }
+
         await _friendships.AddAsync(friendship, ct);
 
         var senderUser = await _users.GetByIdAsync(entity.SenderId, ct)

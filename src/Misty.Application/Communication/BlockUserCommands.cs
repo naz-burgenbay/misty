@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Communication.Contracts;
 
@@ -34,8 +34,6 @@ public sealed class BlockUserCommandHandler : IRequestHandler<BlockUserCommand>
 
     public async Task Handle(BlockUserCommand request, CancellationToken ct)
     {
-        // Resolve the friendship row (if any) before blocking so we have its Id for the FriendshipRemoved payload.
-        // Block cascades a hard-delete of the friendship via UserBlockService; lifecycle completeness requires that cascade emit FriendshipRemoved.
         var friendship = await _friendships.GetForPairAsync(request.BlockerId, request.BlockedId, ct);
 
         var created = await _svc.BlockAsync(request.BlockerId, request.BlockedId, ct);

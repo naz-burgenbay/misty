@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
@@ -47,7 +47,6 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
         if (message.IsDeleted)
             throw new ValidationException("Cannot edit a deleted message.");
 
-        // Check permissions based on message type
         if (message.ChannelId is not null)
         {
             var canSend = await _permissions.CheckPermissionAsync(
@@ -93,11 +92,10 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
                 message.ConversationId,
                 message.Content,
                 message.EditedAt ?? DateTime.UtcNow,
-                string.Empty)); // Version will be updated after save
+                string.Empty));
 
         await _messages.UpdateAsync(message, concurrencyToken, ct);
 
-        // Return the new version for the client to use in subsequent requests
         return Convert.ToBase64String(message.Version);
     }
 }

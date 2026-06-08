@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -109,10 +109,9 @@ public sealed class RoleAssignmentTests : IAsyncLifetime
     {
         var (ownerToken, _) = await RegisterAndLoginAsync("ra_owner2");
         var (nonMemberToken, nonMemberId) = await RegisterAndLoginAsync("ra_nonmember2");
-        var channelId = await CreateChannelAndJoinAsync(ownerToken, ownerToken, nonMemberId); // non-member never joins
+        var channelId = await CreateChannelAndJoinAsync(ownerToken, ownerToken, nonMemberId);
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        // Need a channel where nonMember did not join, create separately
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var createResp = await _client.PostAsJsonAsync("/api/v1/channels", new
         {

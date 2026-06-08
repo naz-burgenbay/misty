@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
@@ -44,9 +44,8 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
             throw new ForbiddenException("You can only delete your own messages.");
 
         if (message.IsDeleted)
-            return; // Already deleted, idempotent
+            return;
 
-        // Check permissions based on message type
         if (message.ChannelId is not null)
         {
             var canSend = await _permissions.CheckPermissionAsync(
@@ -84,7 +83,6 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
 
         if (hasReplies)
         {
-            // Tombstone: clear content and mark as deleted
             message.Tombstone();
             _outbox.Queue(
                 MessageEventTopics.Message,
@@ -99,7 +97,6 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
         }
         else
         {
-            // Hard-delete: remove the message entirely
             _outbox.Queue(
                 MessageEventTopics.Message,
                 MessageEventTypes.MessageDeleted,

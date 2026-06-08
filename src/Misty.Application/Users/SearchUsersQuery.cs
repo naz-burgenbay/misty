@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Users;
@@ -14,7 +14,6 @@ public sealed class SearchUsersQueryValidator : AbstractValidator<SearchUsersQue
     public SearchUsersQueryValidator()
     {
         RuleFor(x => x.Query).NotNull().MaximumLength(100);
-        // Take is clamped by handler, so no validation needed
     }
 }
 

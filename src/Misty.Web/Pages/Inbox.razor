@@ -1,0 +1,127 @@
+﻿@page "/inbox"
+@using Misty.Web.Services.Communication
+@using Misty.Web.Components.Inbox
+@inject IInboxService InboxService
+@inject IChannelService ChannelService
+@inject IFriendService FriendService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Inbox - Misty</PageTitle>
+
+<div class="inbox-page">
+    <header class="inbox-header">
+        <h1>Inbox</h1>
+        @if (_items.Count > 0)
+        {
+            <span class="count">@_unreadCount unread</span>
+        }
+    </header>
+
+    <div class="inbox-content">
+        @if (_loading)
+        {
+            <div class="loading">Loading inbox...</div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="empty">
+                <p>Your inbox is empty</p>
+            </div>
+        }
+        else
+        {
+            <div class="inbox-list">
+                @foreach (var item in _items)
+                {
+                    <InboxItem Item="@item"
+                               ChannelService="@ChannelService"
+                               FriendService="@FriendService"
+                               InboxService="@InboxService"
+                               Nav="@Nav"
+                               OnDismiss="DismissAsync"
+                               OnAction="HandleItemActionAsync"
+                               OnHandled="HandleItemHandledAsync" />
+                }
+            </div>
+            @if (_nextCursor is not null)
+            {
+                <button type="button" class="load-more" @onclick="LoadMoreAsync" disabled="@_loadingMore">
+                    @(_loadingMore ? "Loading..." : "Load more")
+                </button>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private IReadOnlyList<InboxItemDto> _items = Array.Empty<InboxItemDto>();
+    private int _unreadCount;
+    private string? _nextCursor;
+    private bool _loadingMore;
+    private IDisposable? _itemsSub;
+    private IDisposable? _unreadSub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _itemsSub = InboxService.Items.Subscribe(items =>
+        {
+            _items = items;
+            InvokeAsync(StateHasChanged);
+        });
+
+        _unreadSub = InboxService.UnreadCount.Subscribe(count =>
+        {
+            _unreadCount = count;
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var page = await InboxService.RefreshAsync();
+            _nextCursor = page.NextCursor;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_nextCursor is null || _loadingMore) return;
+        _loadingMore = true;
+        try
+        {
+            var page = await InboxService.RefreshAsync(_nextCursor);
+            _nextCursor = page.NextCursor;
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
+    }
+
+    private async Task DismissAsync(Guid itemId)
+    {
+        await InboxService.DismissAsync(itemId);
+    }
+
+    private Task HandleItemActionAsync(InboxItemDto item)
+    {
+        return Task.CompletedTask;
+    }
+
+    private Task HandleItemHandledAsync(Guid itemId)
+    {
+        _items = _items.Where(i => i.Id != itemId).ToList();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _itemsSub?.Dispose();
+        _unreadSub?.Dispose();
+    }
+}

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -11,8 +11,6 @@ using Respawn;
 
 namespace Misty.Tests.Realtime;
 
-// Verifies that a role change is propagated to connected clients.
-// After the role assignment is processed, the client receives the RoleChanged SignalR event, which is what triggers PermissionsCache invalidation on the frontend.
 [Collection("Integration")]
 public sealed class PermissionBroadcastTests : IAsyncLifetime
 {
@@ -117,7 +115,6 @@ public sealed class PermissionBroadcastTests : IAsyncLifetime
 
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
 
-        // Member connects to the hub; OnConnectedAsync subscribes them to user:{memberId}.
         var conn = BuildConnection(memberToken);
         var received = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         conn.On<JsonElement>("RoleChanged", payload => received.TrySetResult(payload));

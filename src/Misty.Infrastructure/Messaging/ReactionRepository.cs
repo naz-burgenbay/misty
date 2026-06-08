@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
@@ -15,7 +15,6 @@ public sealed class ReactionRepository : IReactionRepository
         => _db.MessageReactions.FirstOrDefaultAsync(
             r => r.MessageId == messageId && r.UserId == userId && r.EmojiCode == emojiCode, ct);
 
-    // The handler is expected to queue the matching ReactionAdded/ReactionRemoved outbox row onto the same DbContext before calling AddAsync/RemoveAsync.
     public async Task AddAsync(MessageReaction reaction, CancellationToken ct = default)
     {
         await _db.MessageReactions.AddAsync(reaction, ct);
@@ -36,7 +35,6 @@ public sealed class ReactionRepository : IReactionRepository
         if (messageIds.Count == 0)
             return new Dictionary<Guid, IReadOnlyList<ReactionAggregate>>();
 
-        // Pull all reactions for the requested messages in a single round-trip, then group in memory.
         var rows = await _db.MessageReactions
             .Where(r => messageIds.Contains(r.MessageId))
             .Select(r => new { r.MessageId, r.UserId, r.EmojiCode })

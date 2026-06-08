@@ -1,4 +1,4 @@
-namespace Misty.Domain.Communication;
+﻿namespace Misty.Domain.Communication;
 
 public enum ChannelInviteStatus
 {
@@ -9,7 +9,7 @@ public enum ChannelInviteStatus
 
 public class ChannelInvite
 {
-    private ChannelInvite() { } // For EF Core
+    private ChannelInvite() { }
 
     public Guid Id { get; private set; }
     public Guid ChannelId { get; private set; }

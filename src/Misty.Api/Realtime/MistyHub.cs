@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -25,10 +25,8 @@ public sealed class MistyHub : Hub
     {
         var userId = Guid.Parse(Context.User!.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
 
-        // Per-user group used to fan out events that target a specific user across all their tabs/devices (membership, role, and moderation events).
         await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
 
-        // Single broadcast group used to fan out PresenceChanged. Every authenticated connection joins; the backplane handles cross-instance delivery.
         await Groups.AddToGroupAsync(Context.ConnectionId, PresenceGroup);
 
         var channelIds = await _db.Memberships

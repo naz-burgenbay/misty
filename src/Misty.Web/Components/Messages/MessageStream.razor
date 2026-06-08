@@ -1,4 +1,4 @@
-@inject IJSRuntime JS
+﻿@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 @code {
@@ -32,7 +32,6 @@
 
         if (_wired && Messages.Count != _lastCount)
         {
-            // Initial render or new message at bottom: pin to the latest.
             await JS.InvokeVoidAsync("mistyScroll.scrollToBottomIfNear", _scrollEl);
             _lastCount = Messages.Count;
         }
@@ -48,7 +47,7 @@
     {
         if (_wired)
         {
-            try { await JS.InvokeVoidAsync("mistyScroll.detach", _scrollEl); } catch { /* ignore */ }
+            try { await JS.InvokeVoidAsync("mistyScroll.detach", _scrollEl); } catch {  }
         }
         _selfRef?.Dispose();
     }

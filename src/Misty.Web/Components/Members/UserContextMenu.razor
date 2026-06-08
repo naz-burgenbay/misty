@@ -1,4 +1,4 @@
-@inject IAuthService Auth
+﻿@inject IAuthService Auth
 @inject IDirectMessageService DirectMessages
 @inject IFriendService Friends
 @inject IUserBlockService Blocks
@@ -23,7 +23,8 @@
     private IDisposable? _flagsSub;
     private bool _moderationModalOpen;
     private bool _rolesModalOpen;
-    private ModerationActionKind _pendingKind;
+    private bool _inviteToChannelOpen;
+    private ModerationActionType _pendingKind;
 
     private bool IsSelf => Auth.CurrentUser?.Id == UserId;
 
@@ -122,11 +123,10 @@
     private void Report()
     {
         CloseMenu();
-        // No client report endpoint exists yet
         Toasts.Show("Report submitted.", ToastKind.Info);
     }
 
-    private void OpenModeration(ModerationActionKind kind)
+    private void OpenModeration(ModerationActionType kind)
     {
         CloseMenu();
         _pendingKind = kind;
@@ -154,6 +154,12 @@
         _rolesModalOpen = true;
     }
 
+    private void OpenInviteToChannel()
+    {
+        CloseMenu();
+        _inviteToChannelOpen = true;
+    }
+
     private string DisplayLabel => !string.IsNullOrWhiteSpace(UserName) ? UserName! :
                                    !string.IsNullOrWhiteSpace(UserUsername) ? UserUsername! : "user";
 }
@@ -170,19 +176,20 @@ else
           @oncontextmenu:stopPropagation="true">
         @ChildContent
 
+        @if (_open)
+        {
+            <div class="user-menu-backdrop" @onclick="CloseMenu" @oncontextmenu="CloseMenu" @oncontextmenu:preventDefault="true"></div>
+        }
         <Popover Open="_open"
                  Placement="Popover.PopoverPlacement.BottomLeft"
                  OnClose="CloseMenu">
-            @if (_open)
-            {
-                <div class="user-menu-backdrop" @onclick="CloseMenu" @oncontextmenu="CloseMenu" @oncontextmenu:preventDefault="true"></div>
-            }
             <ul class="user-menu" @onclick:stopPropagation="true">
                 <li><button type="button" class="user-menu-item" @onclick="SendDmAsync">Send direct message</button></li>
                 @if (!_isFriend)
                 {
                     <li><button type="button" class="user-menu-item" @onclick="SendFriendRequestAsync">Send friend request</button></li>
                 }
+                <li><button type="button" class="user-menu-item" @onclick="OpenInviteToChannel">Invite to a channel…</button></li>
                 <li><button type="button" class="user-menu-item" @onclick="Report">Report</button></li>
                 <li><button type="button" class="user-menu-item danger" @onclick="BlockAsync">Block</button></li>
 
@@ -196,7 +203,7 @@ else
                 }
                 @if (CanMute)
                 {
-                    <li><button type="button" class="user-menu-item" @onclick="@(() => OpenModeration(ModerationActionKind.Mute))">Mute</button></li>
+                    <li><button type="button" class="user-menu-item" @onclick="@(() => OpenModeration(ModerationActionType.Mute))">Mute</button></li>
                 }
                 @if (CanKick)
                 {
@@ -204,7 +211,7 @@ else
                 }
                 @if (CanBan)
                 {
-                    <li><button type="button" class="user-menu-item danger" @onclick="@(() => OpenModeration(ModerationActionKind.Ban))">Ban</button></li>
+                    <li><button type="button" class="user-menu-item danger" @onclick="@(() => OpenModeration(ModerationActionType.Ban))">Ban</button></li>
                 }
             </ul>
         </Popover>
@@ -220,4 +227,10 @@ else
                       TargetUserId="@UserId"
                       TargetName="@DisplayLabel"
                       OnClose="@(() => _rolesModalOpen = false)" />
+
+    <InviteToChannelModal Open="_inviteToChannelOpen"
+                          TargetUserId="@UserId"
+                          TargetName="@DisplayLabel"
+                          TargetUsername="@UserUsername"
+                          OnClose="@(() => _inviteToChannelOpen = false)" />
 }

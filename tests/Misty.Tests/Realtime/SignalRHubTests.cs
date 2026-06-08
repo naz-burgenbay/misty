@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -109,12 +109,10 @@ public sealed class SignalRHubTests : IAsyncLifetime
     [Fact]
     public async Task OnConnect_JoinsChannelGroup_ReceivesGroupMessages()
     {
-        // Arrange: user joins a channel, then connects to the hub
         var (token, userId) = await RegisterAndLoginAsync("hubuser4");
         _client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        // Create a channel
         var createResp = await _client.PostAsJsonAsync("/api/v1/channels", new
         {
             Name = "hub-test-channel",
@@ -124,21 +122,17 @@ public sealed class SignalRHubTests : IAsyncLifetime
         var channelBody = await createResp.Content.ReadFromJsonAsync<JsonElement>();
         var channelId = channelBody.GetProperty("channelId").GetGuid();
 
-        // Connect to the hub: OnConnectedAsync will add the client to channel:{channelId}
         var conn = BuildConnection(token);
         var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         conn.On<string>("MessageCreated", payload => received.TrySetResult(payload));
         await conn.StartAsync();
         
-        // Give OnConnectedAsync time to complete group additions
         await Task.Delay(100);
 
-        // Act: push a message to the group via IHubContext (simulating what the Service Bus consumer will do)
         var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
         var groupName = $"channel:{channelId}";
         await hubContext.Clients.Group(groupName).SendAsync("MessageCreated", "hello-group");
 
-        // Assert: client receives the push within 5 seconds
         var completedTask = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(5)));
         completedTask.Should().BeSameAs(received.Task, "client should receive the group message within 5 s");
         var payload = await received.Task;
@@ -152,17 +146,14 @@ public sealed class SignalRHubTests : IAsyncLifetime
     {
         var (token, _) = await RegisterAndLoginAsync("hubuser5");
 
-        // Connect without joining any channel
         var conn = BuildConnection(token);
         var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         conn.On<string>("MessageCreated", payload => received.TrySetResult(payload));
         await conn.StartAsync();
 
-        // Push to a channel group the user did not join
         var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
         await hubContext.Clients.Group("channel:00000000-0000-0000-0000-000000000001").SendAsync("MessageCreated", "should-not-arrive");
 
-        // Assert: nothing arrives within 1 second
         var completedTask = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(1)));
         completedTask.Should().NotBeSameAs(received.Task, "user is not a member of that channel");
 
@@ -200,7 +191,6 @@ public sealed class SignalRHubTests : IAsyncLifetime
         conn.On<string>("RoleChanged", payload => received.TrySetResult(payload));
         await conn.StartAsync();
 
-        // Push to a different user's group; this client must not receive it.
         var hubContext = _factory.Services.GetRequiredService<IHubContext<MistyHub>>();
         await hubContext.Clients.Group($"user:{Guid.NewGuid()}").SendAsync("RoleChanged", "should-not-arrive");
 

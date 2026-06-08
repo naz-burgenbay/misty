@@ -1,4 +1,4 @@
-namespace Misty.Application.Communication;
+﻿namespace Misty.Application.Communication;
 
 public sealed record FriendRequestSentPayload(
     Guid RequestId,
@@ -59,7 +59,6 @@ public sealed record ChannelInviteDeclinedPayload(
     Guid OriginalInviterId,
     DateTime OccurredAt);
 
-// Reserved for a future cancel-by-inviter command (no handler emits this today).
 public sealed record ChannelInviteCancelledPayload(
     Guid InviteId,
     Guid ChannelId,

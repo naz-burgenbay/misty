@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misty.Application.Users;
 using Misty.Domain.Users;
 using Misty.Infrastructure.Persistence;
@@ -26,7 +26,6 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
     {
         old.Revoke();
         await _db.RefreshTokens.AddAsync(newToken, ct);
-        // Both the revocation update and the new token insert happen in one transaction
         await _db.SaveChangesAsync(ct);
     }
 

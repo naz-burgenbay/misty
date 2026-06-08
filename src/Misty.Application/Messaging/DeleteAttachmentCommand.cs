@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
@@ -48,7 +48,6 @@ public sealed class DeleteAttachmentCommandHandler : IRequestHandler<DeleteAttac
         if (!canManage)
             throw new ForbiddenException("You do not have permission to delete this attachment.");
 
-        // Hard-delete: remove the blob first, then the row. If the blob delete fails, the row stays so a retry can finish the job rather than leaving a dangling blob.
         await _storage.DeleteAsync(attachment.BlobContainer, attachment.BlobName, ct);
         await _attachments.RemoveAsync(attachment, ct);
     }

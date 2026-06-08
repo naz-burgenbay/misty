@@ -1,7 +1,4 @@
-namespace Misty.Application.Communication;
-
-// Outbox event payloads published to Service Bus.
-// Public so downstream workers can deserialize them.
+﻿namespace Misty.Application.Communication;
 
 public sealed record MembershipJoinedPayload(
     Guid MembershipId,

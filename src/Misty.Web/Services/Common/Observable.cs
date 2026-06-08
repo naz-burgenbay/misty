@@ -1,6 +1,5 @@
-namespace Misty.Web.Services.Common;
+﻿namespace Misty.Web.Services.Common;
 
-// Observable wrapper used by the stub services. Phase 5 swaps the implementation to one driven by SignalR/HTTP responses, but the Subscribe/Value surface stays the same.
 public sealed class Observable<T>
 {
     private T _value;

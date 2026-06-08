@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -100,7 +100,6 @@ public sealed class UploadMessageAttachmentCommandHandler
 
 public sealed class UploadMessageAttachmentCommandValidator : AbstractValidator<UploadMessageAttachmentCommand>
 {
-    // 25 MiB cap
     public const long MaxSizeBytes = 25L * 1024 * 1024;
 
     public UploadMessageAttachmentCommandValidator()

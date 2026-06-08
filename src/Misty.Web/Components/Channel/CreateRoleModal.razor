@@ -1,0 +1,214 @@
+﻿@using Misty.Web.Services.Communication
+@using Misty.Web.Services.Permissions
+@inject IChannelRolesService RoleService
+@inject IChannelMembersService MembersService
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public Guid ChannelId { get; set; }
+    [Parameter] public EventCallback OnRoleCreated { get; set; }
+
+    private string _name = string.Empty;
+    private bool _isOwnerRole;
+    private bool _canViewChannel = true;
+    private bool _canReadHistory = true;
+    private bool _canSendMessages = true;
+    private bool _canAttachFiles;
+    private bool _canAddReactions;
+    private bool _canMentionEveryone;
+    private bool _canMuteMembers;
+    private bool _canKickMembers;
+    private bool _canBanMembers;
+    private bool _canManageMessages;
+    private bool _canInviteMembers;
+    private bool _canManageMembers;
+    private bool _canManageRoles;
+    private bool _canManageChannel;
+
+    private IReadOnlyList<ChannelMemberDto> _members = Array.Empty<ChannelMemberDto>();
+    private readonly HashSet<Guid> _selectedMemberIds = new();
+    private bool _loadingMembers;
+    private bool _creating;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && _members.Count == 0)
+            await LoadMembersAsync();
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        _loadingMembers = true;
+        try { _members = await MembersService.GetMembersAsync(ChannelId); }
+        catch { }
+        finally { _loadingMembers = false; }
+    }
+
+    private long CalculatePermissions()
+    {
+        long p = 0;
+        if (_canViewChannel) p |= (long)ChannelPermissionFlags.ViewChannel;
+        if (_canReadHistory) p |= (long)ChannelPermissionFlags.ReadHistory;
+        if (_canSendMessages) p |= (long)ChannelPermissionFlags.SendMessages;
+        if (_canAttachFiles) p |= (long)ChannelPermissionFlags.AttachFiles;
+        if (_canAddReactions) p |= (long)ChannelPermissionFlags.AddReactions;
+        if (_canMentionEveryone) p |= (long)ChannelPermissionFlags.MentionEveryone;
+        if (_canMuteMembers) p |= (long)ChannelPermissionFlags.MuteMembers;
+        if (_canKickMembers) p |= (long)ChannelPermissionFlags.KickMembers;
+        if (_canBanMembers) p |= (long)ChannelPermissionFlags.BanMembers;
+        if (_canManageMessages) p |= (long)ChannelPermissionFlags.ManageMessages;
+        if (_canInviteMembers) p |= (long)ChannelPermissionFlags.InviteMembers;
+        if (_canManageMembers) p |= (long)ChannelPermissionFlags.ManageMembers;
+        if (_canManageRoles) p |= (long)ChannelPermissionFlags.ManageRoles;
+        if (_canManageChannel) p |= (long)ChannelPermissionFlags.ManageChannel;
+        return p;
+    }
+
+    private async Task CreateRole()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) { _errorMessage = "Role name is required."; return; }
+        _creating = true;
+        _errorMessage = null;
+        try
+        {
+            var role = await RoleService.CreateAsync(ChannelId, _name.Trim(), CalculatePermissions());
+            foreach (var userId in _selectedMemberIds)
+            {
+                try { await RoleService.AssignAsync(ChannelId, userId, role.Id); }
+                catch { }
+            }
+            await OnRoleCreated.InvokeAsync();
+            await Close();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to create role: {ex.Message}";
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        _name = string.Empty;
+        _isOwnerRole = false;
+        _canViewChannel = true; _canReadHistory = true; _canSendMessages = true;
+        _canAttachFiles = false; _canAddReactions = false; _canMentionEveryone = false;
+        _canMuteMembers = false; _canKickMembers = false; _canBanMembers = false;
+        _canManageMessages = false; _canInviteMembers = false; _canManageMembers = false;
+        _canManageRoles = false; _canManageChannel = false;
+        _selectedMemberIds.Clear();
+        _errorMessage = null;
+        _members = Array.Empty<ChannelMemberDto>();
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private void ToggleMember(Guid userId, bool value)
+    {
+        if (value) _selectedMemberIds.Add(userId);
+        else _selectedMemberIds.Remove(userId);
+    }
+}
+
+@if (Open)
+{
+    <div class="role-backdrop" @onclick="Close">
+        <div class="role-card" @onclick:stopPropagation="true">
+            <header class="role-card-header">
+                <h2>Create role</h2>
+                <button type="button" class="close-btn" @onclick="Close"><Blazicon Svg="Lucide.X" /></button>
+            </header>
+
+            <div class="role-card-body">
+                                <section class="card-section">
+                    <div class="section-label">Role name</div>
+                    <input class="role-input" type="text" placeholder="e.g. Moderator"
+                           @bind="_name" disabled="@_creating" />
+                </section>
+
+                <div class="divider"></div>
+
+                                <section class="card-section">
+                    <label class="toggle-row">
+                        <span class="toggle-info">
+                            <span class="toggle-title">Owner role</span>
+                            <span class="toggle-desc">Members with this role have full control over the channel.</span>
+                        </span>
+                        <input type="checkbox" class="toggle-check" @bind="_isOwnerRole" disabled="@_creating" />
+                    </label>
+                </section>
+
+                <div class="divider"></div>
+
+                                <section class="card-section">
+                    <div class="section-label">Permissions</div>
+                    <div class="perm-grid">
+                        <label class="perm-row"><input type="checkbox" @bind="_canViewChannel" disabled="@_creating" /><span>View channel</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canReadHistory" disabled="@_creating" /><span>Read history</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canSendMessages" disabled="@_creating" /><span>Send messages</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canAttachFiles" disabled="@_creating" /><span>Attach files</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canAddReactions" disabled="@_creating" /><span>Add reactions</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canMentionEveryone" disabled="@_creating" /><span>Mention everyone</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canMuteMembers" disabled="@_creating" /><span>Mute members</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canKickMembers" disabled="@_creating" /><span>Kick members</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canBanMembers" disabled="@_creating" /><span>Ban members</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canManageMessages" disabled="@_creating" /><span>Manage messages</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canInviteMembers" disabled="@_creating" /><span>Invite members</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canManageMembers" disabled="@_creating" /><span>Manage members</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canManageRoles" disabled="@_creating" /><span>Manage roles</span></label>
+                        <label class="perm-row"><input type="checkbox" @bind="_canManageChannel" disabled="@_creating" /><span>Manage channel</span></label>
+                    </div>
+                </section>
+
+                <div class="divider"></div>
+
+                                <section class="card-section">
+                    <div class="section-label">Assign to members</div>
+                    @if (_loadingMembers)
+                    {
+                        <div class="members-hint">Loading members…</div>
+                    }
+                    else if (_members.Count == 0)
+                    {
+                        <div class="members-hint">No members found.</div>
+                    }
+                    else
+                    {
+                        <div class="members-list">
+                            @foreach (var m in _members)
+                            {
+                                var uid = m.UserId;
+                                <label class="member-row">
+                                    <Avatar Name="@m.DisplayName" ImageUrl="@m.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                    <span class="member-name">@m.DisplayName</span>
+                                    <span class="member-username">@@@m.Username</span>
+                                    <input type="checkbox"
+                                           class="member-check"
+                                           checked="@_selectedMemberIds.Contains(uid)"
+                                           @onchange="@(e => ToggleMember(uid, (bool)(e.Value ?? false)))" />
+                                </label>
+                            }
+                        </div>
+                    }
+                </section>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="role-error">@_errorMessage</div>
+                }
+            </div>
+
+            <footer class="role-card-footer">
+                <Button Variant="Button.ButtonVariant.Ghost" OnClick="Close" Disabled="@_creating">Cancel</Button>
+                <Button Variant="Button.ButtonVariant.Primary" OnClick="CreateRole" Disabled="@(_creating || string.IsNullOrWhiteSpace(_name))">
+                    @(_creating ? "Creating…" : "Create role")
+                </Button>
+            </footer>
+        </div>
+    </div>
+}
+

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
@@ -155,7 +155,6 @@ public sealed class InboxTests : IAsyncLifetime
         var (tokenA, _, _) = await RegisterAndLoginAsync("ib_dm_a");
         var (_, userB, _) = await RegisterAndLoginAsync("ib_dm_b");
 
-        // Create a conversation, send the first DM, A and B are not friends.
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
         var convResp = await _client.PostAsJsonAsync("/api/v1/conversations", new { OtherUserId = userB });
         convResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -170,14 +169,12 @@ public sealed class InboxTests : IAsyncLifetime
 
         await WaitForInboxItemAsync(userB, InboxItemType.ConversationStarted);
 
-        // Sending a second DM in the same conversation should not produce a second ConversationStarted event.
         (await _client.PostAsJsonAsync($"/api/v1/conversations/{conversationId}/messages", new
         {
             Content = "again",
             IdempotencyKey = Guid.NewGuid().ToString(),
         })).StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // Give the worker time to (not) act, then verify the count is still 1.
         await Task.Delay(TimeSpan.FromSeconds(3));
         await using var db = _factory.CreateDbContext();
         (await db.InboxItems.CountAsync(i => i.UserId == userB && i.Type == InboxItemType.ConversationStarted))
@@ -185,7 +182,6 @@ public sealed class InboxTests : IAsyncLifetime
         (await db.OutboxMessages.CountAsync(o => o.EventType == "ConversationStarted"))
             .Should().Be(1, "second message in the same conversation must not emit ConversationStarted again");
 
-        // Friends scenario: C and D become friends first, then DM; no ConversationStarted should be emitted.
         var (tokenC, _, _) = await RegisterAndLoginAsync("ib_dm_c");
         var (tokenD, userD, usernameD) = await RegisterAndLoginAsync("ib_dm_d");
         await BefriendAsync(tokenC, tokenD, usernameD);
@@ -211,7 +207,7 @@ public sealed class InboxTests : IAsyncLifetime
     [Fact]
     public async Task Redelivery_OfSameEvent_IsIdempotent()
     {
-        var (_, _, _) = await RegisterAndLoginAsync("ib_idem_a"); // ensure users schema is non-empty
+        var (_, _, _) = await RegisterAndLoginAsync("ib_idem_a");
         var receiverId = Guid.NewGuid();
         var senderId = Guid.NewGuid();
         var requestId = Guid.NewGuid();
@@ -235,7 +231,6 @@ public sealed class InboxTests : IAsyncLifetime
         await PublishOnce();
         await PublishOnce();
 
-        // Poll until at least one row arrives, then confirm only one exists.
         var deadline = DateTime.UtcNow + PollTimeout;
         while (DateTime.UtcNow < deadline)
         {
@@ -245,7 +240,6 @@ public sealed class InboxTests : IAsyncLifetime
             await Task.Delay(PollInterval);
         }
 
-        // Give the second delivery time to be processed (and idempotency-rejected).
         await Task.Delay(TimeSpan.FromSeconds(3));
 
         await using var dbFinal = _factory.CreateDbContext();
@@ -258,7 +252,6 @@ public sealed class InboxTests : IAsyncLifetime
     {
         var (token, userId, _) = await RegisterAndLoginAsync("ib_pg_recv");
 
-        // Seed 5 InboxItems directly (newest last in insert order so we can assert ordering).
         await using (var db = _factory.CreateDbContext())
         {
             for (int i = 0; i < 5; i++)
@@ -290,12 +283,10 @@ public sealed class InboxTests : IAsyncLifetime
         var items2 = body2.GetProperty("items").EnumerateArray().ToList();
         items2.Should().HaveCount(2);
 
-        // No duplicates across pages.
         var ids1 = items1.Select(i => i.GetProperty("id").GetGuid()).ToHashSet();
         var ids2 = items2.Select(i => i.GetProperty("id").GetGuid()).ToHashSet();
         ids1.Intersect(ids2).Should().BeEmpty();
 
-        // Items strictly newer-first across the page boundary.
         items2[0].GetProperty("createdAt").GetDateTime()
             .Should().BeOnOrBefore(items1.Last().GetProperty("createdAt").GetDateTime());
     }

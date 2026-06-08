@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -181,7 +181,6 @@ public sealed class MessageReactionTests : IAsyncLifetime
         var channelId = await CreateChannelAsync("react-tombstone-ch");
         var parentId = await SendAsync(channelId, "Will be tombstoned");
 
-        // Make it a tombstone by sending a reply and then deleting the parent.
         await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
             Content = "Child reply",
@@ -211,8 +210,6 @@ public sealed class MessageReactionTests : IAsyncLifetime
         var msgId = await SendAsync(channelId, "Hi everyone");
         (await AddReactionAsync(channelId, msgId, "🔥")).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // Create a role that grants ViewChannel | ReadHistory | AddReactions for the joiner.
-        // 1 (ViewChannel) | 2 (ReadHistory) | 16 (AddReactions) = 19
         var roleResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/roles", new
         {
             Name = "Reactor",

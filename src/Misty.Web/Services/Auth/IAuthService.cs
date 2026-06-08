@@ -1,8 +1,7 @@
-using Misty.Web.Services.MockData;
+﻿using Misty.Web.Services.MockData;
 
 namespace Misty.Web.Services.Auth;
 
-// Client-side auth surface. HttpAuthService talks to the API and protects the refresh call with a SemaphoreSlim so concurrent expirations don't trigger a refresh storm.
 public interface IAuthService
 {
     MockUser? CurrentUser { get; }

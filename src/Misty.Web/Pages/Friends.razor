@@ -1,7 +1,11 @@
-@page "/friends"
+﻿@page "/friends"
 @using Misty.Web.Components.Primitives
 @using Misty.Web.Services.Communication
 @inject IFriendService FriendsSvc
+@inject IDirectMessageService DirectMessages
+@inject IUserBlockService Blocks
+@inject IToastService Toasts
+@inject NavigationManager Nav
 
 <PageTitle>Friends | Misty</PageTitle>
 
@@ -11,6 +15,13 @@
     private IReadOnlyList<SentFriendRequestDto> _sent = Array.Empty<SentFriendRequestDto>();
     private bool _loading = true;
     private string? _error;
+    private string _search = string.Empty;
+
+    private Guid? _menuOpenFor;
+    private bool _inviteToChannelOpen;
+    private Guid _inviteTargetUserId;
+    private string? _inviteTargetName;
+    private string? _inviteTargetUsername;
 
     protected override async Task OnInitializedAsync()
     {
@@ -40,34 +51,96 @@
 
     private async Task AcceptAsync(Guid requestId)
     {
-        await FriendsSvc.AcceptRequestAsync(requestId);
-        await LoadAsync();
+        try
+        {
+            await FriendsSvc.AcceptRequestAsync(requestId);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't accept: {ex.Message}", ToastKind.Error); }
     }
 
     private async Task DeclineAsync(Guid requestId)
     {
-        await FriendsSvc.DeclineRequestAsync(requestId);
-        await LoadAsync();
+        try
+        {
+            await FriendsSvc.DeclineRequestAsync(requestId);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't decline: {ex.Message}", ToastKind.Error); }
     }
 
-    private async Task CancelAsync(Guid requestId)
+    private async Task CancelAsync(Guid requestId, string version)
     {
-        await FriendsSvc.CancelRequestAsync(requestId);
-        await LoadAsync();
+        try
+        {
+            await FriendsSvc.CancelRequestAsync(requestId, version);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't cancel: {ex.Message}", ToastKind.Error); }
     }
 
-    private async Task RemoveAsync(Guid userId)
+    private async Task RemoveAsync(Guid userId, string name)
     {
-        await FriendsSvc.RemoveAsync(userId);
-        await LoadAsync();
+        _menuOpenFor = null;
+        try
+        {
+            await FriendsSvc.RemoveAsync(userId);
+            Toasts.Show($"Removed {name}.", ToastKind.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't remove: {ex.Message}", ToastKind.Error); }
     }
+
+    private async Task GoToDmAsync(Guid userId)
+    {
+        _menuOpenFor = null;
+        try
+        {
+            var dm = await DirectMessages.CreateOrGetAsync(userId);
+            Nav.NavigateTo($"/dm/{dm.Id}");
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't open DM: {ex.Message}", ToastKind.Error); }
+    }
+
+    private async Task BlockFriendAsync(Guid userId, string name)
+    {
+        _menuOpenFor = null;
+        try
+        {
+            await Blocks.BlockAsync(userId);
+            Toasts.Show($"{name} blocked.", ToastKind.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Toasts.Show($"Couldn't block: {ex.Message}", ToastKind.Error); }
+    }
+
+    private void Report()
+    {
+        _menuOpenFor = null;
+        Toasts.Show("Report submitted.", ToastKind.Info);
+    }
+
+    private void OpenInviteToChannel(Guid userId, string name, string? username)
+    {
+        _menuOpenFor = null;
+        _inviteTargetUserId = userId;
+        _inviteTargetName = name;
+        _inviteTargetUsername = username;
+        _inviteToChannelOpen = true;
+    }
+
+    private IEnumerable<FriendDto> FilteredFriends =>
+        _friends
+            .Where(f => string.IsNullOrWhiteSpace(_search)
+                     || f.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                     || f.Username.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f.DisplayName, StringComparer.OrdinalIgnoreCase);
 }
 
 <div class="page">
     <div class="content">
         <header class="head">
             <h1>Friends</h1>
-            <p>Manage your friends and pending requests.</p>
         </header>
 
         @if (_loading)
@@ -80,68 +153,92 @@
         }
         else
         {
-            <section class="card">
-                <h2>Friends · @_friends.Count</h2>
-                @if (_friends.Count == 0)
-                {
-                    <div class="empty">You haven't added any friends yet.</div>
-                }
-                else
-                {
-                    @foreach (var f in _friends)
-                    {
-                        <div class="row">
-                            <Avatar Name="@f.DisplayName" Size="Avatar.AvatarSize.Medium" />
-                            <div class="info">
-                                <div class="name">@f.DisplayName</div>
-                                <div class="handle">@f.Username</div>
-                            </div>
-                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => RemoveAsync(f.UserId)">Remove</Button>
-                        </div>
-                    }
-                }
-            </section>
+                        <div class="search-row">
+                <div class="search-field">
+                    <Blazicon Svg="Lucide.Search" />
+                    <input class="search-input" type="search"
+                           placeholder="Search friends…"
+                           value="@_search"
+                           @oninput="@(e => _search = e.Value?.ToString() ?? string.Empty)" />
+                </div>
+            </div>
 
-            <section class="card">
-                <h2>Received requests · @_received.Count</h2>
-                @if (_received.Count == 0)
-                {
-                    <div class="empty">No pending requests.</div>
-                }
-                else
-                {
+                        @if (_received.Count > 0 || _sent.Count > 0)
+            {
+                <section class="requests-section">
                     @foreach (var r in _received)
                     {
-                        <div class="row">
-                            <Avatar Name="@r.SenderDisplayName" Size="Avatar.AvatarSize.Medium" />
-                            <div class="info">
-                                <div class="name">@r.SenderDisplayName</div>
-                                <div class="handle">@r.SenderUsername</div>
+                        <div class="request-row">
+                            <Avatar Name="@r.SenderDisplayName" Size="Avatar.AvatarSize.Small" />
+                            <div class="req-info">
+                                <span class="req-name">@r.SenderDisplayName</span>
+                                <span class="req-meta">Incoming friend request</span>
                             </div>
-                            <Button Variant="Button.ButtonVariant.Primary" OnClick="() => AcceptAsync(r.Id)">Accept</Button>
-                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => DeclineAsync(r.Id)">Decline</Button>
+                            <div class="req-actions">
+                                <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => AcceptAsync(r.Id))">Accept</Button>
+                                <Button Variant="Button.ButtonVariant.Ghost" OnClick="@(() => DeclineAsync(r.Id))">Ignore</Button>
+                            </div>
                         </div>
                     }
-                }
-            </section>
+                    @if (_received.Count > 0 && _sent.Count > 0)
+                    {
+                        <div class="req-divider" role="separator"></div>
+                    }
+                    @foreach (var s in _sent)
+                    {
+                        <div class="request-row">
+                            <Avatar Name="@s.ReceiverDisplayName" Size="Avatar.AvatarSize.Small" />
+                            <div class="req-info">
+                                <span class="req-name">@s.ReceiverDisplayName</span>
+                                <span class="req-meta">Outgoing friend request</span>
+                            </div>
+                            <div class="req-actions">
+                                <Button Variant="Button.ButtonVariant.Ghost" OnClick="@(() => CancelAsync(s.Id, s.Version))">Cancel</Button>
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
 
-            <section class="card">
-                <h2>Sent requests · @_sent.Count</h2>
-                @if (_sent.Count == 0)
+                        <section class="friends-list">
+                @if (!FilteredFriends.Any())
                 {
-                    <div class="empty">No outgoing requests.</div>
+                    <div class="empty">
+                        @(string.IsNullOrWhiteSpace(_search) ? "You haven't added any friends yet." : "No friends match.")
+                    </div>
                 }
                 else
                 {
-                    @foreach (var s in _sent)
+                    @foreach (var f in FilteredFriends)
                     {
-                        <div class="row">
-                            <Avatar Name="@s.ReceiverDisplayName" Size="Avatar.AvatarSize.Medium" />
-                            <div class="info">
-                                <div class="name">@s.ReceiverDisplayName</div>
-                                <div class="handle">@s.ReceiverUsername</div>
+                        var friend = f;
+                        <div class="friend-row">
+                            <Avatar Name="@f.DisplayName" Size="Avatar.AvatarSize.Small" />
+                            <div class="friend-info">
+                                <span class="friend-name">@f.DisplayName</span>
+                                <span class="friend-handle">@@@f.Username</span>
                             </div>
-                            <Button Variant="Button.ButtonVariant.Ghost" OnClick="() => CancelAsync(s.Id)">Cancel</Button>
+                            <div class="friend-menu-anchor" @onclick:stopPropagation="true">
+                                @if (_menuOpenFor == friend.UserId)
+                                {
+                                    <div class="friend-menu-backdrop" @onclick="@(() => _menuOpenFor = null)"></div>
+                                }
+                                <IconButton Title="More" OnClick="@(() => _menuOpenFor = _menuOpenFor == friend.UserId ? null : friend.UserId)">
+                                    <Blazicon Svg="Lucide.Ellipsis" />
+                                </IconButton>
+                                <Popover Open="@(_menuOpenFor == friend.UserId)"
+                                         Placement="Popover.PopoverPlacement.BottomRight"
+                                         OnClose="@(() => _menuOpenFor = null)">
+                                    <ul class="friend-menu">
+                                        <li><button type="button" class="fmenu-item" @onclick="@(() => GoToDmAsync(friend.UserId))">Go to DMs</button></li>
+                                        <li><button type="button" class="fmenu-item" @onclick="@(() => OpenInviteToChannel(friend.UserId, friend.DisplayName, friend.Username))">Invite to a channel…</button></li>
+                                        <li class="fmenu-sep" role="separator"></li>
+                                        <li><button type="button" class="fmenu-item" @onclick="Report">Report</button></li>
+                                        <li><button type="button" class="fmenu-item danger" @onclick="@(() => RemoveAsync(friend.UserId, friend.DisplayName))">Remove friend</button></li>
+                                        <li><button type="button" class="fmenu-item danger" @onclick="@(() => BlockFriendAsync(friend.UserId, friend.DisplayName))">Block</button></li>
+                                    </ul>
+                                </Popover>
+                            </div>
                         </div>
                     }
                 }
@@ -149,3 +246,9 @@
         }
     </div>
 </div>
+
+<InviteToChannelModal Open="_inviteToChannelOpen"
+                      TargetUserId="_inviteTargetUserId"
+                      TargetName="@_inviteTargetName"
+                      TargetUsername="@_inviteTargetUsername"
+                      OnClose="@(() => _inviteToChannelOpen = false)" />

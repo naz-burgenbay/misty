@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -39,7 +39,6 @@ public sealed class CacheInvalidationTests : IAsyncLifetime
         });
         await _respawner.ResetAsync(conn);
 
-        // Flush all Redis keys between tests so cached state is clean.
         var mux = _factory.Services.GetRequiredService<IConnectionMultiplexer>();
         var server = mux.GetServer(mux.GetEndPoints()[0]);
         await server.FlushDatabaseAsync();
@@ -133,10 +132,8 @@ public sealed class CacheInvalidationTests : IAsyncLifetime
         var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
         await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Wait for setup-time cache invalidation events to finish processing before warming the cache, otherwise a delayed RoleChanged event could delete the Redis entry created below and cause a false-negative test result.
         await Task.Delay(3000);
 
-        // Resolve CachedPermissionService via IPermissionService so the result is written to Redis.
         using (var scope = _factory.Services.CreateScope())
         {
             var svc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
@@ -144,17 +141,14 @@ public sealed class CacheInvalidationTests : IAsyncLifetime
             hasPermission.Should().BeTrue("member has the role that grants ViewChannel");
         }
 
-        // Verify key is now cached
         var cacheKey = CachedPermissionService.CacheKey(memberId, channelId);
         var mux = _factory.Services.GetRequiredService<IConnectionMultiplexer>();
         var redis = mux.GetDatabase();
 
         (await redis.KeyExistsAsync(cacheKey)).Should().BeTrue("cache must be populated after a CheckPermission call");
 
-        // Revoke role (triggers Service Bus event)
         await RevokeRoleAsync(ownerToken, channelId, memberId, roleId);
 
-        // Poll until the worker deletes the cache key (≤ 5 s)
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (DateTime.UtcNow < deadline)
         {
@@ -167,7 +161,6 @@ public sealed class CacheInvalidationTests : IAsyncLifetime
         (await redis.KeyExistsAsync(cacheKey))
             .Should().BeFalse("CacheInvalidationWorker must have deleted the cache entry after role revocation");
 
-        // Verify CachedPermissionService re-reads from DB
         using (var scope = _factory.Services.CreateScope())
         {
             var svc = scope.ServiceProvider.GetRequiredService<IPermissionService>();

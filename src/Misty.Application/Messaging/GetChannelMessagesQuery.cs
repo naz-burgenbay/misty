@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -19,7 +19,6 @@ public sealed class GetChannelMessagesQueryValidator : AbstractValidator<GetChan
     {
         RuleFor(x => x.ChannelId).NotEmpty();
         RuleFor(x => x.UserId).NotEmpty();
-        // PageSize is clamped by handler, so no validation needed
     }
 }
 
@@ -114,7 +113,6 @@ public sealed class GetChannelMessagesQueryHandler
             ParentPreviewDto? preview = null;
             if (m.ParentMessageId is { } pid && parents is not null && parents.TryGetValue(pid, out var parent))
             {
-                // For tombstones, Content is already empty and IsDeleted is true. The preview reflects that directly.
                 preview = new ParentPreviewDto(parent.Id, parent.AuthorId, parent.Content, parent.IsDeleted);
             }
 

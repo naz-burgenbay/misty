@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication;
@@ -65,7 +65,6 @@ public sealed class SendConversationMessageCommandHandler
         if (existing is not null)
             return ToResponse(existing, wasIdempotent: true);
 
-        // First-DM-between-non-friends inbox trigger: check before insert so the outbox row rides the same SaveChanges as the message.
         var isFirst = !await _messages.AnyForConversationAsync(request.ConversationId, ct);
         if (isFirst && !await _friendships.ExistsAsync(request.AuthorId, otherUserId, ct))
         {
@@ -128,7 +127,6 @@ public sealed class GetConversationMessagesQueryValidator : AbstractValidator<Ge
     {
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.UserId).NotEmpty();
-        // PageSize is clamped by handler, so no validation needed
     }
 }
 

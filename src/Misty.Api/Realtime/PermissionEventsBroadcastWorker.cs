@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
@@ -7,7 +7,6 @@ using Misty.Application.Communication;
 
 namespace Misty.Api.Realtime;
 
-// Consumes membership-events, role-events, and moderation-events on the realtime-broadcast subscription (separate from CacheInvalidationWorker's cache-invalidation subscription) and fans them out to connected SignalR clients so the client-side PermissionsCache can invalidate.
 public sealed class PermissionEventsBroadcastWorker : BackgroundService
 {
     private const string BroadcastSubscription = "realtime-broadcast";
@@ -87,9 +86,6 @@ public sealed class PermissionEventsBroadcastWorker : BackgroundService
 
         try
         {
-            // Per-user events (most membership/role/moderation actions) target a single user's tabs/devices via the user:{userId} group set up in MistyHub.OnConnectedAsync.
-            // Channel-wide events (e.g. a role permission edit, UserId == null) fan out to every currently connected member of the channel.
-            // The SignalR method name is intentionally coarser than the outbox event type so the web client can subscribe once per concern (MembershipChanged / RoleChanged / ModerationActionApplied) rather than tracking every lifecycle transition.
             var payload = new PermissionInvalidationDto(target.Value.UserId, target.Value.ChannelId);
             if (payload.UserId.HasValue)
             {

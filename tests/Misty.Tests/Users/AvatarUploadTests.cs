@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -106,7 +106,6 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         avatarUrl.Should().NotBeNullOrEmpty();
         avatarUrl.Should().Contain(userId.ToString(), "blob is named after the user ID");
 
-        // Profile now reflects the avatarUrl
         var profile = await _client.GetAsync($"/api/v1/users/{userId}");
         var profileBody = await profile.Content.ReadFromJsonAsync<JsonElement>();
         profileBody.GetProperty("avatarUrl").GetString().Should().Be(avatarUrl);
@@ -130,7 +129,6 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         second.StatusCode.Should().Be(HttpStatusCode.OK);
         var url2 = (await second.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("avatarUrl").GetString();
 
-        // Both uploads land at the same blob path (userId), so the URL is the same
         url2.Should().Be(url1);
     }
 
@@ -140,7 +138,6 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         var (token, _) = await RegisterAndLoginAsync("avatar3");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        // 6 MB of zeros exceeds the 5 MB limit
         var oversized = new byte[6 * 1024 * 1024];
         using var form = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(oversized);
@@ -159,7 +156,7 @@ public sealed class AvatarUploadTests : IAsyncLifetime
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var form = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent([0x25, 0x50, 0x44, 0x46]); // %PDF magic bytes
+        var fileContent = new ByteArrayContent([0x25, 0x50, 0x44, 0x46]);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         form.Add(fileContent, "file", "document.pdf");
         AddVersion(form, "AAAAAAAAAAA=");

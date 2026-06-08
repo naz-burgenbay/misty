@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Application.Communication.Contracts;
@@ -24,17 +24,20 @@ public sealed class AcceptChannelInviteCommandHandler : IRequestHandler<AcceptCh
     private readonly IChannelRepository _channels;
     private readonly IOutboxWriter _outbox;
     private readonly IMediator _mediator;
+    private readonly IInboxItemRepository _inbox;
 
     public AcceptChannelInviteCommandHandler(
         IChannelInviteRepository invites,
         IChannelRepository channels,
         IOutboxWriter outbox,
-        IMediator mediator)
+        IMediator mediator,
+        IInboxItemRepository inbox)
     {
         _invites = invites;
         _channels = channels;
         _outbox = outbox;
         _mediator = mediator;
+        _inbox = inbox;
     }
 
     public async Task Handle(AcceptChannelInviteCommand cmd, CancellationToken ct)
@@ -69,8 +72,13 @@ public sealed class AcceptChannelInviteCommandHandler : IRequestHandler<AcceptCh
 
         await _invites.UpdateAsync(entity, concurrencyToken, ct);
 
-        // Delegate the actual join (membership row, default role assignment, MembershipChanged event) to the existing join handler.
-        // Pass the channel's invite code so the private-channel gate accepts the join; the invite itself is the authorization.
+        var inboxItem = await _inbox.GetByReferenceAsync(cmd.UserId, cmd.InviteId, ct);
+        if (inboxItem is { IsActedOn: false })
+        {
+            inboxItem.MarkActedOn();
+            await _inbox.UpdateAsync(inboxItem, ct);
+        }
+
         await _mediator.Send(new JoinChannelCommand(cmd.UserId, entity.ChannelId, channel.InviteCode), ct);
     }
 }
