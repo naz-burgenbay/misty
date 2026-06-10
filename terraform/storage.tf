@@ -6,6 +6,11 @@ resource "azurerm_storage_account" "main" {
   account_replication_type        = "LRS"
   allow_nested_items_to_be_public = false
   tags                            = local.tags
+
+  static_website {
+    index_document     = "index.html"
+    error_404_document = "index.html"
+  }
 }
 
 resource "azurerm_storage_container" "avatars" {

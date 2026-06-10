@@ -28,6 +28,16 @@ output "servicebus_namespace" {
   value       = azurerm_servicebus_namespace.main.name
 }
 
+output "frontend_url" {
+  description = "Public URL of the frontend (Azure Storage static website)"
+  value       = azurerm_storage_account.main.primary_web_endpoint
+}
+
+output "storage_account_name" {
+  description = "Storage account name (used by CI/CD to upload frontend files)"
+  value       = azurerm_storage_account.main.name
+}
+
 output "application_insights_instrumentation_key" {
   description = "Application Insights instrumentation key"
   value       = azurerm_application_insights.main.instrumentation_key
