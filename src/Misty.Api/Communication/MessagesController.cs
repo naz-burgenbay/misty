@@ -51,9 +51,10 @@ public sealed class MessagesController : ControllerBase
     }
 
     [HttpPut("{messageId:guid}")]
-    [ProducesResponseType(typeof(EditMessageResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> EditMessage(
         Guid channelId,
@@ -62,8 +63,8 @@ public sealed class MessagesController : ControllerBase
         CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
-        var newVersion = await _mediator.Send(new EditMessageCommand(messageId, channelId, userId, request.Content, request.Version), ct);
-        return Ok(new EditMessageResponse(newVersion));
+        await _mediator.Send(new EditMessageCommand(messageId, channelId, userId, request.Content, request.Version), ct);
+        return NoContent();
     }
 
     [HttpDelete("{messageId:guid}")]
