@@ -20,6 +20,7 @@ using Misty.Infrastructure.Communication;
 using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -58,11 +59,21 @@ static async Task Run(string[] args)
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, lc) => lc
-    .ReadFrom.Configuration(ctx.Configuration)
-    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
-    .WriteTo.Console());
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+      .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
+      .WriteTo.Console();
+
+    var appInsightsConnStr = ctx.Configuration["ApplicationInsights:ConnectionString"];
+    if (!string.IsNullOrWhiteSpace(appInsightsConnStr))
+    {
+        lc.WriteTo.ApplicationInsights(
+            appInsightsConnStr,
+            TelemetryConverter.Traces);
+    }
+});
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -181,6 +192,10 @@ builder.Services.AddOpenTelemetry()
             .AddAspNetCoreInstrumentation()
             .AddEntityFrameworkCoreInstrumentation()
             .AddHttpClientInstrumentation();
+
+        var appInsightsConnStr = builder.Configuration["ApplicationInsights:ConnectionString"];
+        if (!string.IsNullOrWhiteSpace(appInsightsConnStr))
+            tracing.AddAzureMonitorTraceExporter(o => o.ConnectionString = appInsightsConnStr);
     });
 
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString, blobOptions));
