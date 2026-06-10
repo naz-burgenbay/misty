@@ -21,6 +21,8 @@ using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using OpenAI;
+using OpenAI.Chat;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -167,6 +169,14 @@ var serviceBusConnectionString = builder.Configuration.GetConnectionString("Serv
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
 
 builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
+
+var openAiApiKey = builder.Configuration["OpenAI:ApiKey"];
+if (!string.IsNullOrWhiteSpace(openAiApiKey))
+{
+    builder.Services.AddSingleton(new OpenAIClient(openAiApiKey));
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<OpenAIClient>().GetChatClient("gpt-4o-mini"));
+}
+
 builder.Services.AddHostedService<CacheInvalidationWorker>();
 builder.Services.AddHostedService<OutboxRelayWorker>();
 builder.Services.AddHostedService<RealtimeDeliveryWorker>();
@@ -236,6 +246,15 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
+
+    var aiBotId = AIResponseWorker.AiUserId;
+    if (!await db.Set<User>().AnyAsync(u => u.Id == aiBotId))
+    {
+        var botUser = User.Create(aiBotId, "misty-bot", "misty-bot@internal.misty", "Misty Bot");
+        botUser.SetPasswordHash(string.Empty);
+        db.Set<User>().Add(botUser);
+        await db.SaveChangesAsync();
+    }
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions

@@ -7,6 +7,7 @@ using Misty.Application.Communication.Contracts;
 using Misty.Application.Messaging;
 using Misty.Domain.Messaging;
 using Misty.Infrastructure.Persistence;
+using OpenAI.Chat;
 using System.Text.Json;
 
 namespace Misty.Infrastructure.Messaging;
@@ -18,15 +19,18 @@ public sealed class AIResponseWorker : BackgroundService
     private readonly ServiceBusClient _client;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AIResponseWorker> _logger;
+    private readonly ChatClient? _chatClient;
 
     public AIResponseWorker(
         ServiceBusClient client,
         IServiceScopeFactory scopeFactory,
-        ILogger<AIResponseWorker> logger)
+        ILogger<AIResponseWorker> logger,
+        ChatClient? chatClient = null)
     {
         _client = client;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _chatClient = chatClient;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -123,11 +127,44 @@ public sealed class AIResponseWorker : BackgroundService
             return;
         }
 
+        string aiContent;
+        if (_chatClient is not null)
+        {
+            try
+            {
+                var (history, _) = await messageRepo.GetByChannelAsync(payload.ChannelId.Value, 20, null, args.CancellationToken);
+                var chatMessages = new List<ChatMessage>
+                {
+                    ChatMessage.CreateSystemMessage(
+                        "You are Misty Bot, a helpful assistant in a group chat channel. " +
+                        "Keep responses concise and conversational.")
+                };
+                foreach (var m in history.OrderBy(m => m.CreatedAt))
+                {
+                    if (m.AuthorId == AiUserId)
+                        chatMessages.Add(ChatMessage.CreateAssistantMessage(m.Content));
+                    else
+                        chatMessages.Add(ChatMessage.CreateUserMessage(m.Content));
+                }
+                var completion = await _chatClient.CompleteChatAsync(chatMessages, cancellationToken: args.CancellationToken);
+                aiContent = completion.Value.Content[0].Text;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OpenAI call failed for message {MessageId}; falling back to echo.", payload.MessageId);
+                aiContent = $"[AI] {payload.Content}";
+            }
+        }
+        else
+        {
+            aiContent = $"[AI] {payload.Content}";
+        }
+
         var aiMessage = Message.CreateForChannel(
             Guid.NewGuid(),
             payload.ChannelId.Value,
             AiUserId,
-            $"[AI] {payload.Content}",
+            aiContent,
             idempotencyKey);
 
         outbox.Queue(

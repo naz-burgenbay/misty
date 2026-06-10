@@ -59,9 +59,17 @@
         <ChildContent>
             <div class="create-form profile-style">
                 <div class="profile-head">
-                    <div class="icon-placeholder">
-                        <Blazicon Svg="Lucide.Hash" />
-                    </div>
+                    <label class="icon-upload-trigger" title="Add channel icon">
+                        @if (_newIconPreviewUrl is not null)
+                        {
+                            <img src="@_newIconPreviewUrl" alt="Channel icon preview" class="icon-preview" />
+                        }
+                        else
+                        {
+                            <div class="icon-placeholder"><Blazicon Svg="Lucide.Hash" /></div>
+                        }
+                        <InputFile OnChange="OnCreateIconSelected" accept="image/*" style="display:none" />
+                    </label>
                     <div class="profile-hint">Your channel will be set up in seconds.</div>
                 </div>
 
@@ -215,6 +223,8 @@
     private bool _newPrivate;
     private bool _newAi;
     private string? _createError;
+    private IBrowserFile? _newIconFile;
+    private string? _newIconPreviewUrl;
 
     private string _inviteQuery = string.Empty;
     private bool _inviteSearching;
@@ -280,12 +290,32 @@
         _newDescription = string.Empty;
         _newPrivate = false;
         _newAi = false;
+        _newIconFile = null;
+        _newIconPreviewUrl = null;
         _inviteQuery = string.Empty;
         _inviteResults = Array.Empty<UserSummaryWithAvatar>();
         _invitedUsers = new();
         _invitedUserDetails = new();
         _inviteSearchCts?.Cancel();
         _inviteSearchCts = null;
+    }
+
+    private async Task OnCreateIconSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        _newIconFile = file;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new System.IO.MemoryStream();
+            await stream.CopyToAsync(ms);
+            _newIconPreviewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+        }
+        catch
+        {
+            _newIconPreviewUrl = null;
+        }
     }
 
     private async Task OnInviteQueryChanged(string? value)
@@ -337,7 +367,20 @@
         _createError = null;
         try
         {
-            var created = await Channels.CreateAsync(_newName.Trim(), _newPrivate, _newAi);
+            var created = await Channels.CreateAsync(_newName.Trim(), _newPrivate, _newAi, _newDescription.Trim() is { Length: > 0 } d ? d : null);
+            if (_newIconFile is not null)
+            {
+                try
+                {
+                    var detail = await Channels.GetDetailAsync(created.Id);
+                    if (detail is not null)
+                    {
+                        await using var stream = _newIconFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                        await Channels.UploadIconAsync(created.Id, stream, _newIconFile.ContentType, detail.Version);
+                    }
+                }
+                catch { /* icon upload is non-critical; channel was created */ }
+            }
             foreach (var u in _invitedUserDetails)
             {
                 try { await Channels.SendInviteAsync(created.Id, u.Username); } catch { }

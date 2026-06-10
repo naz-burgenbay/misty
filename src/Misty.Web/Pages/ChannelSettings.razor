@@ -395,7 +395,7 @@
                                     @role.Name
                                     @if (role.IsOwnerRole)
                                     {
-                                        <span class="role-badge">Owner</span>
+                                        <span class="role-badge">Owner — cannot be edited</span>
                                     }
                                 </span>
                                 @if (!role.IsOwnerRole)
@@ -412,6 +412,10 @@
                             </li>
                         }
                     </ul>
+                    @if (!FilteredRoles.Any(r => !r.IsOwnerRole) && string.IsNullOrWhiteSpace(_rolesSearch))
+                    {
+                        <div class="hint">No custom roles yet. Click <strong>New role</strong> to create one.</div>
+                    }
                 }
             </section>
         }

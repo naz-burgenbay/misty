@@ -136,6 +136,26 @@
     stroke-width: 1.5;
 }
 
+.icon-upload-trigger {
+    cursor: pointer;
+    display: block;
+    border-radius: 50%;
+    position: relative;
+}
+
+.icon-upload-trigger:hover .icon-placeholder {
+    background: var(--color-surface-raised);
+    border: 2px dashed var(--color-border);
+}
+
+.icon-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
 .profile-hint {
     font-size: var(--fs-caption);
     color: var(--color-text-secondary);

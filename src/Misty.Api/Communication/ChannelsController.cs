@@ -37,7 +37,8 @@ public sealed class ChannelsController : ControllerBase
                 request.Name,
                 request.IsPrivate,
                 request.IsAiAssistantEnabled,
-                request.DefaultPermissions),
+                request.DefaultPermissions,
+                request.Description),
             ct);
         return CreatedAtAction(nameof(GetChannel), new { id = result.ChannelId }, result);
     }
@@ -191,7 +192,8 @@ public record CreateChannelRequest(
     string Name,
     bool IsPrivate,
     bool IsAiAssistantEnabled,
-    ChannelPermission DefaultPermissions);
+    ChannelPermission DefaultPermissions,
+    string? Description = null);
 
 public record UpdateChannelRequest(
     string Name,

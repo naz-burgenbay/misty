@@ -2,6 +2,7 @@
 @using Misty.Web.Components.Moderation
 @using Misty.Web.Services.Communication
 @using Misty.Web.Services.Permissions
+@using Misty.Web.Services.Auth
 @inject IChannelMembersService MembersService
 @inject IChannelRolesService RolesService
 @inject IChannelService ChannelService
@@ -10,6 +11,7 @@
 @inject IDirectMessageService DirectMessages
 @inject NavigationManager Nav
 @inject IToastService Toasts
+@inject IAuthService Auth
 @implements IDisposable
 
 @code {
@@ -79,7 +81,7 @@
         var assigned = new HashSet<Guid>();
         foreach (var role in _roles.OrderByDescending(r => r.IsOwnerRole).ThenBy(r => r.Name))
         {
-            var group = filtered.Where(m => m.RoleIds.Contains(role.Id)).ToList();
+            var group = filtered.Where(m => !assigned.Contains(m.UserId) && m.RoleIds.Contains(role.Id)).ToList();
             if (group.Any())
             {
                 foreach (var m in group) assigned.Add(m.UserId);
@@ -224,19 +226,19 @@
                                 <ul class="member-menu">
                                     <li><button type="button" class="mmenu-item" @onclick="@(() => GoToDmAsync(member.UserId))">Send direct message</button></li>
                                     <li><button type="button" class="mmenu-item" @onclick="Report">Report</button></li>
-                                    @if (CanModerate || CanKick)
+                                    @if ((CanModerate || CanKick) && member.UserId != Auth.CurrentUser?.Id)
                                     {
                                         <li class="mmenu-sep" role="separator"></li>
                                     }
-                                    @if (CanMute)
+                                    @if (CanMute && member.UserId != Auth.CurrentUser?.Id)
                                     {
                                         <li><button type="button" class="mmenu-item" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Mute))">Mute</button></li>
                                     }
-                                    @if (CanBan)
+                                    @if (CanBan && member.UserId != Auth.CurrentUser?.Id)
                                     {
                                         <li><button type="button" class="mmenu-item danger" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Ban))">Ban</button></li>
                                     }
-                                    @if (CanKick)
+                                    @if (CanKick && member.UserId != Auth.CurrentUser?.Id)
                                     {
                                         <li><button type="button" class="mmenu-item danger" @onclick="@(() => KickAsync(member.UserId, member.DisplayName))">Kick</button></li>
                                     }

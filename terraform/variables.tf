@@ -49,6 +49,12 @@ variable "jwt_signing_key" {
   sensitive   = true
 }
 
+variable "openai_api_key" {
+  description = "OpenAI API key for the AI assistant"
+  type        = string
+  sensitive   = true
+}
+
 variable "jwt_issuer" {
   type    = string
   default = "Misty.Api"

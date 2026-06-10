@@ -20,7 +20,7 @@ public sealed class StubToastService : IToastService
 
     public void Show(string message, ToastKind kind = ToastKind.Info, TimeSpan? duration = null)
     {
-        var next = new ToastRequest(Guid.NewGuid(), message, kind, duration ?? TimeSpan.FromSeconds(4));
+        var next = new ToastRequest(Guid.NewGuid(), message, kind, duration ?? TimeSpan.FromSeconds(2.5));
         Toasts.Set(Toasts.Value.Append(next).ToList());
     }
 

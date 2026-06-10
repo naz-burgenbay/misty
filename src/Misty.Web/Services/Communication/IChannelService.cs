@@ -26,7 +26,8 @@ internal sealed record CreateChannelRequestDto(
     string Name,
     bool IsPrivate,
     bool IsAiAssistantEnabled,
-    long DefaultPermissions);
+    long DefaultPermissions,
+    string? Description = null);
 
 internal sealed record UpdateChannelRequestDto(
     string Name,
@@ -71,7 +72,7 @@ public interface IChannelService
 
     Task RefreshAsync(CancellationToken ct = default);
     Task<ChannelDetailDto?> GetDetailAsync(Guid channelId, CancellationToken ct = default);
-    Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, CancellationToken ct = default);
+    Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, string? description = null, CancellationToken ct = default);
     Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, string? description, string version, CancellationToken ct = default);
     Task DeleteAsync(Guid channelId, CancellationToken ct = default);
     Task LeaveAsync(Guid channelId, CancellationToken ct = default);
@@ -125,10 +126,10 @@ public sealed class HttpChannelService : IChannelService
         }
     }
 
-    public async Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, CancellationToken ct = default)
+    public async Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, string? description = null, CancellationToken ct = default)
     {
         using var resp = await _http.PostAsJsonAsync("api/v1/channels",
-            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, DefaultPermissions), ct);
+            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, DefaultPermissions, description), ct);
         resp.EnsureSuccessStatusCode();
         var created = await resp.Content.ReadFromJsonAsync<CreateChannelResponseDto>(cancellationToken: ct)
                       ?? throw new InvalidOperationException("Empty create channel response.");

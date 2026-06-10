@@ -9,7 +9,8 @@ public record CreateChannelCommand(
     string Name,
     bool IsPrivate,
     bool IsAiAssistantEnabled,
-    ChannelPermission DefaultPermissions)
+    ChannelPermission DefaultPermissions,
+    string? Description = null)
     : IRequest<CreateChannelResponse>;
 
 public record CreateChannelResponse(
@@ -40,7 +41,8 @@ public sealed class CreateChannelCommandHandler : IRequestHandler<CreateChannelC
             request.IsPrivate,
             request.IsAiAssistantEnabled,
             request.DefaultPermissions,
-            request.UserId);
+            request.UserId,
+            request.Description);
 
         var ownerRole = ChannelRole.CreateOwner(Guid.NewGuid(), channel.Id);
         var creatorMembership = Membership.Create(Guid.NewGuid(), channel.Id, request.UserId);

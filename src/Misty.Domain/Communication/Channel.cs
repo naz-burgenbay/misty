@@ -25,11 +25,13 @@ public class Channel
         bool isPrivate,
         bool isAiAssistantEnabled,
         ChannelPermission defaultPermissions,
-        Guid createdByUserId)
+        Guid createdByUserId,
+        string? description = null)
         => new()
         {
             Id = id,
             Name = name,
+            Description = description,
             IsPrivate = isPrivate,
             InviteCode = isPrivate ? GenerateInviteCode() : null,
             IsAiAssistantEnabled = isAiAssistantEnabled,

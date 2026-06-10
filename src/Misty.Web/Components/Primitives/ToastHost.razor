@@ -14,12 +14,26 @@
 @code {
     private IReadOnlyList<ToastRequest> _toasts = Array.Empty<ToastRequest>();
     private IDisposable? _sub;
+    private readonly HashSet<Guid> _scheduled = new();
 
     protected override void OnInitialized()
     {
         _sub = Toasts.Toasts.Subscribe(list =>
         {
             _toasts = list;
+            foreach (var t in list)
+            {
+                if (t.Duration.HasValue && _scheduled.Add(t.Id))
+                {
+                    var id = t.Id;
+                    var delay = t.Duration.Value;
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(delay);
+                        Toasts.Dismiss(id);
+                    });
+                }
+            }
             InvokeAsync(StateHasChanged);
         });
     }
