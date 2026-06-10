@@ -43,6 +43,8 @@ resource "azurerm_linux_web_app" "api" {
     "ConnectionStrings__ServiceBus"         = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=servicebus-connection-string)"
     "Jwt__Key"                              = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=jwt-signing-key)"
     "ApplicationInsights__ConnectionString" = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=appinsights-connection-string)"
+
+    "Cors__AllowedOrigins__0" = trimsuffix(azurerm_storage_account.main.primary_web_endpoint, "/")
   }
 
   tags = local.tags
