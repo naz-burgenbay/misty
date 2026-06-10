@@ -62,14 +62,6 @@ public sealed class PermissionService : IPermissionService
         if (membership is null)
             return DeniedSentinel;
 
-        var channel = await _db.Channels
-            .AsNoTracking()
-            .Where(c => c.Id == channelId)
-            .Select(c => new { c.DefaultPermissions })
-            .FirstOrDefaultAsync(ct);
-
-        var defaultPerms = channel?.DefaultPermissions ?? ChannelPermission.None;
-
         var rolePerms = await _db.MemberRoles
             .AsNoTracking()
             .Where(mr => mr.MembershipId == membership.Id)
@@ -79,7 +71,7 @@ public sealed class PermissionService : IPermissionService
                 (mr, cr) => cr.Permissions)
             .ToListAsync(ct);
 
-        var aggregated = rolePerms.Aggregate(defaultPerms, (acc, p) => acc | p);
+        var aggregated = rolePerms.Aggregate(ChannelPermission.None, (acc, p) => acc | p);
 
         var isMuted = await _db.ModerationActions
             .Where(m => m.ChannelId == channelId
