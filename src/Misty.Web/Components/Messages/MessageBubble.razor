@@ -2,7 +2,6 @@
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
     [Parameter] public bool IsMine { get; set; }
     [Parameter] public bool IsAi { get; set; }
-    [Parameter] public EventCallback<Guid> OnDeleteAttachment { get; set; }
 
     private string Cls =>
         (IsAi ? "ai" : IsMine ? "mine" : "received") +
@@ -17,9 +16,6 @@
         < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
         _ => $"{bytes / (1024.0 * 1024.0):0.#} MB",
     };
-
-    private Task DeleteAttachmentClicked(Guid attachmentId)
-        => OnDeleteAttachment.HasDelegate ? OnDeleteAttachment.InvokeAsync(attachmentId) : Task.CompletedTask;
 }
 
 <div class="bubble @Cls">
@@ -52,12 +48,6 @@
                                 <span class="att-name">@a.FileName</span>
                                 <span class="att-size">@FormatSize(a.SizeBytes)</span>
                             </a>
-                                                        @if (IsMine)
-                            {
-                                <button type="button" class="att-delete" @onclick="() => DeleteAttachmentClicked(a.Id)" title="Delete attachment">
-                                    <Blazicon Svg="Lucide.X" />
-                                </button>
-                            }
                         </div>
                     }
                 }

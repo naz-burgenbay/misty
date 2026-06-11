@@ -50,18 +50,26 @@ public sealed class UploadMessageAttachmentCommandHandler
         UploadMessageAttachmentCommand request,
         CancellationToken ct)
     {
-        var canAttach = await _permissions.CheckPermissionAsync(
-            request.UserId,
-            request.ChannelId,
-            ChannelPermission.AttachFiles,
-            ct);
-
-        if (!canAttach)
-            throw new ForbiddenException("You do not have permission to attach files in this channel.");
-
         var message = await _messages.GetByIdAsync(request.MessageId, ct);
-        if (message is null || message.ChannelId != request.ChannelId)
+
+        // The ChannelId route parameter doubles as ConversationId for DMs.
+        // A message belongs to this context if its ChannelId or ConversationId matches.
+        var isDm = message?.ConversationId == request.ChannelId;
+        if (message is null || (message.ChannelId != request.ChannelId && !isDm))
             throw new NotFoundException("Message not found.");
+
+        if (!isDm)
+        {
+            var canAttach = await _permissions.CheckPermissionAsync(
+                request.UserId,
+                request.ChannelId,
+                ChannelPermission.AttachFiles,
+                ct);
+
+            if (!canAttach)
+                throw new ForbiddenException("You do not have permission to attach files in this channel.");
+        }
+
         if (message.AuthorId != request.UserId)
             throw new ForbiddenException("You can only attach files to your own messages.");
         if (message.IsDeleted)

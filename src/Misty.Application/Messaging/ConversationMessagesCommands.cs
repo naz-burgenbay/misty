@@ -136,17 +136,20 @@ public sealed class GetConversationMessagesQueryHandler
     private readonly IMessageRepository _messages;
     private readonly IReactionRepository _reactions;
     private readonly IAttachmentRepository _attachments;
+    private readonly IAttachmentStorage _storage;
     private readonly IConversationRepository _conversations;
 
     public GetConversationMessagesQueryHandler(
         IMessageRepository messages,
         IReactionRepository reactions,
         IAttachmentRepository attachments,
+        IAttachmentStorage storage,
         IConversationRepository conversations)
     {
         _messages = messages;
         _reactions = reactions;
         _attachments = attachments;
+        _storage = storage;
         _conversations = conversations;
     }
 
@@ -178,6 +181,12 @@ public sealed class GetConversationMessagesQueryHandler
         var reactionsByMessage = await _reactions.GetAggregatesAsync(messageIds, request.UserId, ct);
         var attachmentsByMessage = await _attachments.GetByMessageIdsAsync(messageIds, ct);
 
+        // Pre-compute SAS URLs for all attachments asynchronously
+        var sasUrlsByAttachment = new Dictionary<Guid, string>();
+        foreach (var (_, rows) in attachmentsByMessage)
+            foreach (var a in rows)
+                sasUrlsByAttachment[a.Id] = await _storage.GetReadUrlAsync(a.BlobContainer, a.BlobName, ct: ct);
+
         var dtos = messages.Select(m =>
         {
             ParentPreviewDto? preview = null;
@@ -189,7 +198,8 @@ public sealed class GetConversationMessagesQueryHandler
                 : new List<ReactionSummaryDto>();
 
             var attachments = attachmentsByMessage.TryGetValue(m.Id, out var rows)
-                ? rows.Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.CdnUrl)).ToList()
+                ? rows.Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes,
+                    sasUrlsByAttachment.GetValueOrDefault(a.Id, a.CdnUrl))).ToList()
                 : new List<AttachmentDto>();
 
             return new MessageDto(
