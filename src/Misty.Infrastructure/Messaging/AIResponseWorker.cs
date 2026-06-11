@@ -103,6 +103,12 @@ public sealed class AIResponseWorker : BackgroundService
             return;
         }
 
+        if (!payload.Content.Contains("@misty-bot", StringComparison.OrdinalIgnoreCase))
+        {
+            await args.CompleteMessageAsync(args.Message, args.CancellationToken);
+            return;
+        }
+
         await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var messageRepo = scope.ServiceProvider.GetRequiredService<IMessageRepository>();

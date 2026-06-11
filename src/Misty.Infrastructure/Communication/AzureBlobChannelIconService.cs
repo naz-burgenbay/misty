@@ -14,7 +14,7 @@ public sealed class AzureBlobChannelIconService : IChannelIconService
     public async Task<string> UploadAsync(Guid channelId, Stream content, string contentType, CancellationToken ct = default)
     {
         var container = _client.GetBlobContainerClient(ContainerName);
-        await container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: ct);
+        await container.CreateIfNotExistsAsync(cancellationToken: ct);
 
         await DeletePrefixAsync(container, channelId, ct);
 

@@ -248,11 +248,28 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 
     var aiBotId = AIResponseWorker.AiUserId;
-    if (!await db.Set<User>().AnyAsync(u => u.Id == aiBotId))
+    const string botAvatar =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' " +
+        "viewBox='0 0 24 24' fill='none' stroke='%236c5ce7' stroke-width='2' " +
+        "stroke-linecap='round' stroke-linejoin='round'%3E" +
+        "%3Crect width='18' height='10' x='3' y='11' rx='2'/%3E" +
+        "%3Ccircle cx='12' cy='5' r='2'/%3E" +
+        "%3Cpath d='M12 7v4'/%3E" +
+        "%3Cline x1='8' x2='8' y1='16' y2='16'/%3E" +
+        "%3Cline x1='16' x2='16' y1='16' y2='16'/%3E" +
+        "%3C/svg%3E";
+    var existingBot = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == aiBotId);
+    if (existingBot is null)
     {
         var botUser = User.Create(aiBotId, "misty-bot", "misty-bot@internal.misty", "Misty Bot");
         botUser.SetPasswordHash(string.Empty);
+        botUser.UpdateAvatarUrl(botAvatar);
         db.Set<User>().Add(botUser);
+        await db.SaveChangesAsync();
+    }
+    else if (existingBot.AvatarUrl != botAvatar)
+    {
+        existingBot.UpdateAvatarUrl(botAvatar);
         await db.SaveChangesAsync();
     }
 }

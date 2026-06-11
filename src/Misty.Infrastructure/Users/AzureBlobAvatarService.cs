@@ -14,7 +14,7 @@ public sealed class AzureBlobAvatarService : IAvatarService
     public async Task<string> UploadAsync(Guid userId, Stream content, string contentType, CancellationToken ct = default)
     {
         var container = _client.GetBlobContainerClient(ContainerName);
-        await container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: ct);
+        await container.CreateIfNotExistsAsync(cancellationToken: ct);
 
         var blob = container.GetBlobClient(userId.ToString());
         var options = new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = contentType } };

@@ -29,6 +29,7 @@
     private string _version = string.Empty;
     private bool _isPrivate;
     private bool _isAiEnabled;
+    private long _defaultPermissions = 31;
     private bool _saving;
     private bool _uploadingIcon;
 
@@ -81,6 +82,7 @@
             _description = detail.Description ?? string.Empty;
             _iconUrl = detail.IconUrl ?? string.Empty;
             _version = detail.Version;
+            _defaultPermissions = detail.DefaultPermissions;
         }
     }
 
@@ -156,7 +158,7 @@
         _saving = true;
         try
         {
-            await Channels.UpdateAsync(ChannelId, _name.Trim(), _isPrivate, _isAiEnabled, _description, _version);
+        await Channels.UpdateAsync(ChannelId, _name.Trim(), _isPrivate, _isAiEnabled, _description, _defaultPermissions, _version);
             var detail = await Channels.GetDetailAsync(ChannelId);
             if (detail is not null) _version = detail.Version;
             Toasts.Show("Channel updated.", ToastKind.Success);
@@ -339,13 +341,15 @@
                     <span class="lbl">Privacy</span>
                     <SegmentedControl Options="@(new[] { "Public", "Private" })"
                                       Value="@(_isPrivate ? "Private" : "Public")"
-                                      ValueChanged="@(v => _isPrivate = v == "Private")" />
+                                      ValueChanged="@(v => _isPrivate = v == "Private")"
+                                      Disabled="@(!CanManageChannel)" />
                 </div>
                 <div class="field">
                     <span class="lbl">AI assistant</span>
                     <SegmentedControl Options="@(new[] { "Off", "On" })"
                                       Value="@(_isAiEnabled ? "On" : "Off")"
-                                      ValueChanged="@(v => _isAiEnabled = v == "On")" />
+                                      ValueChanged="@(v => _isAiEnabled = v == "On")"
+                                      Disabled="@(!CanManageChannel)" />
                 </div>
                 @if (CanManageChannel)
                 {
@@ -372,6 +376,39 @@
             </div>
 
             <section class="card">
+                <h2 class="card-subsection-title">General member permissions</h2>
+                <p class="hint">These permissions apply to every member who hasn't been assigned a custom role.</p>
+                @foreach (var (flag, label) in new (ChannelPermissionFlags flag, string label)[]
+                {
+                    (ChannelPermissionFlags.ViewChannel,   "View channel"),
+                    (ChannelPermissionFlags.ReadHistory,   "Read message history"),
+                    (ChannelPermissionFlags.SendMessages,  "Send messages"),
+                    (ChannelPermissionFlags.AttachFiles,   "Attach files"),
+                    (ChannelPermissionFlags.AddReactions,  "Add reactions"),
+                })
+                {
+                    var f = flag;
+                    <label class="perm-row @(!CanManageRoles ? "disabled" : "")">
+                        <input type="checkbox"
+                               checked="@((_defaultPermissions & (long)f) != 0)"
+                               disabled="@(!CanManageRoles)"
+                               @onchange="@(e => { if ((bool)(e.Value ?? false)) _defaultPermissions |= (long)f; else _defaultPermissions &= ~(long)f; })" />
+                        @label
+                    </label>
+                }
+                @if (CanManageRoles)
+                {
+                    <div class="actions">
+                        <Button Variant="Button.ButtonVariant.Primary"
+                                Disabled="@_saving"
+                                OnClick="SaveMainAsync">
+                            @(_saving ? "Saving…" : "Save permissions")
+                        </Button>
+                    </div>
+                }
+            </section>
+
+            <section class="card">
                 <div class="search-row">
                     <TextField Value="@_rolesSearch"
                                ValueChanged="@(v => _rolesSearch = v ?? string.Empty)"
@@ -395,7 +432,7 @@
                                     @role.Name
                                     @if (role.IsOwnerRole)
                                     {
-                                        <span class="role-badge">Owner — cannot be edited</span>
+                                        <span class="role-badge">Cannot be edited</span>
                                     }
                                 </span>
                                 @if (!role.IsOwnerRole)

@@ -109,7 +109,7 @@ public sealed class SendConversationMessageValidator : AbstractValidator<SendCon
 {
     public SendConversationMessageValidator()
     {
-        RuleFor(x => x.Content).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.Content).MaximumLength(4000);
         RuleFor(x => x.IdempotencyKey).NotEmpty().MaximumLength(128);
     }
 }

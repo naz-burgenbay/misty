@@ -103,7 +103,7 @@ public sealed class SendChannelMessageValidator : AbstractValidator<SendChannelM
 {
     public SendChannelMessageValidator()
     {
-        RuleFor(x => x.Content).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.Content).MaximumLength(4000);
         RuleFor(x => x.IdempotencyKey).NotEmpty().MaximumLength(128);
     }
 }
