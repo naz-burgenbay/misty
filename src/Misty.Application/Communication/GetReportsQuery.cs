@@ -1,5 +1,4 @@
 using MediatR;
-using Misty.Domain.Communication;
 
 namespace Misty.Application.Communication;
 
@@ -8,7 +7,7 @@ public record GetReportsQuery(int Skip = 0, int Take = 50) : IRequest<IReadOnlyL
 public record ReportDto(
     Guid Id,
     Guid ReporterId,
-    ReportTargetKind TargetKind,
+    string TargetKind,
     Guid TargetId,
     string Reason,
     string Status,
@@ -24,7 +23,7 @@ public sealed class GetReportsQueryHandler : IRequestHandler<GetReportsQuery, IR
     {
         var reports = await _reports.GetPendingAsync(request.Skip, request.Take, ct);
         return reports.Select(r => new ReportDto(
-            r.Id, r.ReporterId, r.TargetKind, r.TargetId, r.Reason, r.Status.ToString(), r.CreatedAt))
+            r.Id, r.ReporterId, r.TargetKind.ToString(), r.TargetId, r.Reason, r.Status.ToString(), r.CreatedAt))
             .ToList();
     }
 }

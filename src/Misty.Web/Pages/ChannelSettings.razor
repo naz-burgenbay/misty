@@ -581,6 +581,13 @@
                     </div>
                     <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
                 </div>
+                <div class="danger-row">
+                    <div class="danger-text">
+                        <strong>Report channel</strong>
+                        <span>Submit a report for review by Misty administrators.</span>
+                    </div>
+                    <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
+                </div>
                 @if (CanManageChannel)
                 {
                     <div class="danger-row">
@@ -589,16 +596,6 @@
                             <span>Permanently deletes #@_channel.Name and all its messages. This cannot be undone.</span>
                         </div>
                         <Button Variant="Button.ButtonVariant.Danger" OnClick="DeleteAsync">Delete channel</Button>
-                    </div>
-                }
-                @if (!CanManageChannel)
-                {
-                    <div class="danger-row">
-                        <div class="danger-text">
-                            <strong>Report channel</strong>
-                            <span>Submit a report for review by Misty administrators.</span>
-                        </div>
-                        <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
                     </div>
                 }
             </section>

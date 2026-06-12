@@ -294,6 +294,11 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
         Log.Information("Admin user seeded. Username={Username} Password={Password}", adminUsername, adminPassword);
     }
+    else if (!existingAdmin.IsAdmin)
+    {
+        existingAdmin.MakeAdmin();
+        await db.SaveChangesAsync();
+    }
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions

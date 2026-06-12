@@ -4,6 +4,7 @@ resource "azurerm_service_plan" "main" {
   location            = azurerm_resource_group.main.location
   os_type             = "Linux"
   sku_name            = var.app_service_sku
+  worker_count        = var.instance_count
   tags                = local.tags
 }
 

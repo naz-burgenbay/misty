@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 
 namespace Misty.Web.Services.Communication;
@@ -19,8 +20,13 @@ public sealed class HttpReportService : IReportService
 
     public async Task<IReadOnlyList<ReportItemDto>> GetPendingAsync(int skip = 0, int take = 50, CancellationToken ct = default)
     {
-        var result = await _http.GetFromJsonAsync<List<ReportItemDto>>(
-            $"api/v1/reports?skip={skip}&take={take}", ct);
+        using var resp = await _http.GetAsync($"api/v1/reports?skip={skip}&take={take}", ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}: {body}");
+        }
+        var result = await resp.Content.ReadFromJsonAsync<List<ReportItemDto>>(cancellationToken: ct);
         return result ?? [];
     }
 

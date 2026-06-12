@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject IReportService Reports
 @inject IToastService Toasts
+@inject Microsoft.Extensions.Logging.ILogger<Admin> Logger
 
 @using Misty.Web.Services.Communication
 
@@ -10,6 +11,7 @@
 @code {
     private IReadOnlyList<ReportItemDto> _reports = [];
     private bool _loading = true;
+    private string? _loadError;
     private ReportItemDto? _selected;
     private bool _reviewing;
 
@@ -21,13 +23,15 @@
     private async Task LoadAsync()
     {
         _loading = true;
+        _loadError = null;
         try
         {
             _reports = await Reports.GetPendingAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            Toasts.Show("Failed to load reports.", ToastKind.Error);
+            _loadError = ex.Message;
+            Logger.LogError(ex, "Failed to load reports");
         }
         finally
         {
@@ -66,6 +70,11 @@
             @if (_loading)
             {
                 <div class="hint">Loading…</div>
+            }
+            else if (_loadError is not null)
+            {
+                <div class="hint error">Error: @_loadError</div>
+                <button type="button" class="btn-secondary" @onclick="LoadAsync">Retry</button>
             }
             else if (!_reports.Any())
             {

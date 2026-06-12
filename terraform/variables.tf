@@ -15,9 +15,20 @@ variable "environment" {
 }
 
 variable "app_service_sku" {
-  description = "App Service plan SKU B1"
+  description = "App Service plan SKU"
   type        = string
   default     = "B1"
+}
+
+variable "instance_count" {
+  description = "Number of App Service plan workers (instances). 2-3 for multi-instance validation."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.instance_count >= 1 && var.instance_count <= 3
+    error_message = "instance_count must be between 1 and 3 for the Basic tier."
+  }
 }
 
 variable "sql_admin_login" {
