@@ -11,12 +11,21 @@
     private bool _submitting;
     private bool _submitted;
     private string? _error;
+    private bool _prevOpen;
+
+    protected override void OnParametersSet()
+    {
+        if (Open && !_prevOpen)
+        {
+            _reason = string.Empty;
+            _submitted = false;
+            _error = null;
+        }
+        _prevOpen = Open;
+    }
 
     private async Task Close()
     {
-        _reason = string.Empty;
-        _submitted = false;
-        _error = null;
         await OpenChanged.InvokeAsync(false);
     }
 
@@ -41,9 +50,8 @@
     }
 }
 
-@if (Open)
-{
-    <Modal OnClose="Close">
+<Modal Open="@Open" OnClose="Close">
+    <ChildContent>
         <div class="report-modal">
             <header class="modal-header">
                 <h2>Report @TargetKind</h2>
@@ -90,5 +98,5 @@
                 </footer>
             }
         </div>
-    </Modal>
-}
+    </ChildContent>
+</Modal>

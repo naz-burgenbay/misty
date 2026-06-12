@@ -3,6 +3,7 @@
 @using Misty.Web.Services.Communication
 @using Misty.Web.Services.Permissions
 @using Misty.Web.Services.Auth
+@using Misty.Web.Services.Common
 @inject IChannelMembersService MembersService
 @inject IChannelRolesService RolesService
 @inject IChannelService ChannelService
@@ -39,11 +40,17 @@
     private string _revokeTargetUserName = string.Empty;
     private string _revokeVersion = string.Empty;
 
+    private bool _reportModalOpen;
+    private Guid _reportTargetUserId;
+
     private bool CanKick => (_myFlags & ChannelPermissionFlags.KickMembers) != 0;
     private bool CanMute => (_myFlags & ChannelPermissionFlags.MuteMembers) != 0;
     private bool CanBan => (_myFlags & ChannelPermissionFlags.BanMembers) != 0;
     private bool CanManageRoles => (_myFlags & ChannelPermissionFlags.ManageRoles) != 0;
     private bool CanModerate => CanMute || CanBan;
+
+    private bool IsOwner(ChannelMemberDto m)
+        => _roles.Any(r => r.IsOwnerRole && m.RoleIds.Contains(r.Id));
 
     protected override async Task OnParametersSetAsync()
     {
@@ -72,11 +79,12 @@
 
     private IEnumerable<(ChannelRoleDto? Role, IReadOnlyList<ChannelMemberDto> Members)> GroupedMembers()
     {
-        var filtered = string.IsNullOrWhiteSpace(_search)
-            ? _members
-            : _members.Where(m =>
-                m.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-                m.Username.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+        var filtered = (_members as IEnumerable<ChannelMemberDto>)
+            .DistinctBy(m => m.UserId)
+            .Where(m => string.IsNullOrWhiteSpace(_search)
+                || m.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || m.Username.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
         var assigned = new HashSet<Guid>();
         foreach (var role in _roles.OrderByDescending(r => r.IsOwnerRole).ThenBy(r => r.Name))
@@ -101,7 +109,7 @@
             var dm = await DirectMessages.CreateOrGetAsync(userId);
             Nav.NavigateTo($"/dm/{dm.Id}");
         }
-        catch (Exception ex) { Toasts.Show($"Couldn't open DM: {ex.Message}", ToastKind.Error); }
+        catch (Exception ex) { Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error); }
     }
 
     private void OpenInviteToChannel(Guid userId)
@@ -109,10 +117,11 @@
         _menuOpenFor = null;
     }
 
-    private void Report()
+    private void Report(Guid userId)
     {
         _menuOpenFor = null;
-        Toasts.Show("Report submitted.", ToastKind.Info);
+        _reportTargetUserId = userId;
+        _reportModalOpen = true;
     }
 
     private async Task KickAsync(Guid userId, string name)
@@ -125,7 +134,7 @@
             await ReloadAsync();
             StateHasChanged();
         }
-        catch (Exception ex) { Toasts.Show($"Couldn't kick: {ex.Message}", ToastKind.Error); }
+        catch (Exception ex) { Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error); }
     }
 
     private void OpenModeration(Guid userId, ModerationActionType kind)
@@ -225,20 +234,20 @@
                                      OnClose="@(() => _menuOpenFor = null)">
                                 <ul class="member-menu">
                                     <li><button type="button" class="mmenu-item" @onclick="@(() => GoToDmAsync(member.UserId))">Send direct message</button></li>
-                                    <li><button type="button" class="mmenu-item" @onclick="Report">Report</button></li>
-                                    @if ((CanModerate || CanKick) && member.UserId != Auth.CurrentUser?.Id)
+                                    <li><button type="button" class="mmenu-item" @onclick="@(() => Report(member.UserId))">Report</button></li>
+                                    @if ((CanModerate || CanKick) && member.UserId != Auth.CurrentUser?.Id && !IsOwner(member))
                                     {
                                         <li class="mmenu-sep" role="separator"></li>
                                     }
-                                    @if (CanMute && member.UserId != Auth.CurrentUser?.Id)
+                                    @if (CanMute && member.UserId != Auth.CurrentUser?.Id && !IsOwner(member))
                                     {
                                         <li><button type="button" class="mmenu-item" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Mute))">Mute</button></li>
                                     }
-                                    @if (CanBan && member.UserId != Auth.CurrentUser?.Id)
+                                    @if (CanBan && member.UserId != Auth.CurrentUser?.Id && !IsOwner(member))
                                     {
                                         <li><button type="button" class="mmenu-item danger" @onclick="@(() => OpenModeration(member.UserId, ModerationActionType.Ban))">Ban</button></li>
                                     }
-                                    @if (CanKick && member.UserId != Auth.CurrentUser?.Id)
+                                    @if (CanKick && member.UserId != Auth.CurrentUser?.Id && !IsOwner(member))
                                     {
                                         <li><button type="button" class="mmenu-item danger" @onclick="@(() => KickAsync(member.UserId, member.DisplayName))">Kick</button></li>
                                     }
@@ -276,4 +285,9 @@
                         Version="@_revokeVersion"
                         ActionType="@_revokeActionType"
                         OnRevoked="OnRevoked" />
+
+<ReportModal Open="@_reportModalOpen"
+             OpenChanged="@((v) => _reportModalOpen = v)"
+             TargetKind="User"
+             TargetId="@_reportTargetUserId" />
 

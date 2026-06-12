@@ -9,6 +9,7 @@
 @inject IToastService Toasts
 @inject IModalService Modals
 @inject IAuthService Auth
+@using Misty.Web.Services.Common
 
 <PageTitle>Channel settings | Misty</PageTitle>
 
@@ -133,7 +134,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Failed to delete role: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -168,7 +169,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Update failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
         finally
         {
@@ -194,7 +195,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Upload failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
         finally
         {
@@ -214,7 +215,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Remove icon failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -234,7 +235,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Leave failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -254,7 +255,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
