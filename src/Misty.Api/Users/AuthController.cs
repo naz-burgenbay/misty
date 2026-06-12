@@ -50,7 +50,8 @@ public sealed class AuthController : ControllerBase
         var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
             ?? User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
             ?? string.Empty;
-        return Ok(new { userId = Guid.Parse(userId), username, email });
+        var isAdmin = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "admin";
+        return Ok(new { userId = Guid.Parse(userId), username, email, isAdmin });
     }
 
     [HttpPost("refresh")]

@@ -15,6 +15,7 @@ public class User
     public DateTime? DeletedAt { get; private set; }
     public bool EmailConfirmed { get; private set; }
     public string? EmailConfirmationToken { get; private set; }
+    public bool IsAdmin { get; private set; }
     public byte[] Version { get; private set; } = null!;
 
     public static User Create(Guid id, string username, string email, string displayName)
@@ -60,4 +61,6 @@ public class User
         AvatarUrl = null;
         PasswordHash = string.Empty;
     }
+
+    public void MakeAdmin() => IsAdmin = true;
 }

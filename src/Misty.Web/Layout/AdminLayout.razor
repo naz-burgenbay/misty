@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@inject IAuthService Auth
+@inject NavigationManager Nav
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.AuthStateChanged += OnAuthChanged;
+        if (!Auth.IsAuthenticated)
+            Nav.NavigateTo("/login", forceLoad: false, replace: true);
+    }
+
+    private void OnAuthChanged()
+    {
+        if (!Auth.IsAuthenticated)
+            Nav.NavigateTo("/login", forceLoad: false, replace: true);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LogOutAsync()
+    {
+        await Auth.SignOutAsync();
+        Nav.NavigateTo("/login", forceLoad: false);
+    }
+
+    public void Dispose() => Auth.AuthStateChanged -= OnAuthChanged;
+}
+
+@if (Auth.IsAuthenticated)
+{
+    <div class="admin-shell">
+        <main class="admin-content">
+            @Body
+        </main>
+
+        <nav class="admin-nav">
+            <button type="button" class="admin-logout" @onclick="LogOutAsync">
+                <Blazicon Svg="Lucide.LogOut" />
+                Sign out
+            </button>
+        </nav>
+    </div>
+
+    <ToastHost />
+    <ModalHost />
+}

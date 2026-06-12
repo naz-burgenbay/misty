@@ -47,6 +47,7 @@
     private string? _revokeActionType;
     private string? _revokeTargetName;
     private bool _revokeModalOpen;
+    private bool _reportModalOpen;
 
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
     private bool CanManageRoles => _myPermissions.HasFlag(ChannelPermissionFlags.ManageRoles);
@@ -411,6 +412,13 @@
                         </div>
                         <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
                     </div>
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Report channel</strong>
+                            <span>Submit a report for review by Misty administrators.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
+                    </div>
                 </section>
             }
         }
@@ -582,6 +590,16 @@
                         <Button Variant="Button.ButtonVariant.Danger" OnClick="DeleteAsync">Delete channel</Button>
                     </div>
                 }
+                @if (!CanManageChannel)
+                {
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Report channel</strong>
+                            <span>Submit a report for review by Misty administrators.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
+                    </div>
+                }
             </section>
         }
     </div>
@@ -657,3 +675,8 @@
                            TargetUserName="@(_revokeTargetName ?? "")"
                            OnRevoked="OnRevokedAsync" />
 }
+
+<ReportModal Open="_reportModalOpen"
+             OpenChanged="EventCallback.Factory.Create<bool>(this, v => _reportModalOpen = v)"
+             TargetKind="Channel"
+             TargetId="ChannelId" />

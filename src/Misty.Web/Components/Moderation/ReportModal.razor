@@ -1,0 +1,94 @@
+@using Misty.Web.Services.Communication
+@inject IReportService ReportService
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public string TargetKind { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public Guid TargetId { get; set; }
+
+    private string _reason = string.Empty;
+    private bool _submitting;
+    private bool _submitted;
+    private string? _error;
+
+    private async Task Close()
+    {
+        _reason = string.Empty;
+        _submitted = false;
+        _error = null;
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_reason) || _submitting) return;
+        _submitting = true;
+        _error = null;
+        try
+        {
+            await ReportService.SubmitAsync(TargetKind, TargetId, _reason.Trim());
+            _submitted = true;
+        }
+        catch
+        {
+            _error = "Failed to submit report. Please try again.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}
+
+@if (Open)
+{
+    <Modal OnClose="Close">
+        <div class="report-modal">
+            <header class="modal-header">
+                <h2>Report @TargetKind</h2>
+                <button type="button" class="close-btn" @onclick="Close">
+                    <Blazicon Svg="Lucide.X" />
+                </button>
+            </header>
+
+            @if (_submitted)
+            {
+                <div class="modal-body submitted">
+                    <Blazicon Svg="Lucide.CircleCheck" />
+                    <p>Report submitted</p>
+                </div>
+                <footer class="modal-footer">
+                    <button type="button" class="btn-secondary" @onclick="Close">Close</button>
+                </footer>
+            }
+            else
+            {
+                <div class="modal-body">
+                    <p class="modal-hint">Describe why you are reporting this @TargetKind.ToLower().</p>
+                    <textarea class="reason-input"
+                              placeholder="Reason…"
+                              rows="4"
+                              value="@_reason"
+                              @oninput="@(e => _reason = e.Value?.ToString() ?? string.Empty)"
+                              disabled="@_submitting"></textarea>
+
+                    @if (_error is not null)
+                    {
+                        <div class="error">@_error</div>
+                    }
+                </div>
+                <footer class="modal-footer">
+                    <button type="button" class="btn-secondary" @onclick="Close" disabled="@_submitting">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn-danger"
+                            disabled="@(_submitting || string.IsNullOrWhiteSpace(_reason))"
+                            @onclick="SubmitAsync">
+                        @(_submitting ? "Submitting…" : "Submit report")
+                    </button>
+                </footer>
+            }
+        </div>
+    </Modal>
+}

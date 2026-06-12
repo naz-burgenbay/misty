@@ -11,5 +11,5 @@ internal sealed record RefreshResponseDto(string AccessToken, string RefreshToke
 
 internal sealed record LogoutRequestDto(string RefreshToken);
 
-internal sealed record MeResponseDto(Guid UserId, string Username, string Email);
+internal sealed record MeResponseDto(Guid UserId, string Username, string Email, bool IsAdmin = false);
 internal sealed record UserByIdResponseDto(Guid UserId, string Username, string DisplayName, string? Bio, string? AvatarUrl, string Version);

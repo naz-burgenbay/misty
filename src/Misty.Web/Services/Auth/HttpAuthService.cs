@@ -165,8 +165,8 @@ public sealed class HttpAuthService : IAuthService, IDisposable
         var full = await SendAuthorizedJsonAsync<UserByIdResponseDto>(HttpMethod.Get, $"api/v1/users/{me.UserId}", ct);
 
         _currentUser = full is null
-            ? new MockUser(me.UserId, me.Username, me.Username)
-            : new MockUser(full.UserId, full.DisplayName, full.Username, IsAi: false, Bio: full.Bio, AvatarUrl: full.AvatarUrl, Version: full.Version);
+            ? new MockUser(me.UserId, me.Username, me.Username, IsAdmin: me.IsAdmin)
+            : new MockUser(full.UserId, full.DisplayName, full.Username, IsAi: false, Bio: full.Bio, AvatarUrl: full.AvatarUrl, Version: full.Version, IsAdmin: me.IsAdmin);
     }
 
     public void UpdateCurrentUser(MockUser user)

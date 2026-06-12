@@ -50,6 +50,7 @@ builder.Services.AddScoped<IUserBlockService, HttpUserBlockService>();
 builder.Services.AddScoped<IChannelRolesService, HttpChannelRolesService>();
 builder.Services.AddScoped<IChannelMembersService, HttpChannelMembersService>();
 builder.Services.AddScoped<IInboxService, HttpInboxService>();
+builder.Services.AddScoped<IReportService, HttpReportService>();
 builder.Services.AddScoped<IToastService, StubToastService>();
 builder.Services.AddScoped<IModalService, StubModalService>();
 

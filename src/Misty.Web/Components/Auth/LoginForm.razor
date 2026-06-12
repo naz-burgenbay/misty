@@ -15,7 +15,8 @@
         try
         {
             await Auth.SignInAsync(_username.Trim(), _password);
-            Nav.NavigateTo(ReturnUrl(), forceLoad: false);
+            var dest = Auth.CurrentUser?.IsAdmin == true ? "/admin" : ReturnUrl();
+            Nav.NavigateTo(dest, forceLoad: false);
         }
         catch (AuthException ex) { _error = ex.Message; }
         catch (HttpRequestException) { _error = "Network error. Please try again."; }

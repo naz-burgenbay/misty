@@ -236,6 +236,7 @@ builder.Services.AddScoped<IFriendRequestRepository, FriendRequestRepository>();
 builder.Services.AddScoped<IFriendshipRepository, FriendshipRepository>();
 builder.Services.AddScoped<IChannelInviteRepository, ChannelInviteRepository>();
 builder.Services.AddScoped<IInboxItemRepository, InboxItemRepository>();
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
 builder.Services.AddSingleton<Misty.Application.Presence.IPresenceTracker, Misty.Infrastructure.Presence.RedisPresenceTracker>();
 
@@ -276,6 +277,22 @@ using (var scope = app.Services.CreateScope())
     {
         existingBot.UpdateAvatarUrl(botAvatar);
         await db.SaveChangesAsync();
+    }
+
+    const string adminEmail = "administrator@misty.com";
+    var existingAdmin = await db.Set<User>().FirstOrDefaultAsync(u => u.Email == adminEmail);
+    if (existingAdmin is null)
+    {
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        var adminUsername = Guid.NewGuid().ToString("N");
+        var adminPassword = Guid.NewGuid().ToString("N");
+        var admin = User.Create(Guid.NewGuid(), adminUsername, adminEmail, "Admin");
+        admin.SetPasswordHash(hasher.HashPassword(admin, adminPassword));
+        admin.ConfirmEmail(admin.GenerateConfirmationToken()); // bypass email confirmation
+        admin.MakeAdmin();
+        db.Set<User>().Add(admin);
+        await db.SaveChangesAsync();
+        Log.Information("Admin user seeded. Username={Username} Password={Password}", adminUsername, adminPassword);
     }
 }
 
