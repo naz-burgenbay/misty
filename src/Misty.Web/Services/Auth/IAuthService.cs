@@ -10,6 +10,7 @@ public interface IAuthService
     Task InitializeAsync(CancellationToken ct = default);
     Task SignInAsync(string usernameOrEmail, string password, CancellationToken ct = default);
     Task RegisterAsync(string displayName, string username, string email, string password, CancellationToken ct = default);
+    Task ConfirmEmailAsync(string token, CancellationToken ct = default);
     Task SignOutAsync(CancellationToken ct = default);
     void UpdateCurrentUser(MockUser user);
     event Action? AuthStateChanged;

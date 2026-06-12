@@ -1,4 +1,5 @@
-﻿@inject IAuthService Auth
+﻿@using Misty.Web.Services.Common
+@inject IAuthService Auth
 @inject IDirectMessageService DirectMessages
 @inject IFriendService Friends
 @inject IUserBlockService Blocks
@@ -13,6 +14,7 @@
     [Parameter] public string? UserName { get; set; }
     [Parameter] public string? UserUsername { get; set; }
     [Parameter] public Guid? ChannelId { get; set; }
+    [Parameter] public bool IsTargetOwner { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Class { get; set; }
 
@@ -24,6 +26,7 @@
     private bool _moderationModalOpen;
     private bool _rolesModalOpen;
     private bool _inviteToChannelOpen;
+    private bool _reportModalOpen;
     private ModerationActionType _pendingKind;
 
     private bool IsSelf => Auth.CurrentUser?.Id == UserId;
@@ -83,7 +86,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Couldn't open conversation: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -102,7 +105,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Couldn't send friend request: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -116,14 +119,14 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Couldn't block: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
     private void Report()
     {
         CloseMenu();
-        Toasts.Show("Report submitted.", ToastKind.Info);
+        _reportModalOpen = true;
     }
 
     private void OpenModeration(ModerationActionType kind)
@@ -144,7 +147,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Couldn't kick: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -193,23 +196,23 @@ else
                 <li><button type="button" class="user-menu-item" @onclick="Report">Report</button></li>
                 <li><button type="button" class="user-menu-item danger" @onclick="BlockAsync">Block</button></li>
 
-                @if (InChannel && (CanManageRoles || CanMute || CanKick || CanBan))
+                @if (InChannel && !IsTargetOwner && (CanManageRoles || CanMute || CanKick || CanBan))
                 {
                     <li class="user-menu-sep" role="separator"></li>
                 }
-                @if (CanManageRoles)
+                @if (CanManageRoles && !IsTargetOwner)
                 {
                     <li><button type="button" class="user-menu-item" @onclick="OpenManageRoles">Manage roles</button></li>
                 }
-                @if (CanMute)
+                @if (CanMute && !IsTargetOwner)
                 {
                     <li><button type="button" class="user-menu-item" @onclick="@(() => OpenModeration(ModerationActionType.Mute))">Mute</button></li>
                 }
-                @if (CanKick)
+                @if (CanKick && !IsTargetOwner)
                 {
                     <li><button type="button" class="user-menu-item danger" @onclick="KickAsync">Kick</button></li>
                 }
-                @if (CanBan)
+                @if (CanBan && !IsTargetOwner)
                 {
                     <li><button type="button" class="user-menu-item danger" @onclick="@(() => OpenModeration(ModerationActionType.Ban))">Ban</button></li>
                 }
@@ -233,4 +236,9 @@ else
                           TargetName="@DisplayLabel"
                           TargetUsername="@UserUsername"
                           OnClose="@(() => _inviteToChannelOpen = false)" />
+
+    <ReportModal Open="@_reportModalOpen"
+                 OpenChanged="@((v) => _reportModalOpen = v)"
+                 TargetKind="User"
+                 TargetId="@UserId" />
 }

@@ -9,6 +9,7 @@
 @inject IToastService Toasts
 @inject IModalService Modals
 @inject IAuthService Auth
+@using Misty.Web.Services.Common
 
 <PageTitle>Channel settings | Misty</PageTitle>
 
@@ -29,6 +30,7 @@
     private string _version = string.Empty;
     private bool _isPrivate;
     private bool _isAiEnabled;
+    private long _defaultPermissions = 31;
     private bool _saving;
     private bool _uploadingIcon;
 
@@ -46,10 +48,13 @@
     private string? _revokeActionType;
     private string? _revokeTargetName;
     private bool _revokeModalOpen;
+    private bool _reportModalOpen;
 
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
     private bool CanManageRoles => _myPermissions.HasFlag(ChannelPermissionFlags.ManageRoles);
     private bool CanModerate => _myPermissions.CanModerate();
+    private bool IsRegularMember => !CanManageChannel && !CanManageRoles && !CanModerate;
+    private const long InviteMembersFlag = 1024L; 
 
     protected override async Task OnParametersSetAsync()
     {
@@ -81,6 +86,7 @@
             _description = detail.Description ?? string.Empty;
             _iconUrl = detail.IconUrl ?? string.Empty;
             _version = detail.Version;
+            _defaultPermissions = detail.DefaultPermissions;
         }
     }
 
@@ -128,7 +134,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Failed to delete role: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -156,14 +162,14 @@
         _saving = true;
         try
         {
-            await Channels.UpdateAsync(ChannelId, _name.Trim(), _isPrivate, _isAiEnabled, _description, _version);
+        await Channels.UpdateAsync(ChannelId, _name.Trim(), _isPrivate, _isAiEnabled, _description, _defaultPermissions, _version);
             var detail = await Channels.GetDetailAsync(ChannelId);
             if (detail is not null) _version = detail.Version;
             Toasts.Show("Channel updated.", ToastKind.Success);
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Update failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
         finally
         {
@@ -189,7 +195,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Upload failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
         finally
         {
@@ -209,7 +215,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Remove icon failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -229,7 +235,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Leave failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -249,7 +255,7 @@
         }
         catch (Exception ex)
         {
-            Toasts.Show($"Delete failed: {ex.Message}", ToastKind.Error);
+            Toasts.Show(HttpErrors.Friendly(ex), ToastKind.Error);
         }
     }
 
@@ -269,6 +275,36 @@
         await LoadModerationAsync();
     }
 
+    private async Task OnDefaultPermissionChanged(ChannelPermissionFlags flag, bool enabled)
+    {
+        var flagVal = (long)flag;
+        if (flagVal == InviteMembersFlag)
+        {
+            if (enabled && _isPrivate)
+            {
+                var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+                    Title: "Make channel public?",
+                    Message: "Adding the Invite Members permission to all members will make this channel public — anyone with the link can join and invite others. Continue?",
+                    ConfirmLabel: "Make public",
+                    IsDestructive: false));
+                if (!ok) return;
+                _isPrivate = false;
+            }
+            else if (!enabled && !_isPrivate)
+            {
+                var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+                    Title: "Make channel private?",
+                    Message: "Removing the Invite Members permission from all members will make this channel private — only members with a role that has Invite Members can invite others. Continue?",
+                    ConfirmLabel: "Make private",
+                    IsDestructive: false));
+                if (!ok) return;
+                _isPrivate = true;
+            }
+        }
+        if (enabled) _defaultPermissions |= flagVal;
+        else _defaultPermissions &= ~flagVal;
+    }
+
     private IEnumerable<ChannelRoleDto> FilteredRoles =>
         string.IsNullOrWhiteSpace(_rolesSearch)
             ? _roles
@@ -281,7 +317,7 @@
     }
 }
 
-<div class="settings-page">
+<div class="settings-page @(IsRegularMember ? "settings-page--member" : "")">
     <div class="settings-content">
         @if (_channel is null)
         {
@@ -339,13 +375,15 @@
                     <span class="lbl">Privacy</span>
                     <SegmentedControl Options="@(new[] { "Public", "Private" })"
                                       Value="@(_isPrivate ? "Private" : "Public")"
-                                      ValueChanged="@(v => _isPrivate = v == "Private")" />
+                                      ValueChanged="@(v => _isPrivate = v == "Private")"
+                                      Disabled="@(!CanManageChannel)" />
                 </div>
                 <div class="field">
                     <span class="lbl">AI assistant</span>
                     <SegmentedControl Options="@(new[] { "Off", "On" })"
                                       Value="@(_isAiEnabled ? "On" : "Off")"
-                                      ValueChanged="@(v => _isAiEnabled = v == "On")" />
+                                      ValueChanged="@(v => _isAiEnabled = v == "On")"
+                                      Disabled="@(!CanManageChannel)" />
                 </div>
                 @if (CanManageChannel)
                 {
@@ -361,6 +399,29 @@
                     </div>
                 }
             </section>
+
+            @if (IsRegularMember)
+            {
+                <div class="section-head">
+                    <h1>Danger zone</h1>
+                </div>
+                <section class="card danger-card">
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Leave channel</strong>
+                            <span>You will lose access and need a new invite to rejoin.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
+                    </div>
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Report channel</strong>
+                            <span>Submit a report for review by Misty administrators.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
+                    </div>
+                </section>
+            }
         }
         else if (_section == Section.Roles)
         {
@@ -370,6 +431,40 @@
                     New role
                 </Button>
             </div>
+
+            <section class="card">
+                <h2 class="card-subsection-title">General member permissions</h2>
+                <p class="hint">These permissions apply to every member who hasn't been assigned a custom role.</p>
+                @foreach (var (flag, label) in new (ChannelPermissionFlags flag, string label)[]
+                {
+                    (ChannelPermissionFlags.ViewChannel,   "View channel"),
+                    (ChannelPermissionFlags.ReadHistory,   "Read message history"),
+                    (ChannelPermissionFlags.SendMessages,  "Send messages"),
+                    (ChannelPermissionFlags.AttachFiles,   "Attach files"),
+                    (ChannelPermissionFlags.AddReactions,  "Add reactions"),
+                    (ChannelPermissionFlags.InviteMembers, "Invite members (makes channel public when enabled)"),
+                })
+                {
+                    var f = flag;
+                    <label class="perm-row @(!CanManageRoles ? "disabled" : "")">
+                        <input type="checkbox"
+                               checked="@((_defaultPermissions & (long)f) != 0)"
+                               disabled="@(!CanManageRoles)"
+                               @onchange="@(e => OnDefaultPermissionChanged(f, (bool)(e.Value ?? false)))" />
+                        @label
+                    </label>
+                }
+                @if (CanManageRoles)
+                {
+                    <div class="actions">
+                        <Button Variant="Button.ButtonVariant.Primary"
+                                Disabled="@_saving"
+                                OnClick="SaveMainAsync">
+                            @(_saving ? "Saving…" : "Save permissions")
+                        </Button>
+                    </div>
+                }
+            </section>
 
             <section class="card">
                 <div class="search-row">
@@ -395,7 +490,7 @@
                                     @role.Name
                                     @if (role.IsOwnerRole)
                                     {
-                                        <span class="role-badge">Owner — cannot be edited</span>
+                                        <span class="role-badge">Cannot be edited</span>
                                     }
                                 </span>
                                 @if (!role.IsOwnerRole)
@@ -486,6 +581,13 @@
                     </div>
                     <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
                 </div>
+                <div class="danger-row">
+                    <div class="danger-text">
+                        <strong>Report channel</strong>
+                        <span>Submit a report for review by Misty administrators.</span>
+                    </div>
+                    <Button Variant="Button.ButtonVariant.Danger" OnClick="@(() => _reportModalOpen = true)">Report</Button>
+                </div>
                 @if (CanManageChannel)
                 {
                     <div class="danger-row">
@@ -500,6 +602,8 @@
         }
     </div>
 
+    @if (!IsRegularMember)
+    {
     <nav class="settings-nav">
         <button type="button" class="nav-back" @onclick="@(() => Nav.NavigateTo($"/c/{ChannelId}"))">
             <Blazicon Svg="Lucide.ChevronLeft" />
@@ -540,6 +644,7 @@
             </li>
         </ul>
     </nav>
+    }
 </div>
 
 <CreateRoleModal Open="_createRoleOpen"
@@ -568,3 +673,8 @@
                            TargetUserName="@(_revokeTargetName ?? "")"
                            OnRevoked="OnRevokedAsync" />
 }
+
+<ReportModal Open="_reportModalOpen"
+             OpenChanged="EventCallback.Factory.Create<bool>(this, v => _reportModalOpen = v)"
+             TargetKind="Channel"
+             TargetId="ChannelId" />

@@ -1,6 +1,7 @@
 @code {
     [Parameter, EditorRequired] public ChannelSummaryDto Channel { get; set; } = default!;
     [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool HasUnread { get; set; }
     [Parameter] public string Href { get; set; } = "#";
 }
 
@@ -16,8 +17,8 @@
         }
     </span>
     <span class="name">@Channel.Name</span>
-    @if (Channel.IsAiAssistantEnabled)
+    @if (HasUnread)
     {
-        <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
+        <span class="unread-dot" aria-label="Unread messages"></span>
     }
 </a>

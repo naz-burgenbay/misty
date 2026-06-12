@@ -31,6 +31,9 @@ internal sealed class LoginCommandHandler : IRequestHandler<LoginCommand, LoginR
         if (user is null)
             throw new UnauthorizedException();
 
+        if (!user.EmailConfirmed)
+            throw new UnauthorizedException("Please confirm your email address before signing in.");
+
         var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, cmd.Password);
         if (result == PasswordVerificationResult.Failed)
             throw new UnauthorizedException();

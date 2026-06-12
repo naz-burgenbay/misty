@@ -1,3 +1,8 @@
+output "instance_count" {
+  description = "Number of App Service plan workers provisioned."
+  value       = azurerm_service_plan.main.worker_count
+}
+
 output "app_service_url" {
   description = "Public URL of the deployed API."
   value       = "https://${azurerm_linux_web_app.api.default_hostname}"

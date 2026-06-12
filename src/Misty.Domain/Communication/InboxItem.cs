@@ -8,6 +8,9 @@ public enum InboxItemType
     ChannelInviteAccepted,
     ConversationStarted,
     FirstDirectMessage = ConversationStarted,
+    ReportApproved,
+    ReportDisapproved,
+    ChannelDeletedByAdmin,
 }
 
 public class InboxItem

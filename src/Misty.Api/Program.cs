@@ -20,6 +20,8 @@ using Misty.Infrastructure.Communication;
 using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
+using Misty.Application.Common;
+using Misty.Infrastructure.Common;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenAI;
 using OpenAI.Chat;
@@ -100,6 +102,9 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddSingleton<IAppSettings>(sp =>
+    new Misty.Infrastructure.Common.AppSettings(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()));
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("JWT signing key 'Jwt:Key' is not configured.");
@@ -231,6 +236,7 @@ builder.Services.AddScoped<IFriendRequestRepository, FriendRequestRepository>();
 builder.Services.AddScoped<IFriendshipRepository, FriendshipRepository>();
 builder.Services.AddScoped<IChannelInviteRepository, ChannelInviteRepository>();
 builder.Services.AddScoped<IInboxItemRepository, InboxItemRepository>();
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
 builder.Services.AddSingleton<Misty.Application.Presence.IPresenceTracker, Misty.Infrastructure.Presence.RedisPresenceTracker>();
 
@@ -248,11 +254,49 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 
     var aiBotId = AIResponseWorker.AiUserId;
-    if (!await db.Set<User>().AnyAsync(u => u.Id == aiBotId))
+    const string botAvatar =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' " +
+        "viewBox='0 0 24 24' fill='none' stroke='%236c5ce7' stroke-width='2' " +
+        "stroke-linecap='round' stroke-linejoin='round'%3E" +
+        "%3Crect width='18' height='10' x='3' y='11' rx='2'/%3E" +
+        "%3Ccircle cx='12' cy='5' r='2'/%3E" +
+        "%3Cpath d='M12 7v4'/%3E" +
+        "%3Cline x1='8' x2='8' y1='16' y2='16'/%3E" +
+        "%3Cline x1='16' x2='16' y1='16' y2='16'/%3E" +
+        "%3C/svg%3E";
+    var existingBot = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == aiBotId);
+    if (existingBot is null)
     {
         var botUser = User.Create(aiBotId, "misty-bot", "misty-bot@internal.misty", "Misty Bot");
         botUser.SetPasswordHash(string.Empty);
+        botUser.UpdateAvatarUrl(botAvatar);
         db.Set<User>().Add(botUser);
+        await db.SaveChangesAsync();
+    }
+    else if (existingBot.AvatarUrl != botAvatar)
+    {
+        existingBot.UpdateAvatarUrl(botAvatar);
+        await db.SaveChangesAsync();
+    }
+
+    const string adminEmail = "administrator@misty.com";
+    var existingAdmin = await db.Set<User>().FirstOrDefaultAsync(u => u.Email == adminEmail);
+    if (existingAdmin is null)
+    {
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        var adminUsername = Guid.NewGuid().ToString("N");
+        var adminPassword = Guid.NewGuid().ToString("N");
+        var admin = User.Create(Guid.NewGuid(), adminUsername, adminEmail, "Admin");
+        admin.SetPasswordHash(hasher.HashPassword(admin, adminPassword));
+        admin.ConfirmEmail(admin.GenerateConfirmationToken()); // bypass email confirmation
+        admin.MakeAdmin();
+        db.Set<User>().Add(admin);
+        await db.SaveChangesAsync();
+        Log.Information("Admin user seeded. Username={Username} Password={Password}", adminUsername, adminPassword);
+    }
+    else if (!existingAdmin.IsAdmin)
+    {
+        existingAdmin.MakeAdmin();
         await db.SaveChangesAsync();
     }
 }

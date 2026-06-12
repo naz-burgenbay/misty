@@ -46,7 +46,8 @@ internal sealed record GetChannelByIdResponseDto(
     DateTime? LastMessageAt,
     string? Description,
     string? IconUrl,
-    string Version);
+    string Version,
+    long DefaultPermissions = 31);
 
 public sealed record ChannelDetailDto(
     Guid Id,
@@ -57,7 +58,8 @@ public sealed record ChannelDetailDto(
     DateTime? LastMessageAt,
     string? Description,
     string? IconUrl,
-    string Version);
+    string Version,
+    long DefaultPermissions = 31);
 
 internal sealed record ChannelInviteRequestDto(string Username);
 internal sealed record AcceptDeclineInviteRequestDto(string Version);
@@ -73,7 +75,7 @@ public interface IChannelService
     Task RefreshAsync(CancellationToken ct = default);
     Task<ChannelDetailDto?> GetDetailAsync(Guid channelId, CancellationToken ct = default);
     Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, string? description = null, CancellationToken ct = default);
-    Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, string? description, string version, CancellationToken ct = default);
+    Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, string? description, long defaultPermissions, string version, CancellationToken ct = default);
     Task DeleteAsync(Guid channelId, CancellationToken ct = default);
     Task LeaveAsync(Guid channelId, CancellationToken ct = default);
     ChannelSummaryDto? GetCached(Guid id);
@@ -93,7 +95,8 @@ public interface IChannelService
 
 public sealed class HttpChannelService : IChannelService
 {
-    private const long DefaultPermissions = 7;
+    // ViewChannel | ReadHistory | SendMessages | AttachFiles | AddReactions | InviteMembers (public default)
+    private const long DefaultPermissions = 31 | 1024; // 1055
 
     private readonly HttpClient _http;
     private readonly ILogger<HttpChannelService> _logger;
@@ -128,8 +131,10 @@ public sealed class HttpChannelService : IChannelService
 
     public async Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, string? description = null, CancellationToken ct = default)
     {
+        // Public channels: InviteMembers in base perms. Private channels: InviteMembers is role-only.
+        var perms = isPrivate ? (DefaultPermissions & ~1024L) : DefaultPermissions;
         using var resp = await _http.PostAsJsonAsync("api/v1/channels",
-            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, DefaultPermissions, description), ct);
+            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, perms, description), ct);
         resp.EnsureSuccessStatusCode();
         var created = await resp.Content.ReadFromJsonAsync<CreateChannelResponseDto>(cancellationToken: ct)
                       ?? throw new InvalidOperationException("Empty create channel response.");
@@ -153,7 +158,7 @@ public sealed class HttpChannelService : IChannelService
             var body = await resp.Content.ReadFromJsonAsync<GetChannelByIdResponseDto>(cancellationToken: ct);
             if (body is null) return null;
             return new ChannelDetailDto(body.Id, body.Name, body.IsPrivate, body.IsAiAssistantEnabled,
-                body.MemberCount, body.LastMessageAt, body.Description, body.IconUrl, body.Version);
+                body.MemberCount, body.LastMessageAt, body.Description, body.IconUrl, body.Version, body.DefaultPermissions);
         }
         catch (Exception ex)
         {
@@ -162,10 +167,10 @@ public sealed class HttpChannelService : IChannelService
         }
     }
 
-    public async Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, string? description, string version, CancellationToken ct = default)
+    public async Task UpdateAsync(Guid channelId, string name, bool isPrivate, bool aiAssistantEnabled, string? description, long defaultPermissions, string version, CancellationToken ct = default)
     {
         using var resp = await _http.PutAsJsonAsync($"api/v1/channels/{channelId}",
-            new UpdateChannelRequestDto(name, isPrivate, aiAssistantEnabled, DefaultPermissions, version, description), ct);
+            new UpdateChannelRequestDto(name, isPrivate, aiAssistantEnabled, defaultPermissions, version, description), ct);
         resp.EnsureSuccessStatusCode();
 
         var updated = MyChannels.Value.Select(c => c.Id == channelId

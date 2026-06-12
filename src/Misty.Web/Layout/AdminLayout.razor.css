@@ -1,0 +1,52 @@
+.admin-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    background: var(--color-surface-raised);
+}
+
+.admin-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.admin-content::-webkit-scrollbar {
+    display: none;
+}
+
+.admin-nav {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.admin-logout {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: var(--fs-body);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.admin-logout:hover {
+    color: var(--color-text-primary);
+    background: var(--color-surface-active);
+}
+
+.admin-logout ::deep svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1.75;
+}

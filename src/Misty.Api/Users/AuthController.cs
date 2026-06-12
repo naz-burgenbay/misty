@@ -50,7 +50,8 @@ public sealed class AuthController : ControllerBase
         var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
             ?? User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
             ?? string.Empty;
-        return Ok(new { userId = Guid.Parse(userId), username, email });
+        var isAdmin = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "admin";
+        return Ok(new { userId = Guid.Parse(userId), username, email, isAdmin });
     }
 
     [HttpPost("refresh")]
@@ -69,6 +70,16 @@ public sealed class AuthController : ControllerBase
     {
         await _mediator.Send(new RevokeRefreshTokenCommand(request.RefreshToken), ct);
         return NoContent();
+    }
+
+    [HttpGet("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] string token, CancellationToken ct)
+    {
+        await _mediator.Send(new ConfirmEmailCommand(token), ct);
+        return Ok(new { message = "Email confirmed. You can now sign in." });
     }
 }
 

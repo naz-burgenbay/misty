@@ -84,3 +84,12 @@
     min-width: 18px;
     text-align: center;
 }
+
+.unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    flex-shrink: 0;
+    margin-left: auto;
+}

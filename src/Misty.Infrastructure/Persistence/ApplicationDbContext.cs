@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<ChannelInvite> ChannelInvites => Set<ChannelInvite>();
     public DbSet<InboxItem> InboxItems => Set<InboxItem>();
+    public DbSet<Report> Reports => Set<Report>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

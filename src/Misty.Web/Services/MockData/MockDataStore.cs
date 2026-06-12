@@ -11,7 +11,8 @@ public sealed record MockUser(
     bool IsAi = false,
     string? Bio = null,
     string? AvatarUrl = null,
-    string Version = "");
+    string Version = "",
+    bool IsAdmin = false);
 
 public sealed record MockReaction(string Emoji, int Count, bool ReactedByMe);
 

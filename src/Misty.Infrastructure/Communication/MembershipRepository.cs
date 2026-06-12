@@ -83,16 +83,21 @@ public sealed class MembershipRepository : IMembershipRepository
             .ToDictionary(g => g.Key, g => (IReadOnlyList<ModerationActionType>)g.Select(x => x.Type).Distinct().ToList());
 
         return members
+            .GroupBy(x => x.UserId)
+            .Select(g =>
+            {
+                var first = g.OrderBy(x => x.JoinedAt).First();
+                var allRoleIds = g
+                    .SelectMany(x => rolesByMembership.TryGetValue(x.Id, out var r) ? r : Array.Empty<Guid>())
+                    .Distinct()
+                    .ToList();
+                return new ChannelMemberDto(
+                    first.UserId, first.Username, first.DisplayName, first.AvatarUrl, first.JoinedAt,
+                    allRoleIds,
+                    modByUser.TryGetValue(first.UserId, out var mods) ? mods : Array.Empty<ModerationActionType>(),
+                    Convert.ToBase64String(first.Version));
+            })
             .OrderBy(x => x.DisplayName)
-            .Select(x => new ChannelMemberDto(
-                x.UserId,
-                x.Username,
-                x.DisplayName,
-                x.AvatarUrl,
-                x.JoinedAt,
-                rolesByMembership.TryGetValue(x.Id, out var roles) ? roles : Array.Empty<Guid>(),
-                modByUser.TryGetValue(x.UserId, out var mods) ? mods : Array.Empty<ModerationActionType>(),
-                Convert.ToBase64String(x.Version)))
             .ToList();
     }
 }

@@ -19,10 +19,23 @@ public sealed class ConversationRepository : IConversationRepository
             c => c.UserAId == userAId && c.UserBId == userBId, ct);
 
     public async Task<IReadOnlyList<Conversation>> GetForUserAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Conversations
+    {
+        var blocked = await _db.UserBlocks
             .AsNoTracking()
-            .Where(c => c.UserAId == userId || c.UserBId == userId)
+            .Where(b => b.BlockerId == userId || b.BlockedId == userId)
+            .Select(b => b.BlockerId == userId ? b.BlockedId : b.BlockerId)
             .ToListAsync(ct);
+
+        var query = _db.Conversations
+            .AsNoTracking()
+            .Where(c => c.UserAId == userId || c.UserBId == userId);
+
+        if (blocked.Count > 0)
+            query = query.Where(c =>
+                !blocked.Contains(c.UserAId == userId ? c.UserBId : c.UserAId));
+
+        return await query.ToListAsync(ct);
+    }
 
     public async Task AddAsync(Conversation conversation, CancellationToken ct = default)
     {

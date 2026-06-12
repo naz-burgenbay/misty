@@ -390,3 +390,9 @@
     font-size: var(--fs-caption);
     color: var(--color-text-secondary);
 }
+
+/* Regular member: no sidebar, centred content */
+.settings-page--member .settings-content {
+    max-width: 600px;
+    margin: 0 auto;
+}

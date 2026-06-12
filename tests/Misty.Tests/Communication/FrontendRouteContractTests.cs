@@ -66,7 +66,7 @@ public sealed class FrontendRouteContractTests : IAsyncLifetime
     private void UseToken(string token) =>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-    private async Task<Guid> CreateChannelAsync(string ownerToken, string name, long defaultPermissions = 7L)
+    private async Task<Guid> CreateChannelAsync(string ownerToken, string name, long defaultPermissions = 0L)
     {
         UseToken(ownerToken);
         var resp = await _client.PostAsJsonAsync("/api/v1/channels", new

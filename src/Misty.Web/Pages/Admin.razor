@@ -1,0 +1,125 @@
+@page "/admin"
+@layout AdminLayout
+@inject IReportService Reports
+@inject IToastService Toasts
+@inject Microsoft.Extensions.Logging.ILogger<Admin> Logger
+
+@using Misty.Web.Services.Communication
+
+<PageTitle>Admin Panel</PageTitle>
+
+@code {
+    private IReadOnlyList<ReportItemDto> _reports = [];
+    private bool _loading = true;
+    private string? _loadError;
+    private ReportItemDto? _selected;
+    private bool _reviewing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadError = null;
+        try
+        {
+            _reports = await Reports.GetPendingAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+            Logger.LogError(ex, "Failed to load reports");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReviewAsync(Guid reportId, bool approve)
+    {
+        _reviewing = true;
+        try
+        {
+            await Reports.ReviewAsync(reportId, approve);
+            _selected = null;
+            await LoadAsync();
+            Toasts.Show(approve ? "Report approved." : "Report dismissed.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Review failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _reviewing = false;
+        }
+    }
+}
+
+<div class="admin-page">
+    <div class="admin-body">
+        <div class="section-head">
+            <h1>Reports</h1>
+        </div>
+
+        <section class="card">
+            @if (_loading)
+            {
+                <div class="hint">Loading…</div>
+            }
+            else if (_loadError is not null)
+            {
+                <div class="hint error">Error: @_loadError</div>
+                <button type="button" class="btn-secondary" @onclick="LoadAsync">Retry</button>
+            }
+            else if (!_reports.Any())
+            {
+                <div class="hint">No pending reports.</div>
+            }
+            else
+            {
+                <ul class="report-list">
+                    @foreach (var report in _reports)
+                    {
+                        var r = report;
+                        <li class="report-item">
+                            <div class="report-meta">
+                                <span class="report-kind @(r.TargetKind.ToLower())">@r.TargetKind</span>
+                                <span class="report-date">@r.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                            <div class="report-reason">@r.Reason</div>
+                            <div class="report-actions">
+                                <button type="button" class="btn-menu" title="View details" @onclick="@(() => _selected = _selected?.Id == r.Id ? null : r)">
+                                    <Blazicon Svg="Lucide.Ellipsis" />
+                                </button>
+                            </div>
+                        </li>
+
+                        @if (_selected?.Id == r.Id)
+                        {
+                            <li class="report-detail">
+                                <div class="detail-row"><span class="detail-lbl">Target kind</span><span>@r.TargetKind</span></div>
+                                <div class="detail-row"><span class="detail-lbl">Target ID</span><span class="detail-id">@r.TargetId</span></div>
+                                <div class="detail-row"><span class="detail-lbl">Reporter ID</span><span class="detail-id">@r.ReporterId</span></div>
+                                <div class="detail-row"><span class="detail-lbl">Reason</span><span>@r.Reason</span></div>
+                                <div class="detail-row"><span class="detail-lbl">Submitted</span><span>@r.CreatedAt.ToString("yyyy-MM-dd HH:mm UTC")</span></div>
+                                <div class="detail-actions">
+                                    <button type="button" class="btn-approve" disabled="@_reviewing" @onclick="@(() => ReviewAsync(r.Id, true))">
+                                        @(_reviewing ? "Processing…" : "Approve")
+                                    </button>
+                                    <button type="button" class="btn-dismiss" disabled="@_reviewing" @onclick="@(() => ReviewAsync(r.Id, false))">
+                                        @(_reviewing ? "Processing…" : "Dismiss")
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    }
+                </ul>
+            }
+        </section>
+    </div>
+</div>

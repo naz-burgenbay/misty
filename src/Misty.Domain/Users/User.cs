@@ -13,6 +13,9 @@ public class User
     public string PasswordHash { get; private set; } = null!;
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
+    public bool EmailConfirmed { get; private set; }
+    public string? EmailConfirmationToken { get; private set; }
+    public bool IsAdmin { get; private set; }
     public byte[] Version { get; private set; } = null!;
 
     public static User Create(Guid id, string username, string email, string displayName)
@@ -25,6 +28,21 @@ public class User
         };
 
     public void SetPasswordHash(string passwordHash) => PasswordHash = passwordHash;
+
+    public string GenerateConfirmationToken()
+    {
+        EmailConfirmationToken = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+        return EmailConfirmationToken;
+    }
+
+    public bool ConfirmEmail(string token)
+    {
+        if (EmailConfirmed || EmailConfirmationToken != token) return false;
+        EmailConfirmed = true;
+        EmailConfirmationToken = null;
+        return true;
+    }
 
     public void UpdateProfile(string displayName, string? bio)
     {
@@ -43,4 +61,6 @@ public class User
         AvatarUrl = null;
         PasswordHash = string.Empty;
     }
+
+    public void MakeAdmin() => IsAdmin = true;
 }

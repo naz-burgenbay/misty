@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Misty.Application.Users;
 using Misty.Infrastructure.Persistence;
 using Testcontainers.Azurite;
 using Testcontainers.MsSql;
@@ -77,6 +78,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             var blobOptions = new BlobClientOptions(BlobClientOptions.ServiceVersion.V2024_08_04);
             services.AddSingleton(new BlobServiceClient(_azurite.GetConnectionString(), blobOptions));
 
+            var existingEmail = services.SingleOrDefault(d => d.ServiceType == typeof(IEmailService));
+            if (existingEmail is not null) services.Remove(existingEmail);
+            services.AddSingleton<IEmailService>(new AutoConfirmEmailService(this));
+
             services.PostConfigure<HealthCheckServiceOptions>(opts =>
             {
                 var existing = opts.Registrations.FirstOrDefault(r => r.Name == "service-bus");
@@ -100,4 +105,20 @@ file sealed class StubHealthCheck : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext ctx, CancellationToken ct = default)
         => Task.FromResult(HealthCheckResult.Healthy());
+}
+
+file sealed class AutoConfirmEmailService : IEmailService
+{
+    private readonly ApiFactory _factory;
+    public AutoConfirmEmailService(ApiFactory factory) => _factory = factory;
+
+    public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == to, ct);
+        if (user is null) return;
+        db.Entry(user).Property("EmailConfirmed").CurrentValue = true;
+        db.Entry(user).Property("EmailConfirmationToken").CurrentValue = (string?)null;
+        await db.SaveChangesAsync(ct);
+    }
 }

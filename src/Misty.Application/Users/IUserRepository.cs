@@ -14,4 +14,6 @@ public interface IUserRepository
     Task UpdateAsync(User user, byte[] concurrencyToken, CancellationToken ct = default);
     Task UpdateAvatarUrlAsync(User user, string? avatarUrl, byte[] concurrencyToken, CancellationToken ct = default);
     Task SoftDeleteAsync(User user, CancellationToken ct = default);
+    Task<User?> GetByConfirmationTokenAsync(string token, CancellationToken ct = default);
+    Task SaveChangesAsync(CancellationToken ct = default);
 }
