@@ -80,7 +80,7 @@ public sealed class AIResponseWorkerTests : IAsyncLifetime
 
         var msgResp = await _client.PostAsJsonAsync($"/api/v1/channels/{channelId}/messages", new
         {
-            Content = "Hello AI",
+            Content = "@misty-bot Hello AI",
             IdempotencyKey = Guid.NewGuid().ToString(),
         });
         msgResp.StatusCode.Should().Be(HttpStatusCode.Created,

@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Misty.Application.Common.Exceptions;
 using Misty.Domain.Communication;
@@ -9,6 +10,15 @@ public record SubmitReportCommand(
     ReportTargetKind TargetKind,
     Guid TargetId,
     string Reason) : IRequest<Guid>;
+
+public sealed class SubmitReportCommandValidator : AbstractValidator<SubmitReportCommand>
+{
+    public SubmitReportCommandValidator()
+    {
+        RuleFor(x => x.TargetId).NotEmpty();
+        RuleFor(x => x.Reason).NotEmpty().MaximumLength(1000);
+    }
+}
 
 public sealed class SubmitReportCommandHandler : IRequestHandler<SubmitReportCommand, Guid>
 {

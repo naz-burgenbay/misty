@@ -1,8 +1,18 @@
+using FluentValidation;
 using MediatR;
 
 namespace Misty.Application.Communication;
 
 public record GetReportsQuery(int Skip = 0, int Take = 50) : IRequest<IReadOnlyList<ReportDto>>;
+
+public sealed class GetReportsQueryValidator : AbstractValidator<GetReportsQuery>
+{
+    public GetReportsQueryValidator()
+    {
+        RuleFor(x => x.Skip).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Take).InclusiveBetween(1, 100);
+    }
+}
 
 public record ReportDto(
     Guid Id,
