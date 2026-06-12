@@ -106,8 +106,16 @@ public sealed class HttpAuthService : IAuthService, IDisposable
         if (resp.StatusCode == HttpStatusCode.UnprocessableEntity)
             throw new AuthException(await ExtractProblemTitleAsync(resp, "Registration failed.", ct));
         resp.EnsureSuccessStatusCode();
+    }
 
-        await SignInAsync(username, password, ct);
+    public async Task ConfirmEmailAsync(string token, CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync($"api/v1/auth/confirm-email?token={Uri.EscapeDataString(token)}", ct);
+        if (resp.StatusCode == HttpStatusCode.NotFound || resp.StatusCode == HttpStatusCode.BadRequest)
+            throw new AuthException(await ExtractProblemTitleAsync(resp, "Invalid or expired confirmation link.", ct));
+        if (resp.StatusCode == HttpStatusCode.Conflict)
+            throw new AuthException("This email is already confirmed.");
+        resp.EnsureSuccessStatusCode();
     }
 
     public async Task SignOutAsync(CancellationToken ct = default)

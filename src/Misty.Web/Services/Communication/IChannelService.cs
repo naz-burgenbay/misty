@@ -95,8 +95,8 @@ public interface IChannelService
 
 public sealed class HttpChannelService : IChannelService
 {
-    // ViewChannel | ReadHistory | SendMessages | AttachFiles | AddReactions
-    private const long DefaultPermissions = 31;
+    // ViewChannel | ReadHistory | SendMessages | AttachFiles | AddReactions | InviteMembers (public default)
+    private const long DefaultPermissions = 31 | 1024; // 1055
 
     private readonly HttpClient _http;
     private readonly ILogger<HttpChannelService> _logger;
@@ -131,8 +131,10 @@ public sealed class HttpChannelService : IChannelService
 
     public async Task<ChannelSummaryDto> CreateAsync(string name, bool isPrivate, bool aiAssistantEnabled, string? description = null, CancellationToken ct = default)
     {
+        // Public channels: InviteMembers in base perms. Private channels: InviteMembers is role-only.
+        var perms = isPrivate ? (DefaultPermissions & ~1024L) : DefaultPermissions;
         using var resp = await _http.PostAsJsonAsync("api/v1/channels",
-            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, DefaultPermissions, description), ct);
+            new CreateChannelRequestDto(name, isPrivate, aiAssistantEnabled, perms, description), ct);
         resp.EnsureSuccessStatusCode();
         var created = await resp.Content.ReadFromJsonAsync<CreateChannelResponseDto>(cancellationToken: ct)
                       ?? throw new InvalidOperationException("Empty create channel response.");

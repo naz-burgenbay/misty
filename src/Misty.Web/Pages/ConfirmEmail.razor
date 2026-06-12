@@ -1,0 +1,50 @@
+@page "/confirm-email"
+@layout AuthLayout
+@inject IAuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Confirm email | Misty</PageTitle>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+
+    private bool _busy = true;
+    private bool _success;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            _error = "Invalid confirmation link.";
+            _busy = false;
+            return;
+        }
+
+        try
+        {
+            await Auth.ConfirmEmailAsync(Token);
+            _success = true;
+        }
+        catch (AuthException ex) { _error = ex.Message; }
+        catch (Exception) { _error = "Something went wrong. Please try again."; }
+        finally { _busy = false; }
+    }
+}
+
+@if (_busy)
+{
+    <h1 class="heading">Confirming your email…</h1>
+}
+else if (_success)
+{
+    <h1 class="heading">Email confirmed!</h1>
+    <p class="sub">Your account is active. You can now sign in.</p>
+    <p class="meta"><a href="/login">Go to sign in</a></p>
+}
+else
+{
+    <h1 class="heading">Confirmation failed</h1>
+    <p class="sub error" role="alert">@_error</p>
+    <p class="meta"><a href="/login">Go to sign in</a></p>
+}

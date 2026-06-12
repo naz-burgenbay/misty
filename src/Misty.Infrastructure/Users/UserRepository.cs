@@ -87,4 +87,10 @@ public class UserRepository : IUserRepository
             token.Revoke();
         await _db.SaveChangesAsync(ct);
     }
+
+    public Task<User?> GetByConfirmationTokenAsync(string token, CancellationToken ct = default)
+        => _db.Users.FirstOrDefaultAsync(u => u.EmailConfirmationToken == token, ct);
+
+    public Task SaveChangesAsync(CancellationToken ct = default)
+        => _db.SaveChangesAsync(ct);
 }

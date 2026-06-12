@@ -70,6 +70,16 @@ public sealed class AuthController : ControllerBase
         await _mediator.Send(new RevokeRefreshTokenCommand(request.RefreshToken), ct);
         return NoContent();
     }
+
+    [HttpGet("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] string token, CancellationToken ct)
+    {
+        await _mediator.Send(new ConfirmEmailCommand(token), ct);
+        return Ok(new { message = "Email confirmed. You can now sign in." });
+    }
 }
 
 public record RegisterUserRequest(string Username, string Email, string DisplayName, string Password);

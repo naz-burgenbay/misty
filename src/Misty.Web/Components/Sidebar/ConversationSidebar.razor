@@ -3,6 +3,7 @@
 @inject IDirectMessageService DirectMessages
 @inject IUserDirectory Users
 @inject IToastService Toasts
+@inject ILocalStorage Storage
 @implements IDisposable
 
 <aside class="sidebar">
@@ -26,6 +27,7 @@
             {
                 <ChannelListItem Channel="channel"
                                  Selected="@IsChannelActive(channel.Id)"
+                                 HasUnread="@IsChannelUnread(channel)"
                                  Href="@($"/c/{channel.Id}")" />
             }
             @if (_channels.Count == 0)
@@ -248,11 +250,19 @@
 
     private IEnumerable<DirectConversationDto> FilteredDirects => _directs;
 
+    private readonly Dictionary<Guid, DateTime> _lastSeen = new();
+
     private string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/');
     private bool IsChannelActive(Guid id) => CurrentPath.Equals($"/c/{id}", StringComparison.OrdinalIgnoreCase);
     private bool IsDmActive(Guid id) => CurrentPath.Equals($"/dm/{id}", StringComparison.OrdinalIgnoreCase);
+    private bool IsChannelUnread(ChannelSummaryDto ch)
+    {
+        if (IsChannelActive(ch.Id)) return false;
+        if (ch.LastMessageAt is null) return false;
+        return !_lastSeen.TryGetValue(ch.Id, out var seen) || ch.LastMessageAt.Value > seen;
+    }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocation;
         _channelsSub = Channels.MyChannels.Subscribe(list =>
@@ -267,6 +277,40 @@
         });
         _ = Channels.RefreshAsync();
         _ = DirectMessages.RefreshAsync();
+        await LoadLastSeenAsync();
+
+        var currentRel = "/" + Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/');
+        var segs = currentRel.Split('/');
+        if (segs.Length == 3 && segs[1] == "c" && Guid.TryParse(segs[2], out var initChannelId))
+            await MarkSeenAsync(initChannelId);
+    }
+
+    private async Task LoadLastSeenAsync()
+    {
+        try
+        {
+            var raw = await Storage.GetAsync("misty.lastSeen");
+            if (!string.IsNullOrEmpty(raw))
+            {
+                var map = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, long>>(raw);
+                if (map is not null)
+                    foreach (var kv in map)
+                        if (Guid.TryParse(kv.Key, out var id))
+                            _lastSeen[id] = DateTime.UnixEpoch.AddTicks(kv.Value);
+            }
+        }
+        catch { }
+    }
+
+    private async Task MarkSeenAsync(Guid channelId)
+    {
+        _lastSeen[channelId] = DateTime.UtcNow;
+        try
+        {
+            var map = _lastSeen.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value.Ticks);
+            await Storage.SetAsync("misty.lastSeen", System.Text.Json.JsonSerializer.Serialize(map));
+        }
+        catch { }
     }
 
     public void Dispose()
@@ -280,7 +324,14 @@
         _inviteSearchCts?.Dispose();
     }
 
-    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+    private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        var rel = "/" + Nav.ToBaseRelativePath(args.Location).TrimEnd('/');
+        var segments = rel.Split('/');
+        if (segments.Length == 3 && segments[1] == "c" && Guid.TryParse(segments[2], out var channelId))
+            _ = MarkSeenAsync(channelId);
+        StateHasChanged();
+    }
 
     private void CloseCreate()
     {

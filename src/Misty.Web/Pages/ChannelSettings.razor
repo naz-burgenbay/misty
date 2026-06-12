@@ -51,6 +51,8 @@
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
     private bool CanManageRoles => _myPermissions.HasFlag(ChannelPermissionFlags.ManageRoles);
     private bool CanModerate => _myPermissions.CanModerate();
+    private bool IsRegularMember => !CanManageChannel && !CanManageRoles && !CanModerate;
+    private const long InviteMembersFlag = 1024L; 
 
     protected override async Task OnParametersSetAsync()
     {
@@ -271,6 +273,36 @@
         await LoadModerationAsync();
     }
 
+    private async Task OnDefaultPermissionChanged(ChannelPermissionFlags flag, bool enabled)
+    {
+        var flagVal = (long)flag;
+        if (flagVal == InviteMembersFlag)
+        {
+            if (enabled && _isPrivate)
+            {
+                var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+                    Title: "Make channel public?",
+                    Message: "Adding the Invite Members permission to all members will make this channel public — anyone with the link can join and invite others. Continue?",
+                    ConfirmLabel: "Make public",
+                    IsDestructive: false));
+                if (!ok) return;
+                _isPrivate = false;
+            }
+            else if (!enabled && !_isPrivate)
+            {
+                var ok = await Modals.ConfirmAsync(new ConfirmRequest(
+                    Title: "Make channel private?",
+                    Message: "Removing the Invite Members permission from all members will make this channel private — only members with a role that has Invite Members can invite others. Continue?",
+                    ConfirmLabel: "Make private",
+                    IsDestructive: false));
+                if (!ok) return;
+                _isPrivate = true;
+            }
+        }
+        if (enabled) _defaultPermissions |= flagVal;
+        else _defaultPermissions &= ~flagVal;
+    }
+
     private IEnumerable<ChannelRoleDto> FilteredRoles =>
         string.IsNullOrWhiteSpace(_rolesSearch)
             ? _roles
@@ -283,7 +315,7 @@
     }
 }
 
-<div class="settings-page">
+<div class="settings-page @(IsRegularMember ? "settings-page--member" : "")">
     <div class="settings-content">
         @if (_channel is null)
         {
@@ -365,6 +397,22 @@
                     </div>
                 }
             </section>
+
+            @if (IsRegularMember)
+            {
+                <div class="section-head">
+                    <h1>Danger zone</h1>
+                </div>
+                <section class="card danger-card">
+                    <div class="danger-row">
+                        <div class="danger-text">
+                            <strong>Leave channel</strong>
+                            <span>You will lose access and need a new invite to rejoin.</span>
+                        </div>
+                        <Button Variant="Button.ButtonVariant.Ghost" OnClick="LeaveAsync">Leave</Button>
+                    </div>
+                </section>
+            }
         }
         else if (_section == Section.Roles)
         {
@@ -385,6 +433,7 @@
                     (ChannelPermissionFlags.SendMessages,  "Send messages"),
                     (ChannelPermissionFlags.AttachFiles,   "Attach files"),
                     (ChannelPermissionFlags.AddReactions,  "Add reactions"),
+                    (ChannelPermissionFlags.InviteMembers, "Invite members (makes channel public when enabled)"),
                 })
                 {
                     var f = flag;
@@ -392,7 +441,7 @@
                         <input type="checkbox"
                                checked="@((_defaultPermissions & (long)f) != 0)"
                                disabled="@(!CanManageRoles)"
-                               @onchange="@(e => { if ((bool)(e.Value ?? false)) _defaultPermissions |= (long)f; else _defaultPermissions &= ~(long)f; })" />
+                               @onchange="@(e => OnDefaultPermissionChanged(f, (bool)(e.Value ?? false)))" />
                         @label
                     </label>
                 }
@@ -537,6 +586,8 @@
         }
     </div>
 
+    @if (!IsRegularMember)
+    {
     <nav class="settings-nav">
         <button type="button" class="nav-back" @onclick="@(() => Nav.NavigateTo($"/c/{ChannelId}"))">
             <Blazicon Svg="Lucide.ChevronLeft" />
@@ -577,6 +628,7 @@
             </li>
         </ul>
     </nav>
+    }
 </div>
 
 <CreateRoleModal Open="_createRoleOpen"

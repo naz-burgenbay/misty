@@ -20,6 +20,8 @@ using Misty.Infrastructure.Communication;
 using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
+using Misty.Application.Common;
+using Misty.Infrastructure.Common;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenAI;
 using OpenAI.Chat;
@@ -100,6 +102,9 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddSingleton<IAppSettings>(sp =>
+    new Misty.Infrastructure.Common.AppSettings(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()));
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("JWT signing key 'Jwt:Key' is not configured.");
