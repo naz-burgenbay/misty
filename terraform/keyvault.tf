@@ -76,3 +76,17 @@ resource "azurerm_key_vault_secret" "openai_api_key" {
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin]
 }
+
+resource "azurerm_key_vault_secret" "acs_connection_string" {
+  name         = "acs-connection-string"
+  value        = azurerm_communication_service.main.primary_connection_string
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin]
+}
+
+resource "azurerm_key_vault_secret" "acs_sender_address" {
+  name         = "acs-sender-address"
+  value        = "DoNotReply@${azurerm_email_communication_service_domain.main.mail_from_sender_domain}"
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin]
+}

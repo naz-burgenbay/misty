@@ -47,6 +47,9 @@ resource "azurerm_linux_web_app" "api" {
     "OpenAI__ApiKey"                        = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=openai-api-key)"
 
     "Cors__AllowedOrigins__0" = trimsuffix(azurerm_storage_account.main.primary_web_endpoint, "/")
+
+    "ConnectionStrings__AzureCommunicationEmail" = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=acs-connection-string)"
+    "Email__From"                                = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.main.name};SecretName=acs-sender-address)"
   }
 
   tags = local.tags

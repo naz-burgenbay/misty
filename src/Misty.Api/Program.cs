@@ -102,7 +102,10 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("AzureCommunicationEmail")))
+    builder.Services.AddScoped<IEmailService, AzureCommunicationEmailService>();
+else
+    builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddSingleton<IAppSettings>(sp =>
     new Misty.Infrastructure.Common.AppSettings(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()));
 
