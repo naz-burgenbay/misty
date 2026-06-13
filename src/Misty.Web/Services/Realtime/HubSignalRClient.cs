@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Misty.Web.Services.Auth;
 using Misty.Web.Services.Common;
@@ -90,6 +91,8 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
             .WithUrl(_hubUrl, options =>
             {
                 options.AccessTokenProvider = async () => await _auth.GetAccessTokenAsync() ?? string.Empty;
+                options.SkipNegotiation = true;
+                options.Transports = HttpTransportType.WebSockets;
             })
             .AddJsonProtocol(opts => opts.PayloadSerializerOptions.PropertyNameCaseInsensitive = true)
             .WithAutomaticReconnect(new ExponentialBackoffRetryPolicy())
