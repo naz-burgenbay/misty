@@ -24,7 +24,7 @@ public sealed class AuthController : ControllerBase
             new RegisterUserCommand(request.Username, request.Email, request.DisplayName, request.Password),
             ct);
 
-        return Created($"/api/v1/users/{response.UserId}", new { userId = response.UserId });
+        return Created($"/api/v1/users/{response.UserId}", new { userId = response.UserId, confirmationUrl = response.ConfirmationUrl });
     }
 
     [HttpPost("login")]

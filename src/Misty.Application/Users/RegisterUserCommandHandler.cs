@@ -69,6 +69,6 @@ public sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserCom
             // Email sending is non-fatal. Account is created but email may not arrive in local dev.
         }
 
-        return new RegisterUserResponse(user.Id);
+        return new RegisterUserResponse(user.Id, confirmUrl);
     }
 }

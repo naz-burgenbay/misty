@@ -9,4 +9,4 @@ public record RegisterUserCommand(
     string Password
 ) : IRequest<RegisterUserResponse>;
 
-public record RegisterUserResponse(Guid UserId);
+public record RegisterUserResponse(Guid UserId, string ConfirmationUrl);
