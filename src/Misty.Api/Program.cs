@@ -325,6 +325,12 @@ app.MapHealthChecks("/health", new HealthCheckOptions
         await context.Response.WriteAsync(payload);
     }
 });
+app.MapGet("/health/instance", () => Results.Ok(new
+{
+    machineName = Environment.MachineName,
+    instanceId = Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") ?? Environment.MachineName,
+}));
+
 app.MapControllers();
 app.MapHub<MistyHub>("/hubs/realtime");
 
