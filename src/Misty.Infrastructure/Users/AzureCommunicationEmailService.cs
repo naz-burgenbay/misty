@@ -22,14 +22,27 @@ public sealed class AzureCommunicationEmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
+    public Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
     {
         var message = new EmailMessage(
             senderAddress: _senderAddress,
             content: new EmailContent(subject) { Html = htmlBody },
             recipients: new EmailRecipients([new EmailAddress(to)]));
 
-        var operation = await _client.SendAsync(WaitUntil.Started, message, ct);
-        _logger.LogInformation("ACS email queued to {To}, operationId={Id}.", to, operation.Id);
+        // Fire-and-forget
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var operation = await _client.SendAsync(WaitUntil.Started, message);
+                _logger.LogInformation("ACS email queued to {To}, operationId={Id}.", to, operation.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to queue ACS email to {To}.", to);
+            }
+        }, CancellationToken.None);
+
+        return Task.CompletedTask;
     }
 }
