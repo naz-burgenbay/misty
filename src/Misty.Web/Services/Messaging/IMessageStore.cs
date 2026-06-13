@@ -189,12 +189,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         using var resp = await _http.PutAsJsonAsync(url, new EditMessageRequestDto(newContent, message.Version), ct);
         resp.EnsureSuccessStatusCode();
 
-        var result = await resp.Content.ReadFromJsonAsync<EditMessageResponseDto>(cancellationToken: ct);
-        if (result is null)
-            throw new InvalidOperationException("Edit response was null.");
-
         var next = obs.Value.Select(m => m.Id == messageId
-            ? m with { Content = newContent, IsEdited = true, Version = result.Version }
+            ? m with { Content = newContent, IsEdited = true }
             : m).ToList();
         obs.Set(next);
     }
@@ -536,8 +532,6 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         DateTime CreatedAt);
 
     private sealed record EditMessageRequestDto(string Content, string Version);
-
-    private sealed record EditMessageResponseDto(string Version);
 
     private sealed record AddReactionRequestDto(string EmojiCode);
     private sealed record AttachmentResponseDto(Guid AttachmentId, string FileName, string ContentType, long SizeBytes, string CdnUrl);
