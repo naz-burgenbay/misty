@@ -91,6 +91,7 @@ public sealed class HubSignalRClient : ISignalRClient, IAsyncDisposable
             {
                 options.AccessTokenProvider = async () => await _auth.GetAccessTokenAsync() ?? string.Empty;
             })
+            .AddJsonProtocol(opts => opts.PayloadSerializerOptions.PropertyNameCaseInsensitive = true)
             .WithAutomaticReconnect(new ExponentialBackoffRetryPolicy())
             .ConfigureLogging(lb => lb.SetMinimumLevel(LogLevel.Warning))
             .Build();
