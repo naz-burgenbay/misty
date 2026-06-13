@@ -168,7 +168,20 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 
 builder.Services
     .AddSignalR()
-    .AddStackExchangeRedis(redisConnectionString);
+    .AddStackExchangeRedis(opts =>
+    {
+        opts.ConnectionFactory = async writer =>
+        {
+            var config = ConfigurationOptions.Parse(redisConnectionString);
+            config.AllowAdmin = true;
+            var muxer = await ConnectionMultiplexer.ConnectAsync(config, writer);
+            muxer.ConnectionFailed += (_, e) =>
+                Log.Error(e.Exception, "SignalR Redis backplane connection failed: {FailureType}", e.FailureType);
+            muxer.ConnectionRestored += (_, e) =>
+                Log.Warning("SignalR Redis backplane connection restored: {FailureType}", e.FailureType);
+            return muxer;
+        };
+    });
 
 var serviceBusConnectionString = builder.Configuration.GetConnectionString("ServiceBus")
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");

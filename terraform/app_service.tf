@@ -25,7 +25,7 @@ resource "azurerm_linux_web_app" "api" {
     container_registry_use_managed_identity = true
 
     application_stack {
-      docker_image_name   = "${azurerm_container_registry.main.login_server}/misty-api:latest"
+      docker_image_name   = "misty-api:latest"
       docker_registry_url = "https://${azurerm_container_registry.main.login_server}"
     }
   }

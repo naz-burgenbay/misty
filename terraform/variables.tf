@@ -23,7 +23,7 @@ variable "app_service_sku" {
 variable "instance_count" {
   description = "Number of App Service plan workers (instances). 2-3 for multi-instance validation."
   type        = number
-  default     = 2
+  default     = 3
 
   validation {
     condition     = var.instance_count >= 1 && var.instance_count <= 3
