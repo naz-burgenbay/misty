@@ -28,6 +28,16 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .IsUnique()
             .HasDatabaseName("UX_Message_Author_IdempotencyKey");
 
+        builder.HasIndex(m => new { m.ChannelId, m.CreatedAt, m.Id })
+            .HasDatabaseName("IX_Message_ChannelId_CreatedAt_Id")
+            .IsDescending(false, true, true)
+            .HasFilter("[ChannelId] IS NOT NULL");
+
+        builder.HasIndex(m => new { m.ConversationId, m.CreatedAt, m.Id })
+            .HasDatabaseName("IX_Message_ConversationId_CreatedAt_Id")
+            .IsDescending(false, true, true)
+            .HasFilter("[ConversationId] IS NOT NULL");
+
         builder.Property(m => m.Version)
             .IsRowVersion();
 
