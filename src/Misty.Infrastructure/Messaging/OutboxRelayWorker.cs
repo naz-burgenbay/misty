@@ -11,7 +11,7 @@ namespace Misty.Infrastructure.Messaging;
 public sealed class OutboxRelayWorker : BackgroundService
 {
     private const int BatchSize = 50;
-    private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan PollingInterval = TimeSpan.FromMilliseconds(250);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ServiceBusClient _client;
