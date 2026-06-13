@@ -28,7 +28,7 @@ public sealed class RealtimeDeliveryWorker : BackgroundService
         var opts = new ServiceBusProcessorOptions
         {
             AutoCompleteMessages = false,
-            MaxConcurrentCalls = 1,
+            MaxConcurrentCalls = 8,
         };
 
         await using var processor = _client.CreateProcessor("message-events", "realtime-delivery", opts);

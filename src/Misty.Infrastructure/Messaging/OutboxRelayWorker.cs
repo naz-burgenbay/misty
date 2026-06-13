@@ -79,8 +79,20 @@ public sealed class OutboxRelayWorker : BackgroundService
 
     private async Task PublishOneAsync(ApplicationDbContext db, OutboxMessage outbox, CancellationToken ct)
     {
-        var sender = GetOrCreateSender(outbox.Topic);
+        outbox.MarkPublished();
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogDebug("Outbox row {OutboxId} already claimed by another instance; skipping.", outbox.Id);
+            foreach (var entry in ex.Entries)
+                entry.State = EntityState.Detached;
+            return;
+        }
 
+        var sender = GetOrCreateSender(outbox.Topic);
         await sender.SendMessageAsync(
             new ServiceBusMessage(BinaryData.FromString(outbox.Payload))
             {
@@ -89,22 +101,7 @@ public sealed class OutboxRelayWorker : BackgroundService
             },
             ct);
 
-        outbox.MarkPublished();
-
-        try
-        {
-            await db.SaveChangesAsync(ct);
-            _logger.LogDebug("Outbox row {OutboxId} published to {Topic}", outbox.Id, outbox.Topic);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            _logger.LogDebug(
-                "Outbox row {OutboxId} concurrency conflict; already published by another instance",
-                outbox.Id);
-
-            foreach (var entry in ex.Entries)
-                entry.State = EntityState.Detached;
-        }
+        _logger.LogDebug("Outbox row {OutboxId} published to {Topic}.", outbox.Id, outbox.Topic);
     }
 
     private ServiceBusSender GetOrCreateSender(string topic)
